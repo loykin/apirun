@@ -38,6 +38,8 @@ jobs:
         run: go build ./...
 
       - name: Run tests with coverage
+        env:
+          CGO_ENABLED: 1
         run: go test -race -covermode=atomic -coverprofile=coverage.out ./...
 
       - name: Show coverage summary
