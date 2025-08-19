@@ -13,6 +13,7 @@ import (
 	"github.com/loykin/apimigrate/pkg/auth"
 	"github.com/loykin/apimigrate/pkg/env"
 	"github.com/loykin/apimigrate/pkg/migration"
+	"github.com/loykin/apimigrate/pkg/store"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -78,11 +79,132 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+var upCmd = &cobra.Command{
+	Use:   "up",
+	Short: "Apply up migrations up to a target version (0 = all)",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		v := viper.GetViper()
+		configPath := v.GetString("config")
+		verbose := v.GetBool("v")
+		to := v.GetInt("to")
+		ctx := context.Background()
+		baseEnv := env.Env{Global: map[string]string{}}
+		dir := ""
+		if strings.TrimSpace(configPath) != "" {
+			if verbose {
+				log.Printf("loading config from %s", configPath)
+			}
+			mDir, envFromCfg, err := loadConfigAndAcquire(ctx, configPath, verbose)
+			if err != nil {
+				log.Printf("warning: failed to load config: %v", err)
+			} else {
+				if mDir != "" {
+					dir = mDir
+				}
+				if len(envFromCfg.Global) > 0 {
+					baseEnv = envFromCfg
+				}
+			}
+		}
+		if strings.TrimSpace(dir) == "" {
+			dir = "examples/migration"
+		}
+		if verbose {
+			log.Printf("up migrations in %s to %d", dir, to)
+		}
+		_, err := migration.MigrateUp(ctx, dir, baseEnv, to)
+		return err
+	},
+}
+
+var downCmd = &cobra.Command{
+	Use:   "down",
+	Short: "Rollback down to a target version",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		v := viper.GetViper()
+		configPath := v.GetString("config")
+		verbose := v.GetBool("v")
+		to := v.GetInt("to")
+		ctx := context.Background()
+		baseEnv := env.Env{Global: map[string]string{}}
+		dir := ""
+		if strings.TrimSpace(configPath) != "" {
+			if verbose {
+				log.Printf("loading config from %s", configPath)
+			}
+			mDir, envFromCfg, err := loadConfigAndAcquire(ctx, configPath, verbose)
+			if err != nil {
+				log.Printf("warning: failed to load config: %v", err)
+			} else {
+				if mDir != "" {
+					dir = mDir
+				}
+				if len(envFromCfg.Global) > 0 {
+					baseEnv = envFromCfg
+				}
+			}
+		}
+		if strings.TrimSpace(dir) == "" {
+			dir = "examples/migration"
+		}
+		if verbose {
+			log.Printf("down migrations in %s to %d", dir, to)
+		}
+		_, err := migration.MigrateDown(ctx, dir, baseEnv, to)
+		return err
+	},
+}
+
+var statusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show current migration version and applied versions",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		v := viper.GetViper()
+		configPath := v.GetString("config")
+		verbose := v.GetBool("v")
+		ctx := context.Background()
+		dir := ""
+		if strings.TrimSpace(configPath) != "" {
+			if verbose {
+				log.Printf("loading config from %s", configPath)
+			}
+			mDir, _, err := loadConfigAndAcquire(ctx, configPath, verbose)
+			if err != nil {
+				log.Printf("warning: failed to load config: %v", err)
+			} else {
+				if mDir != "" {
+					dir = mDir
+				}
+			}
+		}
+		if strings.TrimSpace(dir) == "" {
+			dir = "examples/migration"
+		}
+		dbPath := filepath.Join(dir, ".apimigrate.db")
+		st, err := store.Open(dbPath)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = st.Close() }()
+		cur, err := st.CurrentVersion()
+		if err != nil {
+			return err
+		}
+		applied, err := st.ListApplied()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("current: %d\napplied: %v\n", cur, applied)
+		return nil
+	},
+}
+
 func init() {
 	// Defaults
 	v := viper.GetViper()
 	v.SetDefault("config", "")
 	v.SetDefault("v", true)
+	v.SetDefault("to", 0)
 
 	// Environment variables support: APIMIGRATE_CONFIG, ...
 	v.SetEnvPrefix("APIMIGRATE")
@@ -90,9 +212,17 @@ func init() {
 	// Bind flags via Cobra and then bind to Viper
 	rootCmd.PersistentFlags().String("config", v.GetString("config"), "path to a config yaml (like examples/keycloak-migration/config.yaml)")
 	rootCmd.PersistentFlags().BoolP("v", "v", v.GetBool("v"), "verbose output")
+	upCmd.Flags().Int("to", v.GetInt("to"), "target version to migrate up to (0 = all)")
+	downCmd.Flags().Int("to", v.GetInt("to"), "target version to migrate down to")
 
 	_ = v.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
 	_ = v.BindPFlag("v", rootCmd.PersistentFlags().Lookup("v"))
+	_ = v.BindPFlag("to", upCmd.Flags().Lookup("to"))
+	_ = v.BindPFlag("to", downCmd.Flags().Lookup("to"))
+
+	rootCmd.AddCommand(upCmd)
+	rootCmd.AddCommand(downCmd)
+	rootCmd.AddCommand(statusCmd)
 }
 
 func main() {

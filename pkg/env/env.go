@@ -3,6 +3,8 @@ package env
 import (
 	"bytes"
 	"text/template"
+
+	yaml "gopkg.in/yaml.v3"
 )
 
 type Map map[string]string
@@ -14,7 +16,22 @@ type Map map[string]string
 // Note: zero values (nil maps) are handled gracefully.
 type Env struct {
 	Global Map `yaml:"-" json:"-" mapstructure:"-"`
-	Local  Map `yaml:"env" json:"env" mapstructure:"env"`
+	Local  Map `yaml:"-" json:"env" mapstructure:"env"`
+}
+
+// UnmarshalYAML allows decoding a plain mapping under the `env` key directly into Local.
+func (e *Env) UnmarshalYAML(value *yaml.Node) error {
+	if value == nil {
+		return nil
+	}
+	// Attempt to decode mapping of string->string
+	var m map[string]string
+	if err := value.Decode(&m); err != nil {
+		// If it's not a simple mapping, leave Local as nil and return the error to signal misuse.
+		return err
+	}
+	e.Local = m
+	return nil
 }
 
 // merged returns a combined map (Global then overridden by Local).

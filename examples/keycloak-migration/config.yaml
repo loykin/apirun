@@ -16,6 +16,8 @@ auth:
 migrate_dir: ./migration
 
 env:
+  - name: kc_base
+    value: http://localhost:8080
   - name: username
     value: alice
   - name: password

@@ -1,10 +1,12 @@
 up:
   name: create sample user in sample realm
-  env: {}
+  env:
+    firstname: Sample
+    lastname: User
   request:
     auth_name: keycloak
     method: POST
-    url: http://localhost:8080/admin/realms/sample/users
+    url: "{{.kc_base}}/admin/realms/{{.realm}}/users"
     headers: []
     queries: []
     body: |
@@ -12,8 +14,8 @@ up:
         "username": "{{.username}}",
         "enabled": true,
         "email": "{{.username}}@example.com",
-        "firstName": "Sample",
-        "lastName": "User",
+        "firstName": "{{.firstname}}",
+        "lastName": "{{.lastname}}",
         "credentials": [
           { "type": "password", "value": "{{.password}}", "temporary": false }
         ]
@@ -23,4 +25,24 @@ up:
     result_code: ["201", "409"]
 
 down:
-  name: noop
+  name: delete sample user
+  auth: keycloak
+  env: {}
+  # First, find the user's internal id by username, then delete by id
+  find:
+    request:
+      auth_name: keycloak
+      method: GET
+      url: "{{.kc_base}}/admin/realms/{{.realm}}/users?username={{.username}}&exact=true"
+      headers: []
+      queries: []
+      body: ""
+    response:
+      result_code: ["200"]
+      env_from:
+        user_id: "$[0].id"
+  method: DELETE
+  url: "{{.kc_base}}/admin/realms/{{.realm}}/users/{{.user_id}}"
+  headers: []
+  queries: []
+  body: ""

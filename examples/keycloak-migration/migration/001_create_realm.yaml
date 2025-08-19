@@ -4,14 +4,21 @@ up:
   request:
     auth_name: keycloak
     method: POST
-    url: http://localhost:8080/admin/realms
+    url: "{{.kc_base}}/admin/realms"
     headers: []
     queries: []
     body: |
-      {"realm": "sample", "enabled": true}
+      {"realm": "{{.realm}}", "enabled": true}
   response:
     # 201: created, 409: already exists
     result_code: ["201", "409"]
 
 down:
-  name: noop
+  name: delete sample realm
+  auth: keycloak
+  env: {}
+  method: DELETE
+  url: "{{.kc_base}}/admin/realms/{{.realm}}"
+  headers: []
+  queries: []
+  body: ""
