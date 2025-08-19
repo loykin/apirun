@@ -1,0 +1,24 @@
+# Auth configuration for Keycloak admin at http://localhost:8080
+# Logs in using Resource Owner Password Credentials against the master realm.
+# The CLI will load this file with: -config examples/keycloak-migration/config.yaml
+---
+auth:
+  provider:
+    name: keycloak
+    base_url: http://localhost:8080
+    realm: master
+    client_id: admin-cli
+    username: admin
+    password: root
+    token_header: Authorization
+
+
+migrate_dir: ./migration
+
+env:
+  - name: username
+    value: alice
+  - name: password
+    value: alice123
+  - name: realm
+    valueFromEnv: SAMPLE_REALM

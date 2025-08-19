@@ -2,11 +2,13 @@ package task
 
 import (
 	"testing"
+
+	env2 "github.com/loykin/apimigrate/pkg/env"
 )
 
 func TestEnv_RenderGoTemplate_BasicAndMissingAndEmpty(t *testing.T) {
 	// basic render
-	env := Env{EnvMap: map[string]string{"USER": "alice", "city": "Seoul"}}
+	env := env2.Env{Local: map[string]string{"USER": "alice", "city": "Seoul"}}
 	got := env.RenderGoTemplate("hello {{.USER}} from {{.city}}")
 	if got != "hello alice from Seoul" {
 		t.Fatalf("unexpected render result: %q", got)
@@ -24,7 +26,7 @@ func TestEnv_RenderGoTemplate_BasicAndMissingAndEmpty(t *testing.T) {
 	}
 
 	// nil env map returns input as-is
-	nilEnv := Env{EnvMap: nil}
+	nilEnv := env2.Env{}
 	in := "{{.FOO}}"
 	if nilEnv.RenderGoTemplate(in) != in {
 		t.Fatalf("nil env should keep input unchanged")
@@ -32,7 +34,7 @@ func TestEnv_RenderGoTemplate_BasicAndMissingAndEmpty(t *testing.T) {
 }
 
 func TestRequest_Render_TemplatingAndAuthInjection(t *testing.T) {
-	env := Env{EnvMap: map[string]string{
+	env := env2.Env{Local: map[string]string{
 		"TOKEN":          "Bearer abc",
 		"name":           "bob",
 		"CITY":           "busan",
@@ -81,7 +83,7 @@ func TestRequest_Render_TemplatingAndAuthInjection(t *testing.T) {
 }
 
 func TestRequest_Render_DoesNotOverrideAuthorization(t *testing.T) {
-	env := Env{EnvMap: map[string]string{"KEYCLOAK": "Bearer should-not-use"}}
+	env := env2.Env{Local: map[string]string{"KEYCLOAK": "Bearer should-not-use"}}
 	req := RequestSpec{
 		AuthName: "keycloak",
 		Headers:  []Header{{Name: "Authorization", Value: "Bearer preset"}},
@@ -94,7 +96,7 @@ func TestRequest_Render_DoesNotOverrideAuthorization(t *testing.T) {
 }
 
 func TestRequest_Render_PassThroughNoTemplates(t *testing.T) {
-	env := Env{EnvMap: map[string]string{"FOO": "bar"}}
+	env := env2.Env{Local: map[string]string{"FOO": "bar"}}
 	req := RequestSpec{
 		Headers: []Header{{Name: "A", Value: "x"}},
 		Queries: []Query{{Name: "q", Value: "y"}},

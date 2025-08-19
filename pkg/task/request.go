@@ -4,10 +4,13 @@ import (
 	"strings"
 
 	"github.com/loykin/apimigrate/pkg/auth"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 type RequestSpec struct {
 	AuthName string   `yaml:"auth_name" json:"auth_name"`
+	Method   string   `yaml:"method" json:"method"`
+	URL      string   `yaml:"url" json:"url"`
 	Headers  []Header `yaml:"headers" json:"headers"`
 	Queries  []Query  `yaml:"queries" json:"queries"`
 	Body     string   `yaml:"body" json:"body"`
@@ -15,7 +18,7 @@ type RequestSpec struct {
 
 // Render builds headers, query params and body applying Go template rendering using Env.
 // It also injects Authorization header from AuthName if present in env and not already set.
-func (r RequestSpec) Render(env Env) (map[string]string, map[string]string, string) {
+func (r RequestSpec) Render(env env.Env) (map[string]string, map[string]string, string) {
 	hdrs := make(map[string]string)
 	for _, h := range r.Headers {
 		if h.Name == "" {
@@ -35,9 +38,9 @@ func (r RequestSpec) Render(env Env) (map[string]string, map[string]string, stri
 				hdrs[h] = v
 			}
 		} else {
-			// 2) Backward-compatible fallback: look up in Env by upper-cased key
+			// 2) Backward-compatible fallback: look up from Env using layered lookup by upper-cased key
 			key := strings.ToUpper(r.AuthName)
-			if v, ok := env.EnvMap[key]; ok {
+			if v, ok := env.Lookup(key); ok {
 				if _, exists := hdrs["Authorization"]; !exists {
 					hdrs["Authorization"] = v
 				}

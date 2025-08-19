@@ -1,0 +1,26 @@
+up:
+  name: create sample user in sample realm
+  env: {}
+  request:
+    auth_name: keycloak
+    method: POST
+    url: http://localhost:8080/admin/realms/sample/users
+    headers: []
+    queries: []
+    body: |
+      {
+        "username": "{{.username}}",
+        "enabled": true,
+        "email": "{{.username}}@example.com",
+        "firstName": "Sample",
+        "lastName": "User",
+        "credentials": [
+          { "type": "password", "value": "{{.password}}", "temporary": false }
+        ]
+      }
+  response:
+    # 201: created, 409: already exists
+    result_code: ["201", "409"]
+
+down:
+  name: noop

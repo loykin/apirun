@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/loykin/apimigrate/pkg/env"
 	"github.com/tidwall/gjson"
 )
 
@@ -16,7 +17,7 @@ type ResponseSpec struct {
 }
 
 // AllowedStatus renders ResultCode against provided env vars and returns a set of allowed codes.
-func (r ResponseSpec) AllowedStatus(env Env) map[int]struct{} {
+func (r ResponseSpec) AllowedStatus(env env.Env) map[int]struct{} {
 	allowed := map[int]struct{}{}
 	for _, c := range r.ResultCode {
 		// Support both {{.var}} and ${{.var}} forms by normalizing the latter
@@ -37,7 +38,7 @@ func (r ResponseSpec) AllowedStatus(env Env) map[int]struct{} {
 }
 
 // ValidateStatus checks whether status code is allowed. If no ResultCode specified, all statuses are considered success.
-func (r ResponseSpec) ValidateStatus(status int, env Env) error {
+func (r ResponseSpec) ValidateStatus(status int, env env.Env) error {
 	allowed := r.AllowedStatus(env)
 	if len(allowed) == 0 {
 		// No restrictions => any status is success

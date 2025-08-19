@@ -51,25 +51,25 @@ type Config struct {
 // ProviderConfig holds provider-specific data. Many fields are optional and only
 // used by specific providers.
 type ProviderConfig struct {
-	Name        string
-	TokenHeader string
+	Name        string `mapstructure:"name"`
+	TokenHeader string `mapstructure:"token_header"`
 
 	// Generic/OIDC
-	ClientID     string
-	ClientSecret string
-	RedirectURL  string
-	Scopes       []string
-	Domain       string // e.g., for some providers
+	ClientID     string   `mapstructure:"client_id"`
+	ClientSecret string   `mapstructure:"client_secret"`
+	RedirectURL  string   `mapstructure:"redirect_url"`
+	Scopes       []string `mapstructure:"scopes"`
+	Domain       string   `mapstructure:"domain"` // e.g., for some providers
 
 	// Keycloak
-	BaseURL  string // e.g., https://keycloak.example.com
-	Realm    string
-	Username string
-	Password string
+	BaseURL  string `mapstructure:"base_url"` // e.g., https://keycloak.example.com
+	Realm    string `mapstructure:"realm"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
 
 	// PocketBase
-	Identity string // email/username
-	IsAdmin  bool   // use admin endpoint if true
+	Identity string `mapstructure:"identity"` // email/username
+	IsAdmin  bool   `mapstructure:"is_admin"` // use admin endpoint if true
 }
 
 // AcquireToken determines provider by name and returns (headerName, tokenValue).

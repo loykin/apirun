@@ -7,11 +7,12 @@ import (
 	"strings"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 type Up struct {
 	Name     string       `yaml:"name" json:"name"`
-	Env      Env          `yaml:"env" json:"env"`
+	Env      env.Env      `yaml:"env" json:"env"`
 	Request  RequestSpec  `yaml:"request" json:"request"`
 	Response ResponseSpec `yaml:"response" json:"response"`
 }
@@ -22,9 +23,21 @@ type UpSpec = Up
 
 // Execute runs this Up specification against the provided HTTP method and URL.
 // It performs templating, sends the request, validates the response and extracts env.
+// If RequestSpec.Method or RequestSpec.URL are provided, they override the method/url
+// passed as parameters. This allows a single migration directory to hit different endpoints.
 func (u Up) Execute(ctx context.Context, method, url string) (*ExecResult, error) {
 	// Build request components via RequestSpec method
 	hdrs, queries, body := u.Request.Render(u.Env)
+
+	// Determine method and url to use (allow per-request overrides)
+	methodToUse := method
+	if strings.TrimSpace(u.Request.Method) != "" {
+		methodToUse = u.Request.Method
+	}
+	urlToUse := url
+	if strings.TrimSpace(u.Request.URL) != "" {
+		urlToUse = u.Request.URL
+	}
 
 	client := resty.New()
 	req := client.R().SetContext(ctx).SetHeaders(hdrs).SetQueryParams(queries)
@@ -39,19 +52,19 @@ func (u Up) Execute(ctx context.Context, method, url string) (*ExecResult, error
 
 	var resp *resty.Response
 	var err error
-	switch strings.ToUpper(method) {
+	switch strings.ToUpper(methodToUse) {
 	case http.MethodGet:
-		resp, err = req.Get(url)
+		resp, err = req.Get(urlToUse)
 	case http.MethodPost:
-		resp, err = req.Post(url)
+		resp, err = req.Post(urlToUse)
 	case http.MethodPut:
-		resp, err = req.Put(url)
+		resp, err = req.Put(urlToUse)
 	case http.MethodPatch:
-		resp, err = req.Patch(url)
+		resp, err = req.Patch(urlToUse)
 	case http.MethodDelete:
-		resp, err = req.Delete(url)
+		resp, err = req.Delete(urlToUse)
 	default:
-		return nil, fmt.Errorf("unsupported method: %s", method)
+		return nil, fmt.Errorf("unsupported method: %s", methodToUse)
 	}
 	if err != nil {
 		return nil, err

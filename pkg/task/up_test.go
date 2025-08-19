@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 // Verifies Up.Execute success path with JSON body detection and env extraction
@@ -34,7 +36,7 @@ func TestUp_Execute_SuccessAndExtractEnv(t *testing.T) {
 
 	up := UpSpec{
 		Name: "startup",
-		Env:  Env{EnvMap: map[string]string{"ABC": "ggg"}},
+		Env:  env.Env{Local: map[string]string{"ABC": "ggg"}},
 		Request: RequestSpec{
 			Headers: []Header{{Name: "jjj", Value: "bcd"}},
 			Queries: []Query{{Name: "abc", Value: "adsf"}},
@@ -68,7 +70,7 @@ func TestUp_Execute_StatusFailure(t *testing.T) {
 
 	up := UpSpec{
 		Name:    "startup",
-		Env:     Env{EnvMap: nil},
+		Env:     env.Env{},
 		Request: RequestSpec{},
 		Response: ResponseSpec{
 			ResultCode: []string{"200"},

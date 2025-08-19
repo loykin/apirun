@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"sort"
 
+	"github.com/loykin/apimigrate/pkg/env"
 	"github.com/loykin/apimigrate/pkg/task"
 	"gopkg.in/yaml.v3"
 )
@@ -17,10 +18,11 @@ import (
 // migrationFileRegex matches files like 001_init.yaml, 10_feature.yml, etc.
 var migrationFileRegex = regexp.MustCompile(`^(\d+)_.*\.(ya?ml)$`)
 
-// RunMigrations scans the provided directory for migration YAML files (goose-like naming),
+// RunMigrationsWithEnv scans the provided directory for migration YAML files (goose-like naming),
 // sorts them by their numeric prefix, loads each into a Task, and executes Up sequentially.
 // It stops on the first error and returns the results collected so far and the error.
-func RunMigrations(ctx context.Context, dir, method, url string) ([]*task.ExecResult, error) {
+// baseEnv, if provided, is used to populate Global env for each task execution.
+func RunMigrationsWithEnv(ctx context.Context, dir, method, url string, baseEnv env.Env) ([]*task.ExecResult, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -61,6 +63,17 @@ func RunMigrations(ctx context.Context, dir, method, url string) ([]*task.ExecRe
 		if err != nil {
 			return results, fmt.Errorf("failed to load %s: %w", f.name, err)
 		}
+		// Initialize layered env for this task: Global from base, Local from task YAML
+		if baseEnv.Global != nil {
+			t.Up.Env.Global = baseEnv.Global
+		} else {
+			t.Up.Env.Global = map[string]string{}
+		}
+		// Local is already decoded from YAML into t.Up.Env.Local; ensure non-nil
+		if t.Up.Env.Local == nil {
+			t.Up.Env.Local = map[string]string{}
+		}
+
 		res, err := t.UpExecute(ctx, method, url)
 		results = append(results, res)
 		if err != nil {
@@ -68,6 +81,11 @@ func RunMigrations(ctx context.Context, dir, method, url string) ([]*task.ExecRe
 		}
 	}
 	return results, nil
+}
+
+// RunMigrations is kept for backward compatibility; it runs without injecting any base env.
+func RunMigrations(ctx context.Context, dir, method, url string) ([]*task.ExecResult, error) {
+	return RunMigrationsWithEnv(ctx, dir, method, url, env.Env{Global: map[string]string{}})
 }
 
 func loadTaskFromFile(path string) (task.Task, error) {

@@ -1,0 +1,17 @@
+up:
+  name: create sample realm
+  env: {}
+  request:
+    auth_name: keycloak
+    method: POST
+    url: http://localhost:8080/admin/realms
+    headers: []
+    queries: []
+    body: |
+      {"realm": "sample", "enabled": true}
+  response:
+    # 201: created, 409: already exists
+    result_code: ["201", "409"]
+
+down:
+  name: noop

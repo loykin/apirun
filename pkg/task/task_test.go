@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 func TestTask_UpExecute_Success(t *testing.T) {
@@ -27,7 +29,7 @@ func TestTask_UpExecute_Success(t *testing.T) {
 	tsk := Task{
 		Up: Up{
 			Name: "startup",
-			Env:  Env{EnvMap: map[string]string{"AUTH": "token-123"}},
+			Env:  env.Env{Local: map[string]string{"AUTH": "token-123"}},
 			Request: RequestSpec{
 				AuthName: "auth", // will set Authorization only if specified, but we keep a custom header too
 				Headers:  []Header{{Name: "X-Auth", Value: "{{.AUTH}}"}},

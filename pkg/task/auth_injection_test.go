@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/loykin/apimigrate/pkg/auth"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 func TestRequest_Render_InjectsTokenFromAuthStore_Authorization(t *testing.T) {
@@ -24,7 +25,7 @@ func TestRequest_Render_InjectsTokenFromAuthStore_Authorization(t *testing.T) {
 	defer srv.Close()
 
 	up := UpSpec{
-		Env:      Env{EnvMap: map[string]string{}},
+		Env:      env.Env{},
 		Request:  RequestSpec{AuthName: "keycloak"},
 		Response: ResponseSpec{ResultCode: []string{"200"}},
 	}
@@ -67,7 +68,7 @@ func TestRequest_Render_DoesNotOverrideExistingHeaderFromAuthStore(t *testing.T)
 		Headers:  []Header{{Name: "Authorization", Value: "Bearer preset"}},
 	}
 
-	hdrs, _, _ := req.Render(Env{EnvMap: map[string]string{}})
+	hdrs, _, _ := req.Render(env.Env{})
 	if got := hdrs["Authorization"]; got != "Bearer preset" {
 		t.Fatalf("expected header preserved, got %q", got)
 	}
