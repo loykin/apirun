@@ -10,7 +10,7 @@ import (
 func newTempDB(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	return filepath.Join(dir, ".apimigrate.db")
+	return filepath.Join(dir, StoreDBFileName)
 }
 
 func TestStore_OpenEnsureSchema_Idempotent(t *testing.T) {

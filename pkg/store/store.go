@@ -9,6 +9,9 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// StoreDBFileName is the default filename for the migration history database.
+const StoreDBFileName = "apimigrate.db"
+
 // Store persists migration versions in a SQLite database.
 // Table schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT)
 // Similar to goose semantics: version is the numeric prefix of the migration filename.

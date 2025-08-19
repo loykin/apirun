@@ -55,23 +55,26 @@ var rootCmd = &cobra.Command{
 			dir = "examples/migration"
 		}
 		if verbose {
-			log.Printf("running migrations in %s", dir)
+			log.Printf("running migrations in %s (versioned, will be recorded)", dir)
 		}
-		// method and url are optional now; per-request overrides in YAML are expected
-		results, err := migration.RunMigrationsWithEnv(ctx, dir, "", "", baseEnv)
+		// Use versioned executor so applied versions are persisted to the store
+		vres, err := migration.MigrateUp(ctx, dir, baseEnv, 0)
 		if err != nil {
-			// Print any partial results first
-			if len(results) > 0 && verbose {
-				for i, r := range results {
-					log.Printf("migration[%d]: status=%d env=%v", i, r.StatusCode, r.ExtractedEnv)
+			if len(vres) > 0 && verbose {
+				for _, vr := range vres {
+					if vr != nil && vr.Result != nil {
+						log.Printf("migration v%03d: status=%d env=%v", vr.Version, vr.Result.StatusCode, vr.Result.ExtractedEnv)
+					}
 				}
 			}
 			return err
 		}
 
 		if verbose {
-			for i, r := range results {
-				log.Printf("migration[%d]: status=%d env=%v", i, r.StatusCode, r.ExtractedEnv)
+			for _, vr := range vres {
+				if vr != nil && vr.Result != nil {
+					log.Printf("migration v%03d: status=%d env=%v", vr.Version, vr.Result.StatusCode, vr.Result.ExtractedEnv)
+				}
 			}
 		}
 		fmt.Println("migrations completed successfully")
@@ -180,7 +183,7 @@ var statusCmd = &cobra.Command{
 		if strings.TrimSpace(dir) == "" {
 			dir = "examples/migration"
 		}
-		dbPath := filepath.Join(dir, ".apimigrate.db")
+		dbPath := filepath.Join(dir, store.StoreDBFileName)
 		st, err := store.Open(dbPath)
 		if err != nil {
 			return err

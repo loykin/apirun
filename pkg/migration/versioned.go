@@ -57,7 +57,7 @@ func MigrateUp(ctx context.Context, dir string, baseEnv env.Env, targetVersion i
 		return nil, err
 	}
 	// open store at default path
-	dbPath := filepath.Join(dir, ".apimigrate.db")
+	dbPath := filepath.Join(dir, store.StoreDBFileName)
 	st, err := store.Open(dbPath)
 	if err != nil {
 		return nil, err
@@ -119,7 +119,7 @@ func MigrateDown(ctx context.Context, dir string, baseEnv env.Env, targetVersion
 	if err != nil {
 		return nil, err
 	}
-	dbPath := filepath.Join(dir, ".apimigrate.db")
+	dbPath := filepath.Join(dir, store.StoreDBFileName)
 	st, err := store.Open(dbPath)
 	if err != nil {
 		return nil, err
