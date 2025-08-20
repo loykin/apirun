@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-resty/resty/v2"
-	"github.com/loykin/apimigrate/pkg/env"
+	env "github.com/loykin/apimigrate/internal/env"
 )
 
 type Up struct {

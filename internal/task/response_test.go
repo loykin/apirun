@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apimigrate/internal/env"
 )
 
 // Verify that when ResultCode is not specified, any status is accepted as success.

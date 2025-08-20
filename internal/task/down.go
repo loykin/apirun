@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/go-resty/resty/v2"
-	"github.com/loykin/apimigrate/pkg/auth"
-	"github.com/loykin/apimigrate/pkg/env"
+	auth "github.com/loykin/apimigrate/internal/auth"
+	env "github.com/loykin/apimigrate/internal/env"
 )
 
 type Down struct {

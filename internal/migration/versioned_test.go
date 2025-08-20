@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apimigrate/internal/env"
 )
 
 // Ensures that MigrateDown calls Task.DownExecute (delegation) and rolls back in reverse order.

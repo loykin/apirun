@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	env2 "github.com/loykin/apimigrate/pkg/env"
+	env2 "github.com/loykin/apimigrate/internal/env"
 )
 
 func TestEnv_RenderGoTemplate_BasicAndMissingAndEmpty(t *testing.T) {

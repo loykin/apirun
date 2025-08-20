@@ -9,9 +9,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/loykin/apimigrate/pkg/env"
-	"github.com/loykin/apimigrate/pkg/store"
-	"github.com/loykin/apimigrate/pkg/task"
+	"github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/internal/store"
+	"github.com/loykin/apimigrate/internal/task"
 )
 
 var versionFileRegex = regexp.MustCompile(`^(\d+)_.*\.(ya?ml)$`)

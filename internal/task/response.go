@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/loykin/apimigrate/pkg/env"
+	env "github.com/loykin/apimigrate/internal/env"
 	"github.com/tidwall/gjson"
 )
 

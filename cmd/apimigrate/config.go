@@ -1,10 +1,10 @@
 package main
 
-import "github.com/loykin/apimigrate/pkg/auth"
+import "github.com/loykin/apimigrate"
 
 type ConfigDoc struct {
 	Auth struct {
-		Provider auth.ProviderConfig `mapstructure:"provider"`
+		Provider apimigrate.AuthProviderConfig `mapstructure:"provider"`
 	} `mapstructure:"auth"`
 	MigrateDir string `mapstructure:"migrate_dir"`
 	Env        []struct {

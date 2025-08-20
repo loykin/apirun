@@ -9,11 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	mapstructure "github.com/go-viper/mapstructure/v2"
-	"github.com/loykin/apimigrate/pkg/auth"
-	"github.com/loykin/apimigrate/pkg/env"
-	"github.com/loykin/apimigrate/pkg/migration"
-	"github.com/loykin/apimigrate/pkg/store"
+	"github.com/go-viper/mapstructure/v2"
+	"github.com/loykin/apimigrate"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -31,7 +28,7 @@ var rootCmd = &cobra.Command{
 		verbose := v.GetBool("v")
 
 		ctx := context.Background()
-		baseEnv := env.Env{Global: map[string]string{}}
+		baseEnv := apimigrate.Env{Global: map[string]string{}}
 
 		if strings.TrimSpace(configPath) != "" {
 			if verbose {
@@ -58,7 +55,7 @@ var rootCmd = &cobra.Command{
 			log.Printf("running migrations in %s (versioned, will be recorded)", dir)
 		}
 		// Use versioned executor so applied versions are persisted to the store
-		vres, err := migration.MigrateUp(ctx, dir, baseEnv, 0)
+		vres, err := apimigrate.MigrateUp(ctx, dir, baseEnv, 0)
 		if err != nil {
 			if len(vres) > 0 && verbose {
 				for _, vr := range vres {
@@ -91,7 +88,7 @@ var upCmd = &cobra.Command{
 		verbose := v.GetBool("v")
 		to := v.GetInt("to")
 		ctx := context.Background()
-		baseEnv := env.Env{Global: map[string]string{}}
+		baseEnv := apimigrate.Env{Global: map[string]string{}}
 		dir := ""
 		if strings.TrimSpace(configPath) != "" {
 			if verbose {
@@ -115,7 +112,7 @@ var upCmd = &cobra.Command{
 		if verbose {
 			log.Printf("up migrations in %s to %d", dir, to)
 		}
-		_, err := migration.MigrateUp(ctx, dir, baseEnv, to)
+		_, err := apimigrate.MigrateUp(ctx, dir, baseEnv, to)
 		return err
 	},
 }
@@ -129,7 +126,7 @@ var downCmd = &cobra.Command{
 		verbose := v.GetBool("v")
 		to := v.GetInt("to")
 		ctx := context.Background()
-		baseEnv := env.Env{Global: map[string]string{}}
+		baseEnv := apimigrate.Env{Global: map[string]string{}}
 		dir := ""
 		if strings.TrimSpace(configPath) != "" {
 			if verbose {
@@ -153,7 +150,7 @@ var downCmd = &cobra.Command{
 		if verbose {
 			log.Printf("down migrations in %s to %d", dir, to)
 		}
-		_, err := migration.MigrateDown(ctx, dir, baseEnv, to)
+		_, err := apimigrate.MigrateDown(ctx, dir, baseEnv, to)
 		return err
 	},
 }
@@ -183,8 +180,8 @@ var statusCmd = &cobra.Command{
 		if strings.TrimSpace(dir) == "" {
 			dir = "examples/migration"
 		}
-		dbPath := filepath.Join(dir, store.StoreDBFileName)
-		st, err := store.Open(dbPath)
+		dbPath := filepath.Join(dir, apimigrate.StoreDBFileName)
+		st, err := apimigrate.OpenStore(dbPath)
 		if err != nil {
 			return err
 		}
@@ -235,15 +232,15 @@ func main() {
 	}
 }
 
-func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (string, env.Env, error) {
+func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (string, apimigrate.Env, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return "", env.Env{Global: map[string]string{}}, err
+		return "", apimigrate.Env{Global: map[string]string{}}, err
 	}
 	defer func() { _ = f.Close() }()
 	dec := yaml.NewDecoder(f)
 	migrateDir := ""
-	base := env.Env{Global: map[string]string{}}
+	base := apimigrate.Env{Global: map[string]string{}}
 	for {
 		var raw map[string]interface{}
 		if err := dec.Decode(&raw); err != nil {
@@ -263,8 +260,8 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 		// auth provider (optional)
 		pc := doc.Auth.Provider
 		if strings.TrimSpace(pc.Name) != "" {
-			cfg := auth.Config{Provider: pc}
-			if h, _, err := auth.AcquireAndStore(ctx, cfg); err != nil {
+			cfg := apimigrate.AuthConfig{Provider: pc}
+			if h, _, err := apimigrate.AcquireAuthAndStore(ctx, cfg); err != nil {
 				if verbose {
 					log.Printf("auth provider %s: acquire failed: %v", pc.Name, err)
 				}

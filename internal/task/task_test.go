@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apimigrate/internal/env"
 )
 
 func TestTask_UpExecute_Success(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/loykin/apimigrate/pkg/auth"
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apimigrate/internal/auth"
+	"github.com/loykin/apimigrate/internal/env"
 )
 
 func TestRequest_Render_InjectsTokenFromAuthStore_Authorization(t *testing.T) {
