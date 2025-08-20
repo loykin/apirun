@@ -38,10 +38,8 @@ func (u Up) Execute(ctx context.Context, method, url string) (*ExecResult, error
 	if strings.TrimSpace(u.Request.URL) != "" {
 		urlToUse = u.Request.URL
 	}
-	// Render URL if it contains templates
-	if strings.Contains(urlToUse, "{{") {
-		urlToUse = u.Env.RenderGoTemplate(urlToUse)
-	}
+	// Render URL (RenderGoTemplate is idempotent for non-templates)
+	urlToUse = u.Env.RenderGoTemplate(urlToUse)
 
 	client := resty.New()
 	req := client.R().SetContext(ctx).SetHeaders(hdrs).SetQueryParams(queries)

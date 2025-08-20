@@ -1,6 +1,7 @@
 package task
 
 import (
+	"os"
 	"strings"
 
 	"github.com/loykin/apimigrate/pkg/auth"
@@ -14,6 +15,7 @@ type RequestSpec struct {
 	Headers  []Header `yaml:"headers" json:"headers"`
 	Queries  []Query  `yaml:"queries" json:"queries"`
 	Body     string   `yaml:"body" json:"body"`
+	BodyFile string   `yaml:"body_file" json:"body_file"`
 }
 
 // Render builds headers, query params and body applying Go template rendering using Env.
@@ -25,11 +27,7 @@ func (r RequestSpec) Render(env env.Env) (map[string]string, map[string]string, 
 			continue
 		}
 		val := h.Value
-		if strings.Contains(val, "{{") {
-			hdrs[h.Name] = env.RenderGoTemplate(val)
-		} else {
-			hdrs[h.Name] = val
-		}
+		hdrs[h.Name] = env.RenderGoTemplate(val)
 	}
 	if r.AuthName != "" {
 		// 1) Try centralized token manager (preferred)
@@ -54,16 +52,24 @@ func (r RequestSpec) Render(env env.Env) (map[string]string, map[string]string, 
 			continue
 		}
 		val := q.Value
-		if strings.Contains(val, "{{") {
-			queries[q.Name] = env.RenderGoTemplate(val)
-		} else {
-			queries[q.Name] = val
-		}
+		queries[q.Name] = env.RenderGoTemplate(val)
 	}
 
-	body := r.Body
-	if strings.Contains(body, "{{") {
-		body = env.RenderGoTemplate(body)
+	// Determine body source: BodyFile if provided, otherwise Body
+	var body string
+	if strings.TrimSpace(r.BodyFile) != "" {
+		path := r.BodyFile
+		path = env.RenderGoTemplate(path)
+		if data, err := os.ReadFile(path); err == nil {
+			body = string(data)
+		} else {
+			// If file read fails, keep body empty to let caller handle error statuses
+			body = ""
+		}
+	} else {
+		body = r.Body
 	}
+
+	body = env.RenderGoTemplate(body)
 	return hdrs, queries, body
 }

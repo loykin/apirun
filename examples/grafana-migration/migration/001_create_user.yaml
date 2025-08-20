@@ -1,0 +1,31 @@
+up:
+  name: create grafana user
+  env: {}
+  request:
+    method: POST
+    url: "{{.grafana_base}}/api/admin/users"
+    headers:
+      - name: Authorization
+        value: "{{.gf_admin_auth}}"
+    queries: []
+    body: |
+      {
+        "name": "{{.gf_user}}",
+        "email": "{{.gf_user_email}}",
+        "login": "{{.gf_user}}",
+        "password": "{{.gf_user_password}}"
+      }
+  response:
+    result_code: ["200", "409"]
+
+down:
+  name: delete grafana user
+  env: {}
+  # Grafana does not provide delete by login directly; keep as no-op/sample
+  method: GET
+  url: "{{.grafana_base}}/api/health"
+  headers:
+    - name: Authorization
+      value: "{{.gf_admin_auth}}"
+  queries: []
+  body: ""

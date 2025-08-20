@@ -26,7 +26,7 @@ func TestExecuteUp_NoResultCode_AllSuccess(t *testing.T) {
 		},
 	}
 
-	res, err := ExecuteUp(context.Background(), up, http.MethodGet, srv.URL)
+	res, err := up.Execute(context.Background(), http.MethodGet, srv.URL)
 	if err != nil {
 		t.Fatalf("expected success with no result_code restrictions, got err: %v", err)
 	}

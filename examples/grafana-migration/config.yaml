@@ -1,0 +1,17 @@
+---
+# Configuration for Grafana migration
+migrate_dir: ./migration
+
+# Environment variables for requests
+env:
+  - name: grafana_base
+    value: http://localhost:3000
+  - name: gf_admin_auth
+    # Authorization: Basic base64(admin:admin)
+    value: Basic YWRtaW46YWRtaW4=
+  - name: gf_user
+    value: sample
+  - name: gf_user_email
+    value: sample@example.com
+  - name: gf_user_password
+    value: sample1234

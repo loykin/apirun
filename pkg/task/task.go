@@ -2,7 +2,6 @@ package task
 
 import (
 	"context"
-	"errors"
 )
 
 type Task struct {
@@ -15,13 +14,10 @@ func (t Task) UpExecute(ctx context.Context, method, url string) (*ExecResult, e
 	return t.Up.Execute(ctx, method, url)
 }
 
-// ExecuteUp is a convenience wrapper used by tests to run an UpSpec.
-func ExecuteUp(ctx context.Context, up UpSpec, method, url string) (*ExecResult, error) {
-	return up.Execute(ctx, method, url)
-}
-
-// DownExecute is not implemented yet in this project.
-// It returns a clear error to indicate the current limitation.
-func (t Task) DownExecute(_ context.Context, method, url string) (*ExecResult, error) {
-	return nil, errors.New("DownExecute is not implemented")
+// DownExecute delegates to the Down spec executor.
+// The method and url parameters are currently unused because Down includes
+// its own Method and URL fields; they are kept for symmetry with UpExecute
+// and potential future overrides.
+func (t Task) DownExecute(ctx context.Context, _ string, _ string) (*ExecResult, error) {
+	return t.Down.Execute(ctx)
 }

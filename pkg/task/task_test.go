@@ -49,10 +49,34 @@ func TestTask_UpExecute_Success(t *testing.T) {
 	}
 }
 
-func TestTask_DownExecute_NotImplemented(t *testing.T) {
-	task := Task{}
-	res, err := task.DownExecute(context.Background(), http.MethodDelete, "http://example.invalid")
-	if err == nil {
-		t.Fatalf("expected not implemented error, got nil (res=%+v)", res)
+func TestTask_DownExecute_Success(t *testing.T) {
+	// Mock server that accepts DELETE and records a header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Fatalf("expected DELETE, got %s", r.Method)
+		}
+		if r.Header.Get("X-Del") != "yes" {
+			t.Fatalf("missing header X-Del=yes")
+		}
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+
+	tsk := Task{Down: Down{
+		Name:   "teardown",
+		Env:    env.Env{Local: map[string]string{"flag": "yes"}},
+		Method: http.MethodDelete,
+		URL:    srv.URL,
+		Headers: []Header{
+			{Name: "X-Del", Value: "{{.flag}}"},
+		},
+	}}
+
+	res, err := tsk.DownExecute(context.Background(), "", "")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if res == nil || res.StatusCode != 200 {
+		t.Fatalf("expected status 200, got %+v", res)
 	}
 }

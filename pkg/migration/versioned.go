@@ -174,7 +174,7 @@ func MigrateDown(ctx context.Context, dir string, baseEnv env.Env, targetVersion
 		if t.Down.Env.Local == nil {
 			t.Down.Env.Local = map[string]string{}
 		}
-		res, err := t.Down.Execute(ctx)
+		res, err := t.DownExecute(ctx, "", "")
 		results = append(results, &ExecWithVersion{Version: v, Result: res})
 		if err != nil {
 			return results, fmt.Errorf("down %s failed: %w", f.name, err)

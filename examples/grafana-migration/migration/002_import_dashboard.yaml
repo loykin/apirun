@@ -1,0 +1,24 @@
+up:
+  name: import dashboard from file
+  env: {}
+  request:
+    method: POST
+    url: "{{.grafana_base}}/api/dashboards/db"
+    headers:
+      - name: Authorization
+        value: "{{.gf_admin_auth}}"
+    queries: []
+    body_file: "examples/grafana-migration/artifact/001_dashboard.json"
+  response:
+    result_code: ["200"]
+
+down:
+  name: noop
+  env: {}
+  method: GET
+  url: "{{.grafana_base}}/api/health"
+  headers:
+    - name: Authorization
+      value: "{{.gf_admin_auth}}"
+  queries: []
+  body: ""

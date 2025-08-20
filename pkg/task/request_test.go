@@ -1,6 +1,7 @@
 package task
 
 import (
+	"os"
 	"testing"
 
 	env2 "github.com/loykin/apimigrate/pkg/env"
@@ -105,5 +106,25 @@ func TestRequest_Render_PassThroughNoTemplates(t *testing.T) {
 	hdrs, queries, body := req.Render(env)
 	if hdrs["A"] != "x" || queries["q"] != "y" || body != "plain" {
 		t.Fatalf("passthrough failed: hdr=%v queries=%v body=%q", hdrs, queries, body)
+	}
+}
+
+func TestRequest_Render_BodyFile(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "apimigrate_body_*.json")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	content := `{"a": "{{.X}}"}`
+	if _, err := tmpFile.WriteString(content); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+	_ = tmpFile.Close()
+
+	env := env2.Env{Local: map[string]string{"X": "y"}}
+	req := RequestSpec{BodyFile: tmpFile.Name()}
+	_, _, body := req.Render(env)
+	if body != `{"a": "y"}` {
+		t.Fatalf("expected body rendered from file, got %q", body)
 	}
 }
