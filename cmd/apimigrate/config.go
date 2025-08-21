@@ -1,10 +1,12 @@
 package main
 
-import "github.com/loykin/apimigrate"
-
 type ConfigDoc struct {
 	Auth struct {
-		Provider apimigrate.AuthProviderConfig `mapstructure:"provider"`
+		// New single provider format
+		Type   string                 `mapstructure:"type"`
+		Config map[string]interface{} `mapstructure:"config"`
+		// Generic providers array for extensibility (optional, alternative to single provider)
+		Providers []map[string]interface{} `mapstructure:"providers"`
 	} `mapstructure:"auth"`
 	MigrateDir string `mapstructure:"migrate_dir"`
 	Env        []struct {

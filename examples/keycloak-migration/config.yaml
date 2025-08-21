@@ -1,17 +1,20 @@
-# Auth configuration for Keycloak admin at http://localhost:8080
-# Logs in using Resource Owner Password Credentials against the master realm.
-# The CLI will load this file with: -config examples/keycloak-migration/config.yaml
+# Auth configuration using golang.org/x/oauth2 for Keycloak token acquisition
+# This example uses password grant against a local Keycloak (kc.sh start-dev).
 ---
 auth:
-  provider:
-    name: keycloak
+  type: oauth2
+  config:
+    name: oauth2
     base_url: http://localhost:8080
-    realm: master
     client_id: admin-cli
+    # client_secret: ""
+    # For Keycloak dev (kc.sh start-dev), use admin credentials for password grant via golang.org/x/oauth2
     username: admin
     password: root
-    token_header: Authorization
-
+    token_url: http://localhost:8080/realms/master/protocol/openid-connect/token
+    auth_url: http://localhost:8080/realms/master/protocol/openid-connect/auth
+    # header: Authorization
+    # optional; defaults to Authorization
 
 migrate_dir: ./migration
 

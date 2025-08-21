@@ -31,15 +31,13 @@ func MigrateDown(ctx context.Context, dir string, base Env, targetVersion int) (
 	return imig.MigrateDown(ctx, dir, base, targetVersion)
 }
 
-// AuthProviderConfig describes an auth provider configuration.
-type AuthProviderConfig = auth.ProviderConfig
+// Plugin-style provider interface and registration
+type AuthMethod = auth.Method
 
-// AuthConfig wraps the provider config.
-type AuthConfig = auth.Config
+type AuthFactory = auth.Factory
 
-// AcquireAuthAndStore obtains a token and stores it under the provider name.
-func AcquireAuthAndStore(ctx context.Context, cfg AuthConfig) (string, string, error) {
-	return auth.AcquireAndStore(ctx, cfg)
+func AcquireAuthByProviderSpec(ctx context.Context, typ string, spec map[string]interface{}) (header, value, name string, err error) {
+	return auth.AcquireAndStoreFromMap(ctx, typ, spec)
 }
 
 // Store is an alias to the internal store type.

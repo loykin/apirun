@@ -36,14 +36,13 @@ var rootCmd = &cobra.Command{
 			}
 			mDir, envFromCfg, err := loadConfigAndAcquire(ctx, configPath, verbose)
 			if err != nil {
-				log.Printf("warning: failed to load config: %v", err)
-			} else {
-				if mDir != "" {
-					dir = mDir
-				}
-				if len(envFromCfg.Global) > 0 {
-					baseEnv = envFromCfg
-				}
+				return err
+			}
+			if mDir != "" {
+				dir = mDir
+			}
+			if len(envFromCfg.Global) > 0 {
+				baseEnv = envFromCfg
 			}
 		}
 
@@ -96,14 +95,13 @@ var upCmd = &cobra.Command{
 			}
 			mDir, envFromCfg, err := loadConfigAndAcquire(ctx, configPath, verbose)
 			if err != nil {
-				log.Printf("warning: failed to load config: %v", err)
-			} else {
-				if mDir != "" {
-					dir = mDir
-				}
-				if len(envFromCfg.Global) > 0 {
-					baseEnv = envFromCfg
-				}
+				return err
+			}
+			if mDir != "" {
+				dir = mDir
+			}
+			if len(envFromCfg.Global) > 0 {
+				baseEnv = envFromCfg
 			}
 		}
 		if strings.TrimSpace(dir) == "" {
@@ -134,14 +132,13 @@ var downCmd = &cobra.Command{
 			}
 			mDir, envFromCfg, err := loadConfigAndAcquire(ctx, configPath, verbose)
 			if err != nil {
-				log.Printf("warning: failed to load config: %v", err)
-			} else {
-				if mDir != "" {
-					dir = mDir
-				}
-				if len(envFromCfg.Global) > 0 {
-					baseEnv = envFromCfg
-				}
+				return err
+			}
+			if mDir != "" {
+				dir = mDir
+			}
+			if len(envFromCfg.Global) > 0 {
+				baseEnv = envFromCfg
 			}
 		}
 		if strings.TrimSpace(dir) == "" {
@@ -257,19 +254,37 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 		if err := mapstructure.Decode(raw, &doc); err != nil {
 			return "", base, err
 		}
-		// auth provider (optional)
-		pc := doc.Auth.Provider
-		if strings.TrimSpace(pc.Name) != "" {
-			cfg := apimigrate.AuthConfig{Provider: pc}
-			if h, _, err := apimigrate.AcquireAuthAndStore(ctx, cfg); err != nil {
-				if verbose {
-					log.Printf("auth provider %s: acquire failed: %v", pc.Name, err)
+		// auth: type/config (preferred, single provider)
+		processedProviders := false
+		if strings.TrimSpace(doc.Auth.Type) != "" {
+			ptype := doc.Auth.Type
+			h, _, name, err := apimigrate.AcquireAuthByProviderSpec(ctx, ptype, doc.Auth.Config)
+			if err != nil {
+				return "", base, fmt.Errorf("auth type=%s: acquire failed: %w", ptype, err)
+			}
+			if verbose {
+				log.Printf("auth %s: using header %s", strings.TrimSpace(name), h)
+			}
+			processedProviders = true
+		}
+
+		// auth providers (optional array)
+		if !processedProviders && len(doc.Auth.Providers) > 0 {
+			for i, item := range doc.Auth.Providers {
+				ptypeRaw, ok := item["type"]
+				if !ok {
+					return "", base, fmt.Errorf("auth.providers[%d]: missing type", i)
 				}
-			} else {
+				ptype, _ := ptypeRaw.(string)
+				h, _, name, err := apimigrate.AcquireAuthByProviderSpec(ctx, ptype, item)
+				if err != nil {
+					return "", base, fmt.Errorf("auth provider[%d] type=%s: acquire failed: %w", i, ptype, err)
+				}
 				if verbose {
-					log.Printf("auth provider %s: using header %s", pc.Name, h)
+					log.Printf("auth %s: using header %s", strings.TrimSpace(name), h)
 				}
 			}
+			processedProviders = true
 		}
 		// migrate_dir (optional)
 		if strings.TrimSpace(doc.MigrateDir) != "" {

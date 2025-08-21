@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"context"
 	"strings"
 	"sync"
 )
@@ -65,16 +64,6 @@ func GetToken(name string) (header, value string, ok bool) {
 // ClearTokens removes all stored tokens (useful for tests).
 func ClearTokens() {
 	globalTokens.clear()
-}
-
-// AcquireAndStore acquires a token for the given provider config and stores it
-// under the provider's name. It returns the header and token as well.
-func AcquireAndStore(ctx context.Context, cfg Config) (string, string, error) {
-	h, v, err := AcquireToken(ctx, cfg)
-	if err == nil {
-		SetToken(cfg.Provider.Name, h, v)
-	}
-	return h, v, err
 }
 
 func headerOrDefault(h string) string {
