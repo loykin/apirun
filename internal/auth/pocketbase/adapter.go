@@ -1,6 +1,5 @@
 package pocketbase
 
-import "C"
 import "context"
 
 type Adapter struct{ C Config }
