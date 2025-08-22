@@ -30,7 +30,6 @@ func (r RequestSpec) Render(env env.Env) (map[string]string, map[string]string, 
 		hdrs[h.Name] = env.RenderGoTemplate(val)
 	}
 	if r.AuthName != "" {
-		// 1) Try centralized token manager (preferred)
 		if h, v, ok := auth.GetToken(r.AuthName); ok {
 			if _, exists := hdrs[h]; !exists {
 				hdrs[h] = v

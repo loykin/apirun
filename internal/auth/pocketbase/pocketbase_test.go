@@ -1,10 +1,12 @@
-package auth
+package pocketbase_test
 
 import (
 	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/loykin/apimigrate/internal/auth"
 )
 
 func TestPocketBase_Success(t *testing.T) {
@@ -24,7 +26,7 @@ func TestPocketBase_Success(t *testing.T) {
 		"password": "secret",
 	}
 
-	h, v, _, err := AcquireFromMap(context.Background(), "pocketbase", spec)
+	h, v, _, err := auth.AcquireFromMap(context.Background(), "pocketbase", spec)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -50,7 +52,7 @@ func TestPocketBase_Non2xx_Error(t *testing.T) {
 		"password": "secret",
 	}
 
-	_, _, _, err := AcquireFromMap(context.Background(), "pocketbase", spec)
+	_, _, _, err := auth.AcquireFromMap(context.Background(), "pocketbase", spec)
 	if err == nil {
 		t.Fatalf("expected error for non-2xx response")
 	}

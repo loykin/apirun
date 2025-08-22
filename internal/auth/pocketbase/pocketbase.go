@@ -1,4 +1,4 @@
-package auth
+package pocketbase
 
 import (
 	"context"
@@ -7,10 +7,11 @@ import (
 	"strings"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/loykin/apimigrate/internal/auth/common"
 )
 
-// PocketBaseConfig holds configuration for PocketBase admin login.
-type PocketBaseConfig struct {
+// Config holds configuration for PocketBase admin login.
+type Config struct {
 	Name     string `mapstructure:"name"`
 	Header   string `mapstructure:"header"`
 	BaseURL  string `mapstructure:"base_url"`
@@ -18,7 +19,7 @@ type PocketBaseConfig struct {
 	Password string `mapstructure:"password"`
 }
 
-func acquirePocketBase(ctx context.Context, pc PocketBaseConfig) (string, string, error) {
+func AcquirePocketBase(ctx context.Context, pc Config) (string, string, error) {
 	if strings.TrimSpace(pc.BaseURL) == "" || strings.TrimSpace(pc.Email) == "" || strings.TrimSpace(pc.Password) == "" {
 		return "", "", errors.New("pocketbase: base_url, email and password are required")
 	}
@@ -36,5 +37,5 @@ func acquirePocketBase(ctx context.Context, pc PocketBaseConfig) (string, string
 	if strings.TrimSpace(v) == "" {
 		return "", "", errors.New("pocketbase: token not found in response")
 	}
-	return headerOrDefault(pc.Header), v, nil
+	return common.HeaderOrDefault(pc.Header), v, nil
 }

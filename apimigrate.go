@@ -31,7 +31,7 @@ func MigrateDown(ctx context.Context, dir string, base Env, targetVersion int) (
 	return imig.MigrateDown(ctx, dir, base, targetVersion)
 }
 
-// Plugin-style provider interface and registration
+// AuthMethod Plugin-style provider interface and registration
 type AuthMethod = auth.Method
 
 type AuthFactory = auth.Factory

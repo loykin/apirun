@@ -6,6 +6,9 @@ import (
 	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
+	"github.com/loykin/apimigrate/internal/auth/basic"
+	aoauth2 "github.com/loykin/apimigrate/internal/auth/oauth2"
+	"github.com/loykin/apimigrate/internal/auth/pocketbase"
 )
 
 // Method is the plugin interface for an authentication method.
@@ -77,51 +80,32 @@ func AcquireAndStoreFromMap(ctx context.Context, typ string, spec map[string]int
 func init() {
 	// oauth2 (and common aliases)
 	Register("oauth2", func(spec map[string]interface{}) (Method, error) {
-		var c OAuth2Config
+		var c aoauth2.Auth2Config
 		if err := mapstructure.Decode(spec, &c); err != nil {
 			return nil, err
 		}
-		return oauth2Method{c: c}, nil
+		m, err := c.GetGrantMethod()
+		if err != nil {
+			return nil, err
+		}
+		return aoauth2.Adapter{M: m}, nil
 	})
 
 	// basic
 	Register("basic", func(spec map[string]interface{}) (Method, error) {
-		var c BasicConfig
+		var c basic.Config
 		if err := mapstructure.Decode(spec, &c); err != nil {
 			return nil, err
 		}
-		return basicMethod{c: c}, nil
+		return basic.Adapter{C: c}, nil
 	})
 
 	// pocketbase
 	Register("pocketbase", func(spec map[string]interface{}) (Method, error) {
-		var c PocketBaseConfig
+		var c pocketbase.Config
 		if err := mapstructure.Decode(spec, &c); err != nil {
 			return nil, err
 		}
-		return pocketbaseMethod{c: c}, nil
+		return pocketbase.Adapter{C: c}, nil
 	})
-}
-
-// Wrapper implementations map registry methods to concrete acquire functions.
-
-type oauth2Method struct{ c OAuth2Config }
-
-func (m oauth2Method) Name() string { return m.c.Name }
-func (m oauth2Method) Acquire(ctx context.Context) (string, string, error) {
-	return acquireOAuth2(ctx, m.c)
-}
-
-type basicMethod struct{ c BasicConfig }
-
-func (m basicMethod) Name() string { return m.c.Name }
-func (m basicMethod) Acquire(_ context.Context) (string, string, error) {
-	return acquireBasic(m.c)
-}
-
-type pocketbaseMethod struct{ c PocketBaseConfig }
-
-func (m pocketbaseMethod) Name() string { return m.c.Name }
-func (m pocketbaseMethod) Acquire(ctx context.Context) (string, string, error) {
-	return acquirePocketBase(ctx, m.c)
 }

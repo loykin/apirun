@@ -1,9 +1,11 @@
-package auth
+package basic_test
 
 import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/loykin/apimigrate/internal/auth"
 )
 
 func TestAcquireToken_Basic_Success_DefaultHeader(t *testing.T) {
@@ -12,7 +14,7 @@ func TestAcquireToken_Basic_Success_DefaultHeader(t *testing.T) {
 		"username": "alice",
 		"password": "secret",
 	}
-	h, v, name, err := AcquireFromMap(context.Background(), "basic", spec)
+	h, v, name, err := auth.AcquireFromMap(context.Background(), "basic", spec)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -35,7 +37,7 @@ func TestAcquireToken_Basic_CustomHeader(t *testing.T) {
 		"password": "p@ss",
 		"header":   "X-Auth",
 	}
-	h, v, _, err := AcquireFromMap(context.Background(), "basic", spec)
+	h, v, _, err := auth.AcquireFromMap(context.Background(), "basic", spec)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -54,7 +56,7 @@ func TestAcquireToken_Basic_MissingCredentials_Error(t *testing.T) {
 		{"name": "basic", "username": "x", "password": ""},
 	}
 	for i, spec := range cases {
-		_, _, _, err := AcquireFromMap(context.Background(), "basic", spec)
+		_, _, _, err := auth.AcquireFromMap(context.Background(), "basic", spec)
 		if err == nil {
 			t.Fatalf("case %d: expected error for missing credentials", i)
 		}
