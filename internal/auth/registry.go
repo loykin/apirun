@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/loykin/apimigrate/internal/auth/basic"
-	aoauth2 "github.com/loykin/apimigrate/internal/auth/oauth2"
+	"github.com/loykin/apimigrate/internal/auth/oauth2"
 	"github.com/loykin/apimigrate/internal/auth/pocketbase"
 )
 
@@ -80,7 +80,7 @@ func AcquireAndStoreFromMap(ctx context.Context, typ string, spec map[string]int
 func init() {
 	// oauth2 (and common aliases)
 	Register("oauth2", func(spec map[string]interface{}) (Method, error) {
-		var c aoauth2.Auth2Config
+		var c oauth2.Auth2Config
 		if err := mapstructure.Decode(spec, &c); err != nil {
 			return nil, err
 		}
@@ -88,7 +88,7 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		return aoauth2.Adapter{M: m}, nil
+		return oauth2.Adapter{M: m}, nil
 	})
 
 	// basic
