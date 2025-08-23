@@ -207,7 +207,7 @@ func init() {
 	v.SetEnvPrefix("APIMIGRATE")
 	v.AutomaticEnv()
 	// Bind flags via Cobra and then bind to Viper
-	rootCmd.PersistentFlags().String("config", v.GetString("config"), "path to a config yaml (like examples/keycloak-migration/config.yaml)")
+	rootCmd.PersistentFlags().String("config", v.GetString("config"), "path to a config yaml (like examples/keycloak_migration/config.yaml)")
 	rootCmd.PersistentFlags().BoolP("v", "v", v.GetBool("v"), "verbose output")
 	upCmd.Flags().Int("to", v.GetInt("to"), "target version to migrate up to (0 = all)")
 	downCmd.Flags().Int("to", v.GetInt("to"), "target version to migrate down to")

@@ -8,7 +8,7 @@ up:
       - name: Authorization
         value: "{{.gf_admin_auth}}"
     queries: []
-    body_file: "examples/grafana-migration/artifact/001_dashboard.json"
+    body_file: "examples/grafana_migration/artifact/001_dashboard.json"
   response:
     result_code: ["200"]
 

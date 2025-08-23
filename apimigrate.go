@@ -36,6 +36,9 @@ type AuthMethod = auth.Method
 
 type AuthFactory = auth.Factory
 
+// RegisterAuthProvider exposes custom auth provider registration for library users.
+func RegisterAuthProvider(typ string, f AuthFactory) { auth.Register(typ, f) }
+
 func AcquireAuthByProviderSpec(ctx context.Context, typ string, spec map[string]interface{}) (header, value, name string, err error) {
 	return auth.AcquireAndStoreFromMap(ctx, typ, spec)
 }
