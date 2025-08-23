@@ -23,7 +23,7 @@ func TestAcquireClientCredentials_Success(t *testing.T) {
 		ClientSec: "secret",
 		TokenURL:  srv.URL + "/token",
 	}
-	h, v, err := acquireClientCredentials(context.Background(), cfg)
+	h, v, err := (clientCredentialsMethod{c: cfg}).Acquire(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -36,7 +36,7 @@ func TestAcquireClientCredentials_Success(t *testing.T) {
 }
 
 func TestAcquireClientCredentials_ValidationErrors(t *testing.T) {
-	_, _, err := acquireClientCredentials(context.Background(), ClientCredentialsConfig{})
+	_, _, err := (clientCredentialsMethod{c: ClientCredentialsConfig{}}).Acquire(context.Background())
 	if err == nil {
 		t.Fatal("expected error for missing fields")
 	}

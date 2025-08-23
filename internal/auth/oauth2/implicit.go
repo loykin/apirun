@@ -1,8 +1,11 @@
 package oauth2
 
 import (
+	"context"
 	"errors"
 	"strings"
+
+	"github.com/loykin/apimigrate/internal/auth/common"
 )
 
 // ImplicitConfig holds configuration for the Implicit grant.
@@ -16,17 +19,18 @@ type ImplicitConfig struct {
 	Scopes      []string `mapstructure:"scopes"`
 }
 
-type implicitMethod struct{ c ImplicitConfig }
-
-func (m implicitMethod) Name() string { return m.c.Name }
-func (m implicitMethod) Acquire(_ Context) (string, string, error) {
-	return acquireImplicit(m.c)
+type implicitMethod struct {
+	c ImplicitConfig
 }
 
-func acquireImplicit(c ImplicitConfig) (string, string, error) {
-	clientID := strings.TrimSpace(c.ClientID)
-	authURL := strings.TrimSpace(c.AuthURL)
-	redirect := strings.TrimSpace(c.RedirectURL)
+func (m implicitMethod) Name() string {
+	return m.c.Name
+}
+
+func (m implicitMethod) Acquire(_ context.Context) (string, string, error) {
+	clientID := strings.TrimSpace(m.c.ClientID)
+	authURL := strings.TrimSpace(m.c.AuthURL)
+	redirect := strings.TrimSpace(m.c.RedirectURL)
 	if authURL == "" {
 		return "", "", errors.New("oauth2: auth_url is required for implicit grant")
 	}
@@ -41,9 +45,9 @@ func acquireImplicit(c ImplicitConfig) (string, string, error) {
 		"client_id=" + urlQueryEscape(clientID),
 		"redirect_uri=" + urlQueryEscape(redirect),
 	}
-	if len(c.Scopes) > 0 {
-		params = append(params, "scope="+urlQueryEscape(strings.Join(c.Scopes, " ")))
+	if len(m.c.Scopes) > 0 {
+		params = append(params, "scope="+urlQueryEscape(strings.Join(m.c.Scopes, " ")))
 	}
 	u := strings.TrimRight(authURL, "?") + "?" + strings.Join(params, "&")
-	return headerOrDefault(c.Header), u, nil
+	return common.HeaderOrDefault(m.c.Header), u, nil
 }

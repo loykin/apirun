@@ -1,6 +1,7 @@
 package oauth2
 
 import (
+	"context"
 	"testing"
 )
 
@@ -13,7 +14,7 @@ func TestAcquireImplicit_Success(t *testing.T) {
 		AuthURL:     "http://auth.local/realms/demo/protocol/openid-connect/auth",
 		Scopes:      []string{"openid", "profile"},
 	}
-	h, v, err := acquireImplicit(cfg)
+	h, v, err := (implicitMethod{c: cfg}).Acquire(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -29,7 +30,7 @@ func TestAcquireImplicit_Success(t *testing.T) {
 }
 
 func TestAcquireImplicit_ValidationErrors(t *testing.T) {
-	_, _, err := acquireImplicit(ImplicitConfig{})
+	_, _, err := (implicitMethod{c: ImplicitConfig{}}).Acquire(context.Background())
 	if err == nil {
 		t.Fatal("expected error for missing fields")
 	}

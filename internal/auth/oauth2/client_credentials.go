@@ -1,6 +1,7 @@
 package oauth2
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -18,17 +19,18 @@ type ClientCredentialsConfig struct {
 	Scopes    []string `mapstructure:"scopes"`
 }
 
-type clientCredentialsMethod struct{ c ClientCredentialsConfig }
-
-func (m clientCredentialsMethod) Name() string { return m.c.Name }
-func (m clientCredentialsMethod) Acquire(ctx Context) (string, string, error) {
-	return acquireClientCredentials(ctx, m.c)
+type clientCredentialsMethod struct {
+	c ClientCredentialsConfig
 }
 
-func acquireClientCredentials(ctx Context, c ClientCredentialsConfig) (string, string, error) {
-	clientID := strings.TrimSpace(c.ClientID)
-	clientSecret := strings.TrimSpace(c.ClientSec)
-	tokenURL := strings.TrimSpace(c.TokenURL)
+func (m clientCredentialsMethod) Name() string {
+	return m.c.Name
+}
+
+func (m clientCredentialsMethod) Acquire(ctx context.Context) (string, string, error) {
+	clientID := strings.TrimSpace(m.c.ClientID)
+	clientSecret := strings.TrimSpace(m.c.ClientSec)
+	tokenURL := strings.TrimSpace(m.c.TokenURL)
 	if tokenURL == "" {
 		return "", "", errors.New("oauth2: token_url is required for client_credentials grant")
 	}
@@ -39,12 +41,12 @@ func acquireClientCredentials(ctx Context, c ClientCredentialsConfig) (string, s
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		TokenURL:     tokenURL,
-		Scopes:       c.Scopes,
+		Scopes:       m.c.Scopes,
 		AuthStyle:    oauth2.AuthStyleInParams,
 	}
 	tok, err := cc.Token(ctx)
 	if err != nil {
 		return "", "", err
 	}
-	return normalizeOAuth2Token(c.Header, tok)
+	return normalizeOAuth2Token(m.c.Header, tok)
 }

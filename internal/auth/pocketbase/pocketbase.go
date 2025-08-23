@@ -2,6 +2,7 @@ package pocketbase
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -32,9 +33,16 @@ func AcquirePocketBase(ctx context.Context, pc Config) (string, string, error) {
 	if resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
 		return "", "", fmt.Errorf("pocketbase: login returned %d", resp.StatusCode())
 	}
-	// naive parse to find token
-	v := extractJSONField(resp.Body(), "token")
-	if strings.TrimSpace(v) == "" {
+	// parse JSON response to get token
+	type loginResp struct {
+		Token string `json:"token"`
+	}
+	var lr loginResp
+	if err := json.Unmarshal(resp.Body(), &lr); err != nil {
+		return "", "", fmt.Errorf("pocketbase: invalid JSON response: %w", err)
+	}
+	v := strings.TrimSpace(lr.Token)
+	if v == "" {
 		return "", "", errors.New("pocketbase: token not found in response")
 	}
 	return common.HeaderOrDefault(pc.Header), v, nil

@@ -31,7 +31,7 @@ func TestAcquirePassword_Success(t *testing.T) {
 		Username: "user",
 		Password: "pass",
 	}
-	h, v, err := acquirePassword(context.Background(), cfg)
+	h, v, err := (passwordMethod{c: cfg}).Acquire(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestAcquirePassword_Success(t *testing.T) {
 }
 
 func TestAcquirePassword_ValidationErrors(t *testing.T) {
-	_, _, err := acquirePassword(context.Background(), PasswordConfig{})
+	_, _, err := (passwordMethod{c: PasswordConfig{}}).Acquire(context.Background())
 	if err == nil {
 		t.Fatal("expected error for missing fields")
 	}

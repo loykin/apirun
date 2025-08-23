@@ -1,6 +1,7 @@
 package oauth2
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -20,19 +21,20 @@ type PasswordConfig struct {
 	Scopes    []string `mapstructure:"scopes"`
 }
 
-type passwordMethod struct{ c PasswordConfig }
-
-func (m passwordMethod) Name() string { return m.c.Name }
-func (m passwordMethod) Acquire(ctx Context) (string, string, error) {
-	return acquirePassword(ctx, m.c)
+type passwordMethod struct {
+	c PasswordConfig
 }
 
-func acquirePassword(ctx Context, c PasswordConfig) (string, string, error) {
-	clientID := strings.TrimSpace(c.ClientID)
-	username := strings.TrimSpace(c.Username)
-	password := strings.TrimSpace(c.Password)
-	authURL := strings.TrimSpace(c.AuthURL)
-	tokenURL := strings.TrimSpace(c.TokenURL)
+func (m passwordMethod) Name() string {
+	return m.c.Name
+}
+
+func (m passwordMethod) Acquire(ctx context.Context) (string, string, error) {
+	clientID := strings.TrimSpace(m.c.ClientID)
+	username := strings.TrimSpace(m.c.Username)
+	password := strings.TrimSpace(m.c.Password)
+	authURL := strings.TrimSpace(m.c.AuthURL)
+	tokenURL := strings.TrimSpace(m.c.TokenURL)
 	if tokenURL == "" {
 		return "", "", errors.New("oauth2: token_url is required for password grant")
 	}
@@ -44,17 +46,17 @@ func acquirePassword(ctx Context, c PasswordConfig) (string, string, error) {
 	}
 	ocfg := &oauth2.Config{
 		ClientID:     clientID,
-		ClientSecret: strings.TrimSpace(c.ClientSec),
+		ClientSecret: strings.TrimSpace(m.c.ClientSec),
 		Endpoint: oauth2.Endpoint{
 			AuthURL:   authURL,
 			TokenURL:  tokenURL,
 			AuthStyle: oauth2.AuthStyleInParams,
 		},
-		Scopes: c.Scopes,
+		Scopes: m.c.Scopes,
 	}
 	tok, err := ocfg.PasswordCredentialsToken(ctx, username, password)
 	if err != nil {
 		return "", "", err
 	}
-	return normalizeOAuth2Token(c.Header, tok)
+	return normalizeOAuth2Token(m.c.Header, tok)
 }
