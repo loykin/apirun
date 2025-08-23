@@ -24,7 +24,7 @@ func TestRequest_Render_InjectsTokenFromAuthStore_Authorization(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	up := UpSpec{
+	up := Up{
 		Env:      env.Env{},
 		Request:  RequestSpec{AuthName: "keycloak"},
 		Response: ResponseSpec{ResultCode: []string{"200"}},
@@ -48,7 +48,7 @@ func TestRequest_Render_InjectsCustomHeaderFromAuthStore(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	up := UpSpec{
+	up := Up{
 		Request:  RequestSpec{AuthName: "pocketbase"},
 		Response: ResponseSpec{ResultCode: []string{"200"}},
 	}

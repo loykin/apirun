@@ -17,7 +17,7 @@ func TestExecuteUp_NoResultCode_AllSuccess(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	up := UpSpec{
+	up := Up{
 		Name:    "startup",
 		Env:     env.Env{},
 		Request: RequestSpec{},

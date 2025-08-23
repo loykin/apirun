@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	env "github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/internal/env"
 	"github.com/tidwall/gjson"
 )
 
@@ -51,8 +51,7 @@ func (r ResponseSpec) ValidateStatus(status int, env env.Env) error {
 }
 
 // ExtractEnv extracts variables from a JSON response body using EnvFrom mappings.
-// Paths are evaluated with tidwall/gjson. For backward compatibility, common
-// JSONPath forms like "$[0].abc" or "$.a.b" are converted to gjson syntax.
+// Paths are evaluated with tidwall/gjson and are expected to be valid gjson paths.
 func (r ResponseSpec) ExtractEnv(body []byte) map[string]string {
 	extracted := map[string]string{}
 	if len(r.EnvFrom) == 0 || len(body) == 0 {
@@ -61,72 +60,14 @@ func (r ResponseSpec) ExtractEnv(body []byte) map[string]string {
 
 	parsed := gjson.ParseBytes(body)
 	for key, path := range r.EnvFrom {
-		if path == "" {
+		p := strings.TrimSpace(path)
+		if p == "" {
 			continue
 		}
-		gp := toGJSONPath(path)
-		res := parsed.Get(gp)
+		res := parsed.Get(p)
 		if res.Exists() {
 			extracted[key] = anyToString(res.Value())
 		}
 	}
 	return extracted
-}
-
-// toGJSONPath converts a subset of common JSONPath-like expressions to gjson syntax.
-// Supported conversions:
-// - Remove leading "$" or "$."
-// - Convert bracket numeric selectors like [0] to .0
-// - Convert bracket quoted keys like ['name'] to .name
-// It is best-effort and only intended to cover simple use cases in this project.
-func toGJSONPath(p string) string {
-	if p == "" {
-		return p
-	}
-	s := strings.TrimSpace(p)
-	if strings.HasPrefix(s, "$.") {
-		s = s[2:]
-	} else if strings.HasPrefix(s, "$") {
-		s = s[1:]
-	}
-	// Replace bracket segments [0] or ['key'] iteratively
-	for {
-		start := strings.Index(s, "[")
-		if start == -1 {
-			break
-		}
-		endRel := strings.Index(s[start:], "]")
-		if endRel == -1 {
-			break
-		}
-		end := start + endRel
-		inner := s[start+1 : end]
-		repl := ""
-		if isDigits(inner) {
-			repl = "." + inner
-		} else if len(inner) >= 2 && inner[0] == '\'' && inner[len(inner)-1] == '\'' {
-			key := inner[1 : len(inner)-1]
-			repl = "." + key
-		} else {
-			// Unknown pattern; stop converting to avoid mangling
-			break
-		}
-		s = s[:start] + repl + s[end+1:]
-	}
-	// Remove leading dot if present
-	s = strings.TrimPrefix(s, ".")
-	return s
-}
-
-func isDigits(s string) bool {
-	if s == "" {
-		return false
-	}
-	for i := 0; i < len(s); i++ {
-		ch := s[i]
-		if ch < '0' || ch > '9' {
-			return false
-		}
-	}
-	return true
 }

@@ -40,7 +40,7 @@ down:
     response:
       result_code: ["200"]
       env_from:
-        user_id: "$[0].id"
+        user_id: "0.id"
   method: DELETE
   url: "{{.kc_base}}/admin/realms/{{.realm}}/users/{{.user_id}}"
   headers: []

@@ -17,10 +17,6 @@ type Up struct {
 	Response ResponseSpec `yaml:"response" json:"response"`
 }
 
-// UpSpec is kept as an alias for backward compatibility with existing callers/tests.
-// Methods defined on Up are available on UpSpec as well.
-type UpSpec = Up
-
 // Execute runs this Up specification against the provided HTTP method and URL.
 // It performs templating, sends the request, validates the response and extracts env.
 // If RequestSpec.Method or RequestSpec.URL are provided, they override the method/url

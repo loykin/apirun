@@ -4,8 +4,8 @@ import (
 	"os"
 	"strings"
 
-	auth "github.com/loykin/apimigrate/internal/auth"
-	env "github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/internal/auth"
+	"github.com/loykin/apimigrate/internal/env"
 )
 
 type RequestSpec struct {
