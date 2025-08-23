@@ -12,8 +12,8 @@ import (
 type ResponseSpec struct {
 	// ResultCode entries may be integers or go-template strings (e.g., {{.result_code}}) in YAML.
 	// We load them as strings to allow templating at execution time.
-	ResultCode []string          `yaml:"result_code" json:"result_code"`
-	EnvFrom    map[string]string `yaml:"env_from" json:"env_from"`
+	ResultCode []string          `yaml:"result_code"`
+	EnvFrom    map[string]string `yaml:"env_from"`
 }
 
 // AllowedStatus renders ResultCode against provided env vars and returns a set of allowed codes.

@@ -2,14 +2,14 @@ package task
 
 // Header represents a single header key-value pair.
 type Header struct {
-	Name  string `yaml:"name" json:"name"`
-	Value string `yaml:"value" json:"value"`
+	Name  string `yaml:"name"`
+	Value string `yaml:"value"`
 }
 
 // Query represents a single query parameter key-value pair.
 type Query struct {
-	Name  string `yaml:"name" json:"name"`
-	Value string `yaml:"value" json:"value"`
+	Name  string `yaml:"name"`
+	Value string `yaml:"value"`
 }
 
 // ExecResult contains the outcome of an execution of Up.

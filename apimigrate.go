@@ -47,7 +47,7 @@ func AcquireAuthByProviderSpec(ctx context.Context, typ string, spec map[string]
 type Store = store.Store
 
 // StoreDBFileName is the default sqlite filename used for migration history.
-const StoreDBFileName = store.StoreDBFileName
+const StoreDBFileName = store.DbFileName
 
 // OpenStore opens (and initializes) the sqlite store at the given path.
 func OpenStore(path string) (*Store, error) { return store.Open(path) }

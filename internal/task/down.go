@@ -12,15 +12,15 @@ import (
 )
 
 type Down struct {
-	Name    string    `yaml:"name" json:"name"`
-	Auth    string    `yaml:"auth" json:"auth"`
-	Env     env.Env   `yaml:"env" json:"env"`
-	Method  string    `yaml:"method" json:"method"`
-	URL     string    `yaml:"url" json:"url"`
-	Headers []Header  `yaml:"headers" json:"headers"`
-	Queries []Query   `yaml:"queries" json:"queries"`
-	Body    string    `yaml:"body" json:"body"`
-	Find    *FindSpec `yaml:"find" json:"find"`
+	Name    string    `yaml:"name"`
+	Auth    string    `yaml:"auth"`
+	Env     env.Env   `yaml:"env"`
+	Method  string    `yaml:"method"`
+	URL     string    `yaml:"url"`
+	Headers []Header  `yaml:"headers"`
+	Queries []Query   `yaml:"queries"`
+	Body    string    `yaml:"body"`
+	Find    *FindSpec `yaml:"find"`
 }
 
 // FindSpec is an optional preliminary step for Down execution.
@@ -30,8 +30,8 @@ type Down struct {
 // If ResponseSpec.ResultCode is empty, all statuses are accepted.
 // Only JSON body extraction is supported (like Up.Response).
 type FindSpec struct {
-	Request  RequestSpec  `yaml:"request" json:"request"`
-	Response ResponseSpec `yaml:"response" json:"response"`
+	Request  RequestSpec  `yaml:"request"`
+	Response ResponseSpec `yaml:"response"`
 }
 
 // Execute performs optional Find step then the main HTTP call for Down.

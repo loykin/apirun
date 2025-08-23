@@ -11,10 +11,10 @@ import (
 )
 
 type Up struct {
-	Name     string       `yaml:"name" json:"name"`
-	Env      env.Env      `yaml:"env" json:"env"`
-	Request  RequestSpec  `yaml:"request" json:"request"`
-	Response ResponseSpec `yaml:"response" json:"response"`
+	Name     string       `yaml:"name"`
+	Env      env.Env      `yaml:"env"`
+	Request  RequestSpec  `yaml:"request"`
+	Response ResponseSpec `yaml:"response"`
 }
 
 // Execute runs this Up specification against the provided HTTP method and URL.

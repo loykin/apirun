@@ -5,8 +5,8 @@ import (
 )
 
 type Task struct {
-	Up   Up   `yaml:"up" json:"up"`
-	Down Down `yaml:"down" json:"down"`
+	Up   Up   `yaml:"up"`
+	Down Down `yaml:"down"`
 }
 
 // UpExecute delegates to the Up spec executor.

@@ -9,13 +9,13 @@ import (
 )
 
 type RequestSpec struct {
-	AuthName string   `yaml:"auth_name" json:"auth_name"`
-	Method   string   `yaml:"method" json:"method"`
-	URL      string   `yaml:"url" json:"url"`
-	Headers  []Header `yaml:"headers" json:"headers"`
-	Queries  []Query  `yaml:"queries" json:"queries"`
-	Body     string   `yaml:"body" json:"body"`
-	BodyFile string   `yaml:"body_file" json:"body_file"`
+	AuthName string   `yaml:"auth_name"`
+	Method   string   `yaml:"method"`
+	URL      string   `yaml:"url"`
+	Headers  []Header `yaml:"headers"`
+	Queries  []Query  `yaml:"queries"`
+	Body     string   `yaml:"body"`
+	BodyFile string   `yaml:"body_file"`
 }
 
 // Render builds headers, query params and body applying Go template rendering using Env.
