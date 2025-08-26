@@ -7,6 +7,7 @@ A lightweight Go library and CLI for running API-driven migrations defined in YA
 - Auth: built-in providers (oauth2, basic, pocketbase) and pluggable registry for custom providers.
 
 ## Features
+
 - Versioned up/down migrations with persisted history (SQLite, `apimigrate.db`).
 - Request templating with simple Go templates using layered environment variables.
 - Response validation via allowed HTTP status codes.
@@ -17,36 +18,53 @@ A lightweight Go library and CLI for running API-driven migrations defined in YA
 ## Install
 
 - Library:
-  go get github.com/loykin/apimigrate
+
+```bash
+go get github.com/loykin/apimigrate
+```
 
 - CLI (from source):
-  go build -o apimigrate ./cmd/apimigrate
 
-You can also run the CLI without building: go run ./cmd/apimigrate
+```bash
+go build -o apimigrate ./cmd/apimigrate
+```
+
+You can also run the CLI without building:
+
+```bash
+go run ./cmd/apimigrate
+```
 
 ## Quick start (CLI)
 
 - Run migrations in a directory (defaults to examples/migration if not set):
-  go run ./cmd/apimigrate --config examples/keycloak_migration/config.yaml -v
+
+```bash
+go run ./cmd/apimigrate --config examples/keycloak_migration/config.yaml -v
+```
 
 - See current status / migrate specific versions:
-  go run ./cmd/apimigrate up --to 0
-  go run ./cmd/apimigrate down --to 0
-  go run ./cmd/apimigrate status
+
+```bash
+go run ./cmd/apimigrate up --to 0
+go run ./cmd/apimigrate down --to 0
+go run ./cmd/apimigrate status
+```
 
 Config example (YAML) supports:
 - auth: acquire and store tokens via providers, then inject by logical name in tasks.
 - migrate_dir: path to migrations.
 - env: global key/value variables used in templating.
 
-See: examples/keycloak_migration/config.yaml and examples/grafana_migration/config.yaml
+See: `examples/keycloak_migration/config.yaml` and `examples/grafana_migration/config.yaml`
 
 ## Migration file format
 
-Each migration file contains an up and optionally a down section. Requests support templated fields; responses can validate status and extract values via gjson paths.
+Each migration file contains an `up` and optionally a `down` section. Requests support templated fields; responses can validate status and extract values via gjson paths.
 
 Example snippet:
 
+```yaml
 up:
   name: create user
   env:
@@ -75,13 +93,15 @@ down:
         user_id: "0.id"   # gjson path into array element
   method: DELETE
   url: "{{.kc_base}}/admin/realms/{{.realm}}/users/{{.user_id}}"
+```
 
 Notes:
-- result_code empty means any HTTP status is allowed.
-- env_from uses gjson paths (e.g., id, 0.id, data.items.0.id).
+- Empty `result_code` means any HTTP status is allowed.
+- `env_from` uses gjson paths (e.g., `id`, `0.id`, `data.items.0.id`).
 
 ## Programmatic usage (library)
 
+```go
 package main
 
 import (
@@ -97,6 +117,7 @@ func main() {
   if err != nil { panic(err) }
   _ = results
 }
+```
 
 ## Authentication providers
 
@@ -105,7 +126,7 @@ Built-in providers:
 - basic
 - pocketbase
 
-They can be configured via config.yaml (see examples) or acquired programmatically using the public API.
+They can be configured via `config.yaml` (see examples) or acquired programmatically using the public API.
 
 ### Registering a custom provider (for library users)
 
@@ -113,28 +134,41 @@ Use the re-exported API from the root package.
 
 - Register your factory:
 
+```go
 apimigrate.RegisterAuthProvider("demo", func(spec map[string]interface{}) (apimigrate.AuthMethod, error) { /* ... */ })
+```
 
 - Acquire and store token by provider spec:
 
+```go
 h, v, name, err := apimigrate.AcquireAuthByProviderSpec(ctx, "demo", map[string]interface{}{"header": "X-Demo", "value": "ok"})
+```
 
 A complete runnable example is provided:
-- examples/auth_registry
+- `examples/auth_registry`
 
 Run it:
-  go run ./examples/auth_registry
+
+```bash
+go run ./examples/auth_registry
+```
 
 ## Examples
-- examples/keycloak_migration: Keycloak realm/user provisioning.
-- examples/grafana_migration: Dashboard/user import for Grafana.
-- examples/embedded: Minimal example running a single migration inline.
-- examples/auth_registry: Demonstrates custom auth provider registration.
+
+- `examples/keycloak_migration`: Keycloak realm/user provisioning.
+- `examples/grafana_migration`: Dashboard/user import for Grafana.
+- `examples/embedded`: Minimal example running a single migration inline.
+- `examples/auth_registry`: Demonstrates custom auth provider registration.
 
 Each example directory contains its own README or config and migration files.
 
 ## Development
-- Run tests: go test ./...
+
+- Run tests:
+
+```bash
+go test ./...
+```
 
 ## License
 
