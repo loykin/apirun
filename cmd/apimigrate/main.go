@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -34,7 +33,7 @@ var rootCmd = &cobra.Command{
 			if verbose {
 				log.Printf("loading config from %s", configPath)
 			}
-			mDir, envFromCfg, err := loadConfigAndAcquire(ctx, configPath, verbose)
+			mDir, envFromCfg, saveBody, err := loadConfigAndAcquire(ctx, configPath, verbose)
 			if err != nil {
 				return err
 			}
@@ -44,11 +43,12 @@ var rootCmd = &cobra.Command{
 			if len(envFromCfg.Global) > 0 {
 				baseEnv = envFromCfg
 			}
+			ctx = context.WithValue(ctx, "apimigrate.save_response_body", saveBody)
 		}
 
 		// If dir wasn't set by config, fall back to the conventional example path
 		if strings.TrimSpace(dir) == "" {
-			dir = "examples/migration"
+			dir = "./migration"
 		}
 		if verbose {
 			log.Printf("running migrations in %s (versioned, will be recorded)", dir)
@@ -81,7 +81,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	// Defaults
 	v := viper.GetViper()
-	v.SetDefault("config", "")
+	v.SetDefault("config", "./config/config.yaml")
 	v.SetDefault("v", true)
 	v.SetDefault("to", 0)
 
@@ -111,15 +111,16 @@ func main() {
 	}
 }
 
-func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (string, apimigrate.Env, error) {
+func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (string, apimigrate.Env, bool, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return "", apimigrate.Env{Global: map[string]string{}}, err
+		return "", apimigrate.Env{Global: map[string]string{}}, false, err
 	}
 	defer func() { _ = f.Close() }()
 	dec := yaml.NewDecoder(f)
 	migrateDir := ""
 	base := apimigrate.Env{Global: map[string]string{}}
+	saveBody := false
 	for {
 		var raw map[string]interface{}
 		if err := dec.Decode(&raw); err != nil {
@@ -129,23 +130,25 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 			if err.Error() == "EOF" { // yaml v3 returns io.EOF but comparing string to avoid new import
 				break
 			}
-			return "", base, err
+			return "", base, false, err
 		}
 		// Decode with mapstructure into our strongly typed doc
 		var doc ConfigDoc
 		if err := mapstructure.Decode(raw, &doc); err != nil {
-			return "", base, err
+			return "", base, false, err
 		}
+		// read store options
+		saveBody = doc.Store.SaveResponseBody
 		// auth: new shape is an array of providers under doc.Auth
 		if len(doc.Auth) > 0 {
 			for i, a := range doc.Auth {
 				pt := strings.TrimSpace(a.Type)
 				if pt == "" {
-					return "", base, fmt.Errorf("auth[%d]: missing type", i)
+					return "", base, false, fmt.Errorf("auth[%d]: missing type", i)
 				}
 				h, _, name, err := apimigrate.AcquireAuthByProviderSpec(ctx, pt, a.Config)
 				if err != nil {
-					return "", base, fmt.Errorf("auth[%d] type=%s: acquire failed: %w", i, pt, err)
+					return "", base, false, fmt.Errorf("auth[%d] type=%s: acquire failed: %w", i, pt, err)
 				}
 				if verbose {
 					log.Printf("auth %s: using header %s", strings.TrimSpace(name), h)
@@ -154,11 +157,8 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 		}
 		// migrate_dir (optional)
 		if strings.TrimSpace(doc.MigrateDir) != "" {
-			md := doc.MigrateDir
-			if !filepath.IsAbs(md) {
-				md = filepath.Join(filepath.Dir(path), md)
-			}
-			migrateDir = md
+			// Use as provided: absolute paths unchanged; relative paths are relative to current working directory
+			migrateDir = strings.TrimSpace(doc.MigrateDir)
 		}
 		// env (optional)
 		for _, kv := range doc.Env {
@@ -176,5 +176,5 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 		}
 	}
 	// Do not treat lack of auth as an error to allow pure env/migrate_dir configs
-	return migrateDir, base, nil
+	return migrateDir, base, saveBody, nil
 }

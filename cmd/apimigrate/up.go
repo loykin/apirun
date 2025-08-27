@@ -25,7 +25,7 @@ var upCmd = &cobra.Command{
 			if verbose {
 				log.Printf("loading config from %s", configPath)
 			}
-			mDir, envFromCfg, err := loadConfigAndAcquire(ctx, configPath, verbose)
+			mDir, envFromCfg, saveBody, err := loadConfigAndAcquire(ctx, configPath, verbose)
 			if err != nil {
 				return err
 			}
@@ -35,9 +35,10 @@ var upCmd = &cobra.Command{
 			if len(envFromCfg.Global) > 0 {
 				baseEnv = envFromCfg
 			}
+			ctx = context.WithValue(ctx, "apimigrate.save_response_body", saveBody)
 		}
 		if strings.TrimSpace(dir) == "" {
-			dir = "examples/migration"
+			dir = "./config/migration"
 		}
 		if verbose {
 			log.Printf("up migrations in %s to %d", dir, to)

@@ -69,12 +69,13 @@ func (u Up) Execute(ctx context.Context, method, url string) (*ExecResult, error
 	}
 
 	status := resp.StatusCode()
+	bodyBytes := resp.Body()
 	// Validate status via ResponseSpec method
 	if err := u.Response.ValidateStatus(status, u.Env); err != nil {
-		return &ExecResult{StatusCode: status, ExtractedEnv: map[string]string{}}, err
+		return &ExecResult{StatusCode: status, ExtractedEnv: map[string]string{}, ResponseBody: string(bodyBytes)}, err
 	}
 
 	// Extract env from response body via ResponseSpec method
-	extracted := u.Response.ExtractEnv(resp.Body())
-	return &ExecResult{StatusCode: status, ExtractedEnv: extracted}, nil
+	extracted := u.Response.ExtractEnv(bodyBytes)
+	return &ExecResult{StatusCode: status, ExtractedEnv: extracted, ResponseBody: string(bodyBytes)}, nil
 }

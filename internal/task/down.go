@@ -181,8 +181,9 @@ func (d Down) Execute(ctx context.Context) (*ExecResult, error) {
 		return nil, err
 	}
 	status := resp.StatusCode()
+	bodyBytes := resp.Body()
 	if status < 200 || status >= 300 {
-		return &ExecResult{StatusCode: status, ExtractedEnv: map[string]string{}}, fmt.Errorf("down failed with status %d", status)
+		return &ExecResult{StatusCode: status, ExtractedEnv: map[string]string{}, ResponseBody: string(bodyBytes)}, fmt.Errorf("down failed with status %d", status)
 	}
-	return &ExecResult{StatusCode: status, ExtractedEnv: map[string]string{}}, nil
+	return &ExecResult{StatusCode: status, ExtractedEnv: map[string]string{}, ResponseBody: string(bodyBytes)}, nil
 }

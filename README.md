@@ -37,26 +37,47 @@ go run ./cmd/apimigrate
 
 ## Quick start (CLI)
 
-- Run migrations in a directory (defaults to examples/migration if not set):
+Run immediately with the built-in example config and migration directory:
+
+```bash
+# from the repo root
+go run ./cmd/apimigrate
+```
+
+What this does by default:
+- Loads config from ./config/config.yaml
+- Runs versioned migrations found under ./config/migration
+- Records migration history in ./config/migration/apimigrate.db
+
+There is a sample migration at config/migration/001_sample.yaml that calls https://example.com and should succeed out of the box.
+
+Other useful commands:
+
+```bash
+# Apply up to a specific version (0 = all)
+go run ./cmd/apimigrate up --to 0
+
+# Roll back down to a target version (e.g., 0 to roll back all)
+go run ./cmd/apimigrate down --to 0
+
+# Show current and applied versions
+go run ./cmd/apimigrate status
+```
+
+Customize:
+- Use --config to point to a different YAML file (it must include migrate_dir):
 
 ```bash
 go run ./cmd/apimigrate --config examples/keycloak_migration/config.yaml -v
 ```
 
-- See current status / migrate specific versions:
-
-```bash
-go run ./cmd/apimigrate up --to 0
-go run ./cmd/apimigrate down --to 0
-go run ./cmd/apimigrate status
-```
-
-Config example (YAML) supports:
-- auth: acquire and store tokens via providers, then inject by logical name in tasks.
-- migrate_dir: path to migrations.
+Config YAML supports:
+- auth: acquire and store tokens via providers, injected by logical name in tasks (request.auth_name or down.auth).
+- migrate_dir: path to migrations (001_*.yaml, 002_*.yaml, ...).
 - env: global key/value variables used in templating.
+- store.save_response_body: when true, also stores response bodies in migration history.
 
-See: `examples/keycloak_migration/config.yaml` and `examples/grafana_migration/config.yaml`
+See also: `examples/keycloak_migration/config.yaml` and `examples/grafana_migration/config.yaml`
 
 ## Migration file format
 

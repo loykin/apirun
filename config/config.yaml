@@ -1,0 +1,56 @@
+# Sample configuration for apimigrate
+#
+# Notes:
+# - auth: define one or more auth providers as a list. Each item must have
+#   a provider type (e.g., "basic", "oauth2", "pocketbase") and a nested
+#   config object with provider-specific fields. Tokens are acquired at startup
+#   and stored under the logical name for use in migrations via auth_name.
+# - migrate_dir: where your versioned migration YAML files live.
+# - env: global key/value variables available to all migrations. You can also
+#   pull values from environment variables via valueFromEnv.
+# - store.save_response_body: when true, response bodies are recorded to the
+#   migration_runs table for observability; when false, only status codes are stored.
+---
+# Example: two auth providers
+auth:
+  # Basic auth provider (sends Authorization: Basic <base64>)
+  - type: basic
+    config:
+      name: example_basic          # referenced by request.auth_name in migrations
+      username: admin
+      password: admin
+
+  # OAuth2 password grant (Keycloak/dev friendly)
+  # Uncomment and adjust if needed
+  # - type: oauth2
+  #   config:
+  #     name: keycloak
+  #     grant_type: password
+  #     grant_config:
+  #       client_id: admin-cli
+  #       # client_secret: ""
+  #       username: admin
+  #       password: root
+  #       token_url: http://localhost:8080/realms/master/protocol/openid-connect/token
+  #       auth_url:  http://localhost:8080/realms/master/protocol/openid-connect/auth
+
+# Directory that contains your versioned migrations (001_*.yaml, 002_*.yaml, ...)
+# Point this to one of the example migration folders or your own.
+migrate_dir: ./config/migration
+
+# Global environment variables available to all migrations
+env:
+  - name: api_base
+    value: http://localhost:3000
+  - name: gf_admin_auth
+    # Authorization header value for Grafana admin; used if not relying on auth_name
+    value: Basic YWRtaW46YWRtaW4=
+  - name: example_user
+    value: sample
+#  - name: example_from_os
+#    valueFromEnv: EXAMPLE_FROM_OS
+
+# Store settings
+store:
+  # Whether to record response bodies alongside status codes in migration history
+  save_response_body: false

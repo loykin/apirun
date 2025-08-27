@@ -25,7 +25,7 @@ var statusCmd = &cobra.Command{
 			if verbose {
 				log.Printf("loading config from %s", configPath)
 			}
-			mDir, _, err := loadConfigAndAcquire(ctx, configPath, verbose)
+			mDir, _, _, err := loadConfigAndAcquire(ctx, configPath, verbose)
 			if err != nil {
 				log.Printf("warning: failed to load config: %v", err)
 			} else {
@@ -35,7 +35,7 @@ var statusCmd = &cobra.Command{
 			}
 		}
 		if strings.TrimSpace(dir) == "" {
-			dir = "examples/migration"
+			dir = "./config/migration"
 		}
 		dbPath := filepath.Join(dir, apimigrate.StoreDBFileName)
 		st, err := apimigrate.OpenStore(dbPath)

@@ -17,4 +17,6 @@ type ExecResult struct {
 	StatusCode int
 	// Extracted environment variables as per EnvFrom mapping.
 	ExtractedEnv map[string]string
+	// Raw response body as a string; may be empty on network error.
+	ResponseBody string
 }

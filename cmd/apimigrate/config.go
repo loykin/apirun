@@ -14,8 +14,13 @@ type EnvConfig struct {
 	ValueFromEnv string `mapstructure:"valueFromEnv"`
 }
 
+type StoreConfig struct {
+	SaveResponseBody bool `mapstructure:"save_response_body"`
+}
+
 type ConfigDoc struct {
 	Auth       []AuthConfig `mapstructure:"auth"`
 	MigrateDir string       `mapstructure:"migrate_dir"`
 	Env        []EnvConfig  `mapstructure:"env"`
+	Store      StoreConfig  `mapstructure:"store"`
 }

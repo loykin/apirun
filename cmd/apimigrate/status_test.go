@@ -44,8 +44,8 @@ func captureOutput(t *testing.T, f func()) string {
 func TestStatusCmd_EmptyStore_PrintsZeroAndEmpty(t *testing.T) {
 	tdir := t.TempDir()
 
-	// Minimal config pointing to temp migrate dir
-	cfgPath := writeFile(t, tdir, "config.yaml", "---\nmigrate_dir: .\n")
+	// Minimal config pointing to temp migrate dir (absolute path)
+	cfgPath := writeFile(t, tdir, "config.yaml", "---\nmigrate_dir: "+tdir+"\n")
 
 	// Configure viper
 	v := viper.GetViper()
@@ -81,8 +81,8 @@ func TestStatusCmd_WithAppliedVersions_PrintsCurrentAndList(t *testing.T) {
 	}
 	_ = st.Close()
 
-	// Config pointing to this migrate dir
-	cfgPath := writeFile(t, tdir, "config.yaml", "---\nmigrate_dir: .\n")
+	// Config pointing to this migrate dir (absolute path)
+	cfgPath := writeFile(t, tdir, "config.yaml", "---\nmigrate_dir: "+tdir+"\n")
 
 	v := viper.GetViper()
 	v.Set("config", cfgPath)

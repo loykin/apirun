@@ -22,6 +22,22 @@ type Store struct {
 	DB *sql.DB
 }
 
+// RecordRun inserts a row into migration_runs logging the status and optional response body.
+func (s *Store) RecordRun(version int, direction string, statusCode int, body *string) error {
+	if s == nil || s.DB == nil {
+		return errors.New("nil store")
+	}
+	var b interface{}
+	if body != nil {
+		b = *body
+	} else {
+		b = nil
+	}
+	_, err := s.DB.Exec(`INSERT INTO migration_runs(version, direction, status_code, body, ran_at) VALUES(?, ?, ?, ?, ?)`,
+		version, direction, statusCode, b, time.Now().UTC().Format(time.RFC3339))
+	return err
+}
+
 func Open(dbPath string) (*Store, error) {
 	dsn := fmt.Sprintf("file:%s?_busy_timeout=5000&_fk=1", dbPath)
 	db, err := sql.Open("sqlite", dsn)
@@ -47,6 +63,17 @@ func (s *Store) EnsureSchema() error {
 	_, err := s.DB.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
 		version INTEGER PRIMARY KEY,
 		applied_at TEXT NOT NULL
+	)`)
+	if err != nil {
+		return err
+	}
+	_, err = s.DB.Exec(`CREATE TABLE IF NOT EXISTS migration_runs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		version INTEGER NOT NULL,
+		direction TEXT NOT NULL,
+		status_code INTEGER NOT NULL,
+		body TEXT,
+		ran_at TEXT NOT NULL
 	)`)
 	return err
 }

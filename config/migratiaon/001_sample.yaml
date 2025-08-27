@@ -1,0 +1,25 @@
+# Sample migration: simple GET request to a public test site
+# This demonstrates the minimal structure of a migration file.
+
+up:
+  name: sample-get-example
+  # Local env variables (optional); merged over globals from config
+  env: { }
+  request:
+    method: GET
+    url: https://example.com
+    headers:
+      - name: User-Agent
+        value: apimigrate-sample
+  response:
+    # Accept HTTP 200 as success
+    result_code: ["200"]
+    # You can extract values from JSON bodies using EnvFrom, e.g.:
+    # env_from:
+    #   example: path.to.value
+
+# down:  # Optional rollback step
+#   name: sample-down
+#   method: DELETE
+#   url: https://example.com/resource/{{.id}}
+#   # Only include a down section if you have a reversible action.

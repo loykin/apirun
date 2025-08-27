@@ -99,6 +99,21 @@ func MigrateUp(ctx context.Context, dir string, baseEnv env.Env, targetVersion i
 		}
 		res, err := t.UpExecute(ctx, "", "")
 		results = append(results, &ExecWithVersion{Version: f.index, Result: res})
+		// record run regardless of success if we have a result
+		if res != nil {
+			save := false
+			if v := ctx.Value("apimigrate.save_response_body"); v != nil {
+				if b, ok := v.(bool); ok {
+					save = b
+				}
+			}
+			var bodyPtr *string
+			if save {
+				b := res.ResponseBody
+				bodyPtr = &b
+			}
+			_ = st.RecordRun(f.index, "up", res.StatusCode, bodyPtr)
+		}
 		if err != nil {
 			return results, fmt.Errorf("migration %s failed: %w", f.name, err)
 		}
@@ -176,6 +191,20 @@ func MigrateDown(ctx context.Context, dir string, baseEnv env.Env, targetVersion
 		}
 		res, err := t.DownExecute(ctx, "", "")
 		results = append(results, &ExecWithVersion{Version: v, Result: res})
+		if res != nil {
+			save := false
+			if vflag := ctx.Value("apimigrate.save_response_body"); vflag != nil {
+				if b, ok := vflag.(bool); ok {
+					save = b
+				}
+			}
+			var bodyPtr *string
+			if save {
+				b := res.ResponseBody
+				bodyPtr = &b
+			}
+			_ = st.RecordRun(v, "down", res.StatusCode, bodyPtr)
+		}
 		if err != nil {
 			return results, fmt.Errorf("down %s failed: %w", f.name, err)
 		}

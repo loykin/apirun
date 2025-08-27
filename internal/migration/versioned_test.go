@@ -2,6 +2,8 @@ package migration
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/internal/store"
 )
 
 // Ensures that MigrateDown calls Task.DownExecute (delegation) and rolls back in reverse order.
@@ -55,5 +58,70 @@ func TestMigrateDown_DelegatesAndReverseOrder(t *testing.T) {
 	}
 	if len(received) != 2 || received[0] != "2" || received[1] != "1" {
 		t.Fatalf("expected reverse order [2,1], got %v", received)
+	}
+}
+
+// Verify that versioned migrator records status_code and optional body in migration_runs for MigrateUp.
+func TestMigrateUp_RecordsStatusAndBody(t *testing.T) {
+	for _, save := range []bool{false, true} {
+		t.Run(fmt.Sprintf("saveBody=%v", save), func(t *testing.T) {
+			// HTTP server returns 200 and a small JSON body
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(200)
+				_, _ = w.Write([]byte(`{"ok":true,"msg":"hello"}`))
+			}))
+			defer srv.Close()
+
+			dir := t.TempDir()
+			mig := "up:\n  name: only\n  env: { }\n  request:\n    method: GET\n    url: " + srv.URL + "\n  response:\n    result_code: [\"200\"]\n"
+			if err := os.WriteFile(filepath.Join(dir, "001_only.yaml"), []byte(mig), 0o600); err != nil {
+				t.Fatalf("write mig: %v", err)
+			}
+			ctx := context.WithValue(context.Background(), "apimigrate.save_response_body", save)
+			base := env.Env{Global: map[string]string{}}
+			if _, err := MigrateUp(ctx, dir, base, 0); err != nil {
+				t.Fatalf("migrate up: %v", err)
+			}
+
+			// Inspect migration_runs
+			dbPath := filepath.Join(dir, store.DbFileName)
+			st, err := store.Open(dbPath)
+			if err != nil {
+				t.Fatalf("open store: %v", err)
+			}
+			defer func() { _ = st.Close() }()
+			rows, err := st.DB.Query(`SELECT status_code, body FROM migration_runs ORDER BY id ASC`)
+			if err != nil {
+				t.Fatalf("query runs: %v", err)
+			}
+			defer func() { _ = rows.Close() }()
+			n := 0
+			for rows.Next() {
+				n++
+				var code int
+				var body sql.NullString
+				if err := rows.Scan(&code, &body); err != nil {
+					t.Fatalf("scan: %v", err)
+				}
+				if code != 200 {
+					t.Fatalf("expected status_code 200, got %d", code)
+				}
+				if save {
+					if !body.Valid || body.String == "" {
+						t.Fatalf("expected non-empty body when saveBody=true, got %+v", body)
+					}
+				} else {
+					if body.Valid && body.String != "" {
+						t.Fatalf("expected empty/NULL body when saveBody=false, got %q", body.String)
+					}
+				}
+			}
+			if err := rows.Err(); err != nil {
+				t.Fatalf("rows err: %v", err)
+			}
+			if n != 1 {
+				t.Fatalf("expected 1 run row, got %d", n)
+			}
+		})
 	}
 }
