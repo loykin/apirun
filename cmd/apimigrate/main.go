@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/loykin/apimigrate/internal/httpc"
+	"github.com/loykin/apimigrate/internal/migration"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/loykin/apimigrate"
@@ -45,7 +46,7 @@ var rootCmd = &cobra.Command{
 			if len(envFromCfg.Global) > 0 {
 				baseEnv = envFromCfg
 			}
-			ctx = context.WithValue(ctx, "apimigrate.save_response_body", saveBody)
+			ctx = context.WithValue(ctx, migration.SaveResponseBodyKey, saveBody)
 			if tlsInsecure {
 				ctx = context.WithValue(ctx, httpc.CtxTLSInsecureKey, true)
 			}

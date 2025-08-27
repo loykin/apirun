@@ -9,11 +9,14 @@ import (
 )
 
 // Context key names used by the CLI when loading config
-const (
+// Use a custom key type to avoid collisions (SA1029)
+type ctxKey string
+
+var (
 	// Explicit TLS config keys
-	CtxTLSInsecureKey   = "apimigrate.tls_insecure"
-	CtxTLSMinVersionKey = "apimigrate.tls_min_version"
-	CtxTLSMaxVersionKey = "apimigrate.tls_max_version"
+	CtxTLSInsecureKey   ctxKey = "apimigrate.tls_insecure"
+	CtxTLSMinVersionKey ctxKey = "apimigrate.tls_min_version"
+	CtxTLSMaxVersionKey ctxKey = "apimigrate.tls_max_version"
 )
 
 func parseTLSVersion(s string) uint16 {

@@ -102,7 +102,7 @@ func MigrateUp(ctx context.Context, dir string, baseEnv env.Env, targetVersion i
 		// record run regardless of success if we have a result
 		if res != nil {
 			save := false
-			if v := ctx.Value("apimigrate.save_response_body"); v != nil {
+			if v := ctx.Value(SaveResponseBodyKey); v != nil {
 				if b, ok := v.(bool); ok {
 					save = b
 				}
@@ -193,7 +193,7 @@ func MigrateDown(ctx context.Context, dir string, baseEnv env.Env, targetVersion
 		results = append(results, &ExecWithVersion{Version: v, Result: res})
 		if res != nil {
 			save := false
-			if vflag := ctx.Value("apimigrate.save_response_body"); vflag != nil {
+			if vflag := ctx.Value(SaveResponseBodyKey); vflag != nil {
 				if b, ok := vflag.(bool); ok {
 					save = b
 				}

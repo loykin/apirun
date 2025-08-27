@@ -77,7 +77,7 @@ func TestMigrateUp_RecordsStatusAndBody(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, "001_only.yaml"), []byte(mig), 0o600); err != nil {
 				t.Fatalf("write mig: %v", err)
 			}
-			ctx := context.WithValue(context.Background(), "apimigrate.save_response_body", save)
+			ctx := context.WithValue(context.Background(), SaveResponseBodyKey, save)
 			base := env.Env{Global: map[string]string{}}
 			if _, err := MigrateUp(ctx, dir, base, 0); err != nil {
 				t.Fatalf("migrate up: %v", err)

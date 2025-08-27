@@ -7,6 +7,7 @@ import (
 
 	"github.com/loykin/apimigrate"
 	"github.com/loykin/apimigrate/internal/httpc"
+	"github.com/loykin/apimigrate/internal/migration"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -36,7 +37,7 @@ var downCmd = &cobra.Command{
 			if len(envFromCfg.Global) > 0 {
 				baseEnv = envFromCfg
 			}
-			ctx = context.WithValue(ctx, "apimigrate.save_response_body", saveBody)
+			ctx = context.WithValue(ctx, migration.SaveResponseBodyKey, saveBody)
 			if tlsInsecure {
 				ctx = context.WithValue(ctx, httpc.CtxTLSInsecureKey, true)
 			}
