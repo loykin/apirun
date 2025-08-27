@@ -25,7 +25,7 @@ var statusCmd = &cobra.Command{
 			if verbose {
 				log.Printf("loading config from %s", configPath)
 			}
-			mDir, _, _, err := loadConfigAndAcquire(ctx, configPath, verbose)
+			mDir, _, _, _, _, _, err := loadConfigAndAcquire(ctx, configPath, verbose)
 			if err != nil {
 				log.Printf("warning: failed to load config: %v", err)
 			} else {

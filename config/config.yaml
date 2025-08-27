@@ -54,3 +54,11 @@ env:
 store:
   # Whether to record response bodies alongside status codes in migration history
   save_response_body: false
+
+# HTTP client TLS settings
+# If none of these are set, Go defaults are used.
+client:
+  # Explicit options:
+  # insecure: false
+  # min_tls_version: ""   # e.g., "1.2" or "tls1.2"
+  # max_tls_version: ""   # e.g., "1.3" or "tls1.3"

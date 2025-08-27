@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/loykin/apimigrate"
+	"github.com/loykin/apimigrate/internal/httpc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -25,7 +26,7 @@ var downCmd = &cobra.Command{
 			if verbose {
 				log.Printf("loading config from %s", configPath)
 			}
-			mDir, envFromCfg, saveBody, err := loadConfigAndAcquire(ctx, configPath, verbose)
+			mDir, envFromCfg, saveBody, tlsInsecure, tlsMin, tlsMax, err := loadConfigAndAcquire(ctx, configPath, verbose)
 			if err != nil {
 				return err
 			}
@@ -36,6 +37,15 @@ var downCmd = &cobra.Command{
 				baseEnv = envFromCfg
 			}
 			ctx = context.WithValue(ctx, "apimigrate.save_response_body", saveBody)
+			if tlsInsecure {
+				ctx = context.WithValue(ctx, httpc.CtxTLSInsecureKey, true)
+			}
+			if strings.TrimSpace(tlsMin) != "" {
+				ctx = context.WithValue(ctx, httpc.CtxTLSMinVersionKey, strings.TrimSpace(tlsMin))
+			}
+			if strings.TrimSpace(tlsMax) != "" {
+				ctx = context.WithValue(ctx, httpc.CtxTLSMaxVersionKey, strings.TrimSpace(tlsMax))
+			}
 		}
 		if strings.TrimSpace(dir) == "" {
 			dir = "./config/migration"

@@ -9,6 +9,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	auth "github.com/loykin/apimigrate/internal/auth"
 	env "github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/internal/httpc"
 )
 
 type Down struct {
@@ -50,7 +51,7 @@ func (d Down) Execute(ctx context.Context) (*ExecResult, error) {
 		if fmethod == "" || furl == "" {
 			return nil, fmt.Errorf("down.find: method/url not specified")
 		}
-		client := resty.New()
+		client := httpc.New(ctx)
 		freq := client.R().SetContext(ctx).SetHeaders(fhdrs).SetQueryParams(fqueries)
 		if strings.TrimSpace(fbody) != "" {
 			if isJSON(fbody) {
@@ -150,7 +151,7 @@ func (d Down) Execute(ctx context.Context) (*ExecResult, error) {
 		body = d.Env.RenderGoTemplate(body)
 	}
 
-	client := resty.New()
+	client := httpc.New(ctx)
 	req := client.R().SetContext(ctx).SetHeaders(hdrs).SetQueryParams(queries)
 	if strings.TrimSpace(body) != "" {
 		if isJSON(body) {

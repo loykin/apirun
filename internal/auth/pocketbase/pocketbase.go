@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-resty/resty/v2"
 	"github.com/loykin/apimigrate/internal/auth/common"
+	"github.com/loykin/apimigrate/internal/httpc"
 )
 
 // Config holds configuration for PocketBase admin login.
@@ -26,7 +26,8 @@ func AcquirePocketBase(ctx context.Context, pc Config) (string, string, error) {
 	}
 	loginURL := strings.TrimRight(pc.BaseURL, "/") + "/api/admins/auth-with-password"
 	body := map[string]string{"identity": pc.Email, "password": pc.Password}
-	resp, err := resty.New().R().SetContext(ctx).SetHeader("Content-Type", "application/json").SetBody(body).Post(loginURL)
+	client := httpc.New(ctx)
+	resp, err := client.R().SetContext(ctx).SetHeader("Content-Type", "application/json").SetBody(body).Post(loginURL)
 	if err != nil {
 		return "", "", err
 	}

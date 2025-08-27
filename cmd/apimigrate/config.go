@@ -18,9 +18,17 @@ type StoreConfig struct {
 	SaveResponseBody bool `mapstructure:"save_response_body"`
 }
 
+type ClientConfig struct {
+	// Explicit options only
+	Insecure      bool   `mapstructure:"insecure"`
+	MinTLSVersion string `mapstructure:"min_tls_version"`
+	MaxTLSVersion string `mapstructure:"max_tls_version"`
+}
+
 type ConfigDoc struct {
 	Auth       []AuthConfig `mapstructure:"auth"`
 	MigrateDir string       `mapstructure:"migrate_dir"`
 	Env        []EnvConfig  `mapstructure:"env"`
 	Store      StoreConfig  `mapstructure:"store"`
+	Client     ClientConfig `mapstructure:"client"`
 }

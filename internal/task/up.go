@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	env "github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/internal/httpc"
 )
 
 type Up struct {
@@ -37,7 +38,7 @@ func (u Up) Execute(ctx context.Context, method, url string) (*ExecResult, error
 	// Render URL (RenderGoTemplate is idempotent for non-templates)
 	urlToUse = u.Env.RenderGoTemplate(urlToUse)
 
-	client := resty.New()
+	client := httpc.New(ctx)
 	req := client.R().SetContext(ctx).SetHeaders(hdrs).SetQueryParams(queries)
 	if strings.TrimSpace(body) != "" {
 		if isJSON(body) {

@@ -46,6 +46,11 @@ jobs:
           cp "$OUT" pkg/
           if [ -f README.md ]; then cp README.md pkg/; fi
           if [ -f LICENSE ]; then cp LICENSE pkg/; fi
+          # Include example config directory (exclude any SQLite DB files)
+          if [ -d config ]; then
+            cp -R config pkg/
+            find pkg/config -name '*.db' -type f -delete || true
+          fi
           ARCHIVE_BASE="${BIN_NAME}_${{ matrix.goos }}_${{ matrix.goarch }}"
           if [ "${{ matrix.goos }}" = "windows" ]; then
             zip -9 -r "dist/${ARCHIVE_BASE}.zip" pkg
