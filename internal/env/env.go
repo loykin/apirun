@@ -2,7 +2,7 @@ package env
 
 import (
 	"bytes"
-	"text/template"
+	"html/template"
 
 	yaml "gopkg.in/yaml.v3"
 )
@@ -65,8 +65,9 @@ func (e Env) Lookup(key string) (string, bool) {
 	return "", false
 }
 
-// RenderGoTemplate renders strings like {{.username}} with text/template using default Go delimiters.
+// RenderGoTemplate renders strings like {{.username}} with html/template using default Go delimiters.
 // The merged map (Local over Global) is used as the dot (.). Missing keys keep the original string unchanged.
+// Note: html/template escapes HTML by default to mitigate XSS when used in HTML contexts.
 func (e Env) RenderGoTemplate(s string) string {
 	if len(s) == 0 {
 		return s
