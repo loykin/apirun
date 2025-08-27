@@ -136,37 +136,21 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 		if err := mapstructure.Decode(raw, &doc); err != nil {
 			return "", base, err
 		}
-		// auth: type/config (preferred, single provider)
-		processedProviders := false
-		if strings.TrimSpace(doc.Auth.Type) != "" {
-			ptype := doc.Auth.Type
-			h, _, name, err := apimigrate.AcquireAuthByProviderSpec(ctx, ptype, doc.Auth.Config)
-			if err != nil {
-				return "", base, fmt.Errorf("auth type=%s: acquire failed: %w", ptype, err)
-			}
-			if verbose {
-				log.Printf("auth %s: using header %s", strings.TrimSpace(name), h)
-			}
-			processedProviders = true
-		}
-
-		// auth providers (optional array)
-		if !processedProviders && len(doc.Auth.Providers) > 0 {
-			for i, item := range doc.Auth.Providers {
-				ptypeRaw, ok := item["type"]
-				if !ok {
-					return "", base, fmt.Errorf("auth.providers[%d]: missing type", i)
+		// auth: new shape is an array of providers under doc.Auth
+		if len(doc.Auth) > 0 {
+			for i, a := range doc.Auth {
+				pt := strings.TrimSpace(a.Type)
+				if pt == "" {
+					return "", base, fmt.Errorf("auth[%d]: missing type", i)
 				}
-				ptype, _ := ptypeRaw.(string)
-				h, _, name, err := apimigrate.AcquireAuthByProviderSpec(ctx, ptype, item)
+				h, _, name, err := apimigrate.AcquireAuthByProviderSpec(ctx, pt, a.Config)
 				if err != nil {
-					return "", base, fmt.Errorf("auth provider[%d] type=%s: acquire failed: %w", i, ptype, err)
+					return "", base, fmt.Errorf("auth[%d] type=%s: acquire failed: %w", i, pt, err)
 				}
 				if verbose {
 					log.Printf("auth %s: using header %s", strings.TrimSpace(name), h)
 				}
 			}
-			processedProviders = true
 		}
 		// migrate_dir (optional)
 		if strings.TrimSpace(doc.MigrateDir) != "" {

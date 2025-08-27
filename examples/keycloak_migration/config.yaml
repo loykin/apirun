@@ -2,20 +2,20 @@
 # This example uses password grant against a local Keycloak (kc.sh start-dev).
 ---
 auth:
-  type: oauth2
-  config:
-    name: keycloak
-    grant_type: password
-    grant_config:
-      client_id: admin-cli
-      # client_secret: ""
-      # For Keycloak dev (kc.sh start-dev), use admin credentials for password grant via golang.org/x/oauth2
-      username: admin
-      password: root
-      token_url: http://localhost:8080/realms/master/protocol/openid-connect/token
-      auth_url: http://localhost:8080/realms/master/protocol/openid-connect/auth
-    # header: Authorization
-    # optional; defaults to Authorization
+  - type: oauth2
+    config:
+      name: keycloak
+      grant_type: password
+      grant_config:
+        client_id: admin-cli
+        # client_secret: ""
+        # For Keycloak dev (kc.sh start-dev), use admin credentials for password grant via golang.org/x/oauth2
+        username: admin
+        password: root
+        token_url: http://localhost:8080/realms/master/protocol/openid-connect/token
+        auth_url: http://localhost:8080/realms/master/protocol/openid-connect/auth
+      # header: Authorization
+      # optional; defaults to Authorization
 
 migrate_dir: ./migration
 
