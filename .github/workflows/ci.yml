@@ -34,13 +34,19 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: Staticcheck
+        run: $(go env GOPATH)/bin/staticcheck ./...
+
       - name: Build (all packages)
         run: go build ./...
 
-      - name: Run tests with coverage
+      - name: Run tests with coverage (exclude examples)
         env:
           CGO_ENABLED: 1
-        run: go test -race -covermode=atomic -coverprofile=coverage.out ./...
+        run: go test -race -covermode=atomic -coverprofile=coverage.out $(go list ./... | grep -v '/examples/')
 
       - name: Show coverage summary
         run: go tool cover -func=coverage.out | tail -n 1

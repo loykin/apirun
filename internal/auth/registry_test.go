@@ -44,7 +44,7 @@ func TestRegistry_RegisterAndAcquire_CustomProvider(t *testing.T) {
 	typ := "UnitTestDemo"
 	Register(typ, makeFactory("demo", "X-Demo", "ok"))
 
-	h, v, name, err := AcquireFromMap(nil, "unittestdemo", map[string]interface{}{"value": "val"})
+	h, v, name, err := AcquireFromMap(context.TODO(), "unittestdemo", map[string]interface{}{"value": "val"})
 	if err != nil {
 		t.Fatalf("AcquireFromMap err: %v", err)
 	}
