@@ -38,9 +38,6 @@ func (m passwordMethod) Acquire(ctx context.Context) (string, string, error) {
 	if tokenURL == "" {
 		return "", "", errors.New("oauth2: token_url is required for password grant")
 	}
-	if authURL == "" {
-		return "", "", errors.New("oauth2: auth_url is required for password grant")
-	}
 	if clientID == "" || username == "" || password == "" {
 		return "", "", errors.New("oauth2: client_id, username and password are required for password grant")
 	}

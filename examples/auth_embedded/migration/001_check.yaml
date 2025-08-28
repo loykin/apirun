@@ -1,0 +1,9 @@
+---
+up:
+  name: httpbin_check
+  request:
+    method: GET
+    url: "{{.api_base}}/200"
+    auth_name: example_basic
+  response:
+    result_code: ["200"]

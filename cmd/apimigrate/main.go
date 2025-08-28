@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/loykin/apimigrate"
+	"github.com/loykin/apimigrate/internal/util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -154,6 +155,22 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 		}
 		// read store options
 		saveBody = doc.Store.SaveResponseBody
+
+		// env (optional) - process before auth so templating can use it
+		for _, kv := range doc.Env {
+			if kv.Name == "" {
+				continue
+			}
+			val := kv.Value
+			if val == "" && strings.TrimSpace(kv.ValueFromEnv) != "" {
+				val = os.Getenv(kv.ValueFromEnv)
+				if verbose && val == "" {
+					log.Printf("warning: env %s requested from %s but variable is empty or not set", kv.Name, kv.ValueFromEnv)
+				}
+			}
+			base.Global[kv.Name] = val
+		}
+
 		// auth: new shape is an array of providers under doc.Auth
 		if len(doc.Auth) > 0 {
 			for i, a := range doc.Auth {
@@ -161,7 +178,10 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 				if pt == "" {
 					return "", base, false, false, "", "", fmt.Errorf("auth[%d]: missing type", i)
 				}
-				h, _, name, err := apimigrate.AcquireAuthByProviderSpec(ctx, pt, a.Config)
+				// Render templated values in the auth config using the base env
+				renderedAny := util.RenderAnyTemplate(a.Config, base)
+				renderedCfg, _ := renderedAny.(map[string]interface{})
+				h, _, name, err := apimigrate.AcquireAuthByProviderSpec(ctx, pt, renderedCfg)
 				if err != nil {
 					return "", base, false, false, "", "", fmt.Errorf("auth[%d] type=%s: acquire failed: %w", i, pt, err)
 				}
@@ -179,20 +199,6 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 		tlsInsecure = doc.Client.Insecure
 		tlsMin = strings.TrimSpace(doc.Client.MinTLSVersion)
 		tlsMax = strings.TrimSpace(doc.Client.MaxTLSVersion)
-		// env (optional)
-		for _, kv := range doc.Env {
-			if kv.Name == "" {
-				continue
-			}
-			val := kv.Value
-			if val == "" && strings.TrimSpace(kv.ValueFromEnv) != "" {
-				val = os.Getenv(kv.ValueFromEnv)
-				if verbose && val == "" {
-					log.Printf("warning: env %s requested from %s but variable is empty or not set", kv.Name, kv.ValueFromEnv)
-				}
-			}
-			base.Global[kv.Name] = val
-		}
 	}
 	// Do not treat lack of auth as an error to allow pure env/migrate_dir configs
 	return migrateDir, base, saveBody, tlsInsecure, tlsMin, tlsMax, nil
