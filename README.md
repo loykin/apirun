@@ -10,10 +10,13 @@ A lightweight Go library and CLI for running API-driven migrations defined in YA
 
 - Versioned up/down migrations with persisted history (SQLite, `apimigrate.db`).
 - Request templating with simple Go templates using layered environment variables.
+- Config templating (Go templates {{.var}}) supported across requests, auth config, and wait checks.
 - Response validation via allowed HTTP status codes.
 - Response JSON extraction using `tidwall/gjson` paths.
 - Optional "find" step for down migrations to discover IDs before deletion.
-- Pluggable auth provider registry with helper APIs for library users.
+- Health-check wait feature to poll an endpoint until it returns the expected status before running migrations.
+- HTTP client TLS options per config document (insecure, min/max TLS version).
+- Pluggable auth provider registry with helper APIs and typed wrappers for library users.
 
 ## Install
 
@@ -72,9 +75,11 @@ go run ./cmd/apimigrate --config examples/keycloak_migration/config.yaml -v
 ```
 
 Config YAML supports:
-- auth: acquire and store tokens via providers, injected by logical name in tasks (request.auth_name or down.auth).
+- auth: acquire and store tokens via providers, injected by logical name in tasks (request.auth_name or down.auth). String fields support Go templates ({{.var}}) rendered against env.
 - migrate_dir: path to migrations (001_*.yaml, 002_*.yaml, ...).
-- env: global key/value variables used in templating.
+- env: global key/value variables used in templating. You can also pull from OS env with valueFromEnv.
+- wait: optional HTTP health check before running migrations (url/method/status/timeout/interval). The url supports templating (e.g., "{{.api_base}}/health").
+- client: HTTP client TLS options (insecure, min_tls_version, max_tls_version) applied to requests and wait checks.
 - store.save_response_body: when true, also stores response bodies in migration history.
 
 See also: `examples/keycloak_migration/config.yaml` and `examples/grafana_migration/config.yaml`
@@ -120,6 +125,30 @@ Notes:
 - Empty `result_code` means any HTTP status is allowed.
 - `env_from` uses gjson paths (e.g., `id`, `0.id`, `data.items.0.id`).
 
+### Templating in config (requests, auth, wait)
+- Only basic Go templates are supported: use `{{.var}}`.
+- Templating applies in many string fields: request URL/headers/body, auth configs under `auth[].config`, and the `wait.url`.
+- Variables come from layered env (global from config + local from each migration).
+- YAML tip: when a field contains `{{...}}`, quote the string to avoid YAML parser confusion.
+
+### Wait for service (health checks)
+Before running migrations, you can wait until a service is healthy:
+
+```yaml
+wait:
+  url: "{{.api_base}}/health"
+  method: GET        # default: GET (also supports HEAD)
+  status: 200        # default: 200
+  timeout: 60s       # total time to wait (default 60s)
+  interval: 2s       # polling interval (default 2s)
+
+# Optional: TLS options used by wait and all HTTP requests
+client:
+  # insecure: false
+  # min_tls_version: "1.2"
+  # max_tls_version: "1.3"
+```
+
 ## Programmatic usage (library)
 
 ```go
@@ -148,6 +177,25 @@ Built-in providers:
 - pocketbase
 
 They can be configured via `config.yaml` (see examples) or acquired programmatically using the public API.
+
+### Typed auth wrappers (library)
+For convenient, type-safe auth acquisition without raw maps, use the wrappers in the root package:
+
+```go
+ctx := context.Background()
+// Basic
+h, v, name, err := apimigrate.AcquireBasicAuth(ctx, apimigrate.BasicAuthConfig{
+  Name: "example_basic", Username: "admin", Password: "admin",
+})
+_ = h; _ = v; _ = name; _ = err
+
+// OAuth2 Password
+_, _, _, _ = apimigrate.AcquireOAuth2Password(ctx, apimigrate.OAuth2PasswordConfig{
+  Name: "keycloak", ClientID: "admin-cli", TokenURL: "http://localhost:8080/realms/master/protocol/openid-connect/token",
+  Username: "admin", Password: "root",
+})
+```
+See `examples/auth_embedded` for a runnable sample.
 
 ### Registering a custom provider (for library users)
 
@@ -180,6 +228,7 @@ go run ./examples/auth_registry
 - `examples/grafana_migration`: Dashboard/user import for Grafana.
 - `examples/embedded`: Minimal example running a single migration inline.
 - `examples/auth_registry`: Demonstrates custom auth provider registration.
+- `examples/auth_embedded`: Embed apimigrate and acquire auth via typed wrappers; uses a local test server.
 
 Each example directory contains its own README or config and migration files.
 

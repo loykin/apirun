@@ -38,6 +38,14 @@ auth:
 # Point this to one of the example migration folders or your own.
 migrate_dir: ./config/migration
 
+wait:
+  # Example HTTP health check (uncomment and adjust as needed)
+  # url: "{{.api_base}}/health"
+  # method: GET       # default: GET
+  # status: 200       # default: 200
+  # timeout: 30s      # default: 60s
+  # interval: 1s      # default: 2s
+
 # Global environment variables available to all migrations
 env:
   - name: api_base

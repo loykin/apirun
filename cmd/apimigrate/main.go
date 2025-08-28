@@ -171,6 +171,11 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 			base.Global[kv.Name] = val
 		}
 
+		// wait (optional): delegate to dedicated function in wait.go
+		if err := doWait(ctx, base, doc.Wait, doc.Client, verbose); err != nil {
+			return "", base, false, false, "", "", err
+		}
+
 		// auth: new shape is an array of providers under doc.Auth
 		if len(doc.Auth) > 0 {
 			for i, a := range doc.Auth {

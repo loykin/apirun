@@ -25,9 +25,18 @@ type ClientConfig struct {
 	MaxTLSVersion string `mapstructure:"max_tls_version"`
 }
 
+type WaitConfig struct {
+	URL      string `mapstructure:"url"`
+	Method   string `mapstructure:"method"`
+	Status   int    `mapstructure:"status"`
+	Timeout  string `mapstructure:"timeout"`
+	Interval string `mapstructure:"interval"`
+}
+
 type ConfigDoc struct {
 	Auth       []AuthConfig `mapstructure:"auth"`
 	MigrateDir string       `mapstructure:"migrate_dir"`
+	Wait       WaitConfig   `mapstructure:"wait"`
 	Env        []EnvConfig  `mapstructure:"env"`
 	Store      StoreConfig  `mapstructure:"store"`
 	Client     ClientConfig `mapstructure:"client"`
