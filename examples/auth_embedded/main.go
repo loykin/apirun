@@ -25,16 +25,15 @@ func main() {
 		"api_base": srv.URL,
 	}}
 
-	// Programmatically define an auth provider (basic)
-	providerType := "basic"
-	authCfg := map[string]interface{}{
-		"name":     "example_basic",
-		"username": "admin",
-		"password": "admin",
+	// Programmatically define an auth provider (basic) using the public wrapper
+	cfg := apimigrate.BasicAuthConfig{
+		Name:     "example_basic",
+		Username: "admin",
+		Password: "admin",
 	}
 
 	// Acquire token and store under logical name for use by migrations
-	if _, _, name, err := apimigrate.AcquireAuthByProviderSpec(ctx, providerType, authCfg); err != nil {
+	if _, _, name, err := apimigrate.AcquireBasicAuth(ctx, cfg); err != nil {
 		log.Fatalf("acquire auth failed: %v", err)
 	} else {
 		fmt.Printf("auth provider %q is ready\n", name)
