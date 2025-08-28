@@ -168,9 +168,6 @@ up:
 	_ = writeFile(t, tdir, "002_use.yaml", m2)
 
 	cfg := fmt.Sprintf(`---
-:migrate_dir: %s
-`, tdir)
-	cfg = fmt.Sprintf(`---
 migrate_dir: %s
 `, tdir)
 	cfgPath := writeFile(t, tdir, "config.yaml", cfg)

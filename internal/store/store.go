@@ -35,7 +35,7 @@ func (s *Store) RecordRun(version int, direction string, statusCode int, body *s
 		b = nil
 	}
 	var envJSON interface{}
-	if env != nil && len(env) > 0 {
+	if len(env) > 0 {
 		// Lazy marshal without adding a dep: use fmt and naive building? Better to use standard json
 		// but json package is in stdlib; use it.
 		// We will marshal to string and store.
