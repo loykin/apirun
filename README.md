@@ -1,5 +1,7 @@
 # apimigrate
 
+[![Coverage](./coverage-badge.svg)](./coverage-badge.svg)
+
 A lightweight Go library and CLI for running API-driven migrations defined in YAML files. It helps you automate provisioning or configuration tasks against HTTP APIs (e.g., create users/dashboards, import resources) in a versioned, repeatable way.
 
 - Library: import and run migrations programmatically.
