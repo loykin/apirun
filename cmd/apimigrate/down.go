@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"github.com/loykin/apimigrate"
-	"github.com/loykin/apimigrate/internal/httpc"
-	"github.com/loykin/apimigrate/internal/migration"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -27,7 +25,7 @@ var downCmd = &cobra.Command{
 			if verbose {
 				log.Printf("loading config from %s", configPath)
 			}
-			mDir, envFromCfg, saveBody, tlsInsecure, tlsMin, tlsMax, err := loadConfigAndAcquire(ctx, configPath, verbose)
+			mDir, envFromCfg, saveBody, tlsInsecure, tlsMin, tlsMax, storeOpts, err := loadConfigAndAcquire(ctx, configPath, verbose)
 			if err != nil {
 				return err
 			}
@@ -37,15 +35,18 @@ var downCmd = &cobra.Command{
 			if len(envFromCfg.Global) > 0 {
 				baseEnv = envFromCfg
 			}
-			ctx = context.WithValue(ctx, migration.SaveResponseBodyKey, saveBody)
+			if storeOpts != nil {
+				ctx = apimigrate.WithStoreOptions(ctx, storeOpts)
+			}
+			ctx = apimigrate.WithSaveResponseBody(ctx, saveBody)
 			if tlsInsecure {
-				ctx = context.WithValue(ctx, httpc.CtxTLSInsecureKey, true)
+				ctx = apimigrate.WithTLSInsecure(ctx, true)
 			}
 			if strings.TrimSpace(tlsMin) != "" {
-				ctx = context.WithValue(ctx, httpc.CtxTLSMinVersionKey, strings.TrimSpace(tlsMin))
+				ctx = apimigrate.WithTLSMinVersion(ctx, strings.TrimSpace(tlsMin))
 			}
 			if strings.TrimSpace(tlsMax) != "" {
-				ctx = context.WithValue(ctx, httpc.CtxTLSMaxVersionKey, strings.TrimSpace(tlsMax))
+				ctx = apimigrate.WithTLSMaxVersion(ctx, strings.TrimSpace(tlsMax))
 			}
 		}
 		if strings.TrimSpace(dir) == "" {

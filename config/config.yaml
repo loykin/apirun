@@ -62,6 +62,22 @@ env:
 store:
   # Whether to record response bodies alongside status codes in migration history
   save_response_body: false
+  # Backend type: "sqlite" (default) or "postgres"
+  # type: sqlite
+  # SQLite options (used when type is sqlite)
+  sqlite:
+    # path: ./config/migration/apimigrate.db
+  # PostgreSQL options (used when type is postgres)
+  # postgres:
+  #   # Option A: provide full DSN
+  #   # dsn: postgres://user:pass@localhost:5432/apimigrate?sslmode=disable
+  #   # Option B: or provide components to build DSN
+  #   host: localhost
+  #   port: 5432
+  #   user: postgres
+  #   password: postgres
+  #   dbname: apimigrate
+  #   sslmode: disable
 
 # HTTP client TLS settings
 # If none of these are set, Go defaults are used.

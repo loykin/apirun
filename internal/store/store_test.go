@@ -134,6 +134,27 @@ func TestCloseNilSafety(t *testing.T) {
 	}
 }
 
+// Verify SQLite tables created by goose migrations exist
+func TestSQLite_TablesExist(t *testing.T) {
+	st := openTempStore(t)
+	// ensure schema idempotent
+	if err := st.EnsureSchema(); err != nil {
+		t.Fatalf("EnsureSchema: %v", err)
+	}
+	// Check sqlite_master for table names
+	mustHave := []string{"schema_migrations", "migration_runs", "stored_env", "apimigrate_goose_version"}
+	for _, tbl := range mustHave {
+		row := st.DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, tbl)
+		var name string
+		if err := row.Scan(&name); err != nil {
+			t.Fatalf("expected table %s to exist: %v", tbl, err)
+		}
+		if name != tbl {
+			t.Fatalf("expected table %s, got %s", tbl, name)
+		}
+	}
+}
+
 func TestStoredEnv_CRUD(t *testing.T) {
 	st := openTempStore(t)
 	// insert

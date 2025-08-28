@@ -1,0 +1,8 @@
+---
+up:
+  name: http check (example.com)
+  request:
+    method: GET
+    url: https://example.com
+  response:
+    result_code: ["200"]

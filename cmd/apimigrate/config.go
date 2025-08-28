@@ -14,8 +14,25 @@ type EnvConfig struct {
 	ValueFromEnv string `mapstructure:"valueFromEnv"`
 }
 
+type SQLiteStoreConfig struct {
+	Path string `mapstructure:"path"`
+}
+
+type PostgresStoreConfig struct {
+	DSN      string `mapstructure:"dsn"`
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	DBName   string `mapstructure:"dbname"`
+	SSLMode  string `mapstructure:"sslmode"`
+}
+
 type StoreConfig struct {
-	SaveResponseBody bool `mapstructure:"save_response_body"`
+	SaveResponseBody bool                `mapstructure:"save_response_body"`
+	Type             string              `mapstructure:"type"`
+	SQLite           SQLiteStoreConfig   `mapstructure:"sqlite"`
+	Postgres         PostgresStoreConfig `mapstructure:"postgres"`
 }
 
 type ClientConfig struct {

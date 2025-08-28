@@ -8,12 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/loykin/apimigrate/internal/httpc"
-	"github.com/loykin/apimigrate/internal/migration"
-
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/loykin/apimigrate"
-	"github.com/loykin/apimigrate/internal/util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -37,7 +33,7 @@ var rootCmd = &cobra.Command{
 			if verbose {
 				log.Printf("loading config from %s", configPath)
 			}
-			mDir, envFromCfg, saveBody, tlsInsecure, tlsMin, tlsMax, err := loadConfigAndAcquire(ctx, configPath, verbose)
+			mDir, envFromCfg, saveBody, tlsInsecure, tlsMin, tlsMax, storeOpts, err := loadConfigAndAcquire(ctx, configPath, verbose)
 			if err != nil {
 				return err
 			}
@@ -47,15 +43,18 @@ var rootCmd = &cobra.Command{
 			if len(envFromCfg.Global) > 0 {
 				baseEnv = envFromCfg
 			}
-			ctx = context.WithValue(ctx, migration.SaveResponseBodyKey, saveBody)
+			if storeOpts != nil {
+				ctx = apimigrate.WithStoreOptions(ctx, storeOpts)
+			}
+			ctx = apimigrate.WithSaveResponseBody(ctx, saveBody)
 			if tlsInsecure {
-				ctx = context.WithValue(ctx, httpc.CtxTLSInsecureKey, true)
+				ctx = apimigrate.WithTLSInsecure(ctx, true)
 			}
 			if strings.TrimSpace(tlsMin) != "" {
-				ctx = context.WithValue(ctx, httpc.CtxTLSMinVersionKey, strings.TrimSpace(tlsMin))
+				ctx = apimigrate.WithTLSMinVersion(ctx, strings.TrimSpace(tlsMin))
 			}
 			if strings.TrimSpace(tlsMax) != "" {
-				ctx = context.WithValue(ctx, httpc.CtxTLSMaxVersionKey, strings.TrimSpace(tlsMax))
+				ctx = apimigrate.WithTLSMaxVersion(ctx, strings.TrimSpace(tlsMax))
 			}
 		}
 
@@ -124,10 +123,10 @@ func main() {
 	}
 }
 
-func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (string, apimigrate.Env, bool, bool, string, string, error) {
+func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (string, apimigrate.Env, bool, bool, string, string, *apimigrate.StoreOptions, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return "", apimigrate.Env{Global: map[string]string{}}, false, false, "", "", err
+		return "", apimigrate.Env{Global: map[string]string{}}, false, false, "", "", nil, err
 	}
 	defer func() { _ = f.Close() }()
 	dec := yaml.NewDecoder(f)
@@ -137,6 +136,7 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 	tlsInsecure := false
 	tlsMin := ""
 	tlsMax := ""
+	var storeOpts *apimigrate.StoreOptions
 	for {
 		var raw map[string]interface{}
 		if err := dec.Decode(&raw); err != nil {
@@ -146,15 +146,17 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 			if err.Error() == "EOF" { // yaml v3 returns io.EOF but comparing string to avoid new import
 				break
 			}
-			return "", base, false, false, "", "", err
+			return "", base, false, false, "", "", nil, err
 		}
 		// Decode with mapstructure into our strongly typed doc
 		var doc ConfigDoc
 		if err := mapstructure.Decode(raw, &doc); err != nil {
-			return "", base, false, false, "", "", err
+			return "", base, false, false, "", "", nil, err
 		}
 		// read store options
 		saveBody = doc.Store.SaveResponseBody
+		// build store options using helper
+		storeOpts = buildStoreOptionsFromDoc(doc)
 
 		// env (optional) - process before auth so templating can use it
 		for _, kv := range doc.Env {
@@ -173,7 +175,7 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 
 		// wait (optional): delegate to dedicated function in wait.go
 		if err := doWait(ctx, base, doc.Wait, doc.Client, verbose); err != nil {
-			return "", base, false, false, "", "", err
+			return "", base, false, false, "", "", nil, err
 		}
 
 		// auth: new shape is an array of providers under doc.Auth
@@ -181,14 +183,14 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 			for i, a := range doc.Auth {
 				pt := strings.TrimSpace(a.Type)
 				if pt == "" {
-					return "", base, false, false, "", "", fmt.Errorf("auth[%d]: missing type", i)
+					return "", base, false, false, "", "", nil, fmt.Errorf("auth[%d]: missing type", i)
 				}
 				// Render templated values in the auth config using the base env
-				renderedAny := util.RenderAnyTemplate(a.Config, base)
+				renderedAny := apimigrate.RenderAnyTemplate(a.Config, base)
 				renderedCfg, _ := renderedAny.(map[string]interface{})
 				h, _, name, err := apimigrate.AcquireAuthByProviderSpec(ctx, pt, renderedCfg)
 				if err != nil {
-					return "", base, false, false, "", "", fmt.Errorf("auth[%d] type=%s: acquire failed: %w", i, pt, err)
+					return "", base, false, false, "", "", nil, fmt.Errorf("auth[%d] type=%s: acquire failed: %w", i, pt, err)
 				}
 				if verbose {
 					log.Printf("auth %s: using header %s", strings.TrimSpace(name), h)
@@ -206,5 +208,5 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 		tlsMax = strings.TrimSpace(doc.Client.MaxTLSVersion)
 	}
 	// Do not treat lack of auth as an error to allow pure env/migrate_dir configs
-	return migrateDir, base, saveBody, tlsInsecure, tlsMin, tlsMax, nil
+	return migrateDir, base, saveBody, tlsInsecure, tlsMin, tlsMax, storeOpts, nil
 }

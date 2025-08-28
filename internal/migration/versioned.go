@@ -56,9 +56,31 @@ func MigrateUp(ctx context.Context, dir string, baseEnv env.Env, targetVersion i
 	if err != nil {
 		return nil, err
 	}
-	// open store at default path
-	dbPath := filepath.Join(dir, store.DbFileName)
-	st, err := store.Open(dbPath)
+	// open store according to options (default sqlite under dir)
+	var st *store.Store
+	if v := ctx.Value(StoreOptionsKey); v != nil {
+		if opts, ok := v.(*StoreOptions); ok && opts != nil {
+			if opts.Backend == "postgres" || opts.Backend == "pg" || opts.Backend == "postgresql" {
+				if opts.PostgresDSN == "" {
+					return nil, fmt.Errorf("store backend=postgres requires dsn")
+				}
+				st, err = store.OpenPostgres(opts.PostgresDSN)
+			} else {
+				path := opts.SQLitePath
+				if path == "" {
+					path = filepath.Join(dir, store.DbFileName)
+				}
+				st, err = store.Open(path)
+			}
+		} else {
+			// fallback
+			path := filepath.Join(dir, store.DbFileName)
+			st, err = store.Open(path)
+		}
+	} else {
+		path := filepath.Join(dir, store.DbFileName)
+		st, err = store.Open(path)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -170,8 +192,30 @@ func MigrateDown(ctx context.Context, dir string, baseEnv env.Env, targetVersion
 	if err != nil {
 		return nil, err
 	}
-	dbPath := filepath.Join(dir, store.DbFileName)
-	st, err := store.Open(dbPath)
+	// open store according to options (default sqlite under dir)
+	var st *store.Store
+	if v := ctx.Value(StoreOptionsKey); v != nil {
+		if opts, ok := v.(*StoreOptions); ok && opts != nil {
+			if opts.Backend == "postgres" || opts.Backend == "pg" || opts.Backend == "postgresql" {
+				if opts.PostgresDSN == "" {
+					return nil, fmt.Errorf("store backend=postgres requires dsn")
+				}
+				st, err = store.OpenPostgres(opts.PostgresDSN)
+			} else {
+				path := opts.SQLitePath
+				if path == "" {
+					path = filepath.Join(dir, store.DbFileName)
+				}
+				st, err = store.Open(path)
+			}
+		} else {
+			path := filepath.Join(dir, store.DbFileName)
+			st, err = store.Open(path)
+		}
+	} else {
+		path := filepath.Join(dir, store.DbFileName)
+		st, err = store.Open(path)
+	}
 	if err != nil {
 		return nil, err
 	}

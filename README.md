@@ -82,9 +82,87 @@ Config YAML supports:
 - env: global key/value variables used in templating. You can also pull from OS env with valueFromEnv.
 - wait: optional HTTP health check before running migrations (url/method/status/timeout/interval). The url supports templating (e.g., "{{.api_base}}/health").
 - client: HTTP client TLS options (insecure, min_tls_version, max_tls_version) applied to requests and wait checks.
-- store.save_response_body: when true, also stores response bodies in migration history.
+- store: choose the persistence backend (sqlite or postgres) and whether to save response bodies.
 
-See also: `examples/keycloak_migration/config.yaml` and `examples/grafana_migration/config.yaml`
+### Configuration (config.yaml)
+
+Below is a complete example with inline comments. You can copy this into your project and adjust values.
+
+```yaml
+---
+# Define one or more auth providers. Each provider has a type and a config.
+auth:
+  - type: basic
+    config:
+      name: example_basic          # referenced by request.auth_name in migrations
+      username: admin
+      password: admin
+
+# Directory that contains your versioned migrations (001_*.yaml, 002_*.yaml, ...)
+migrate_dir: ./config/migration
+
+# Optional: wait for an HTTP health check to succeed before running migrations
+wait:
+  # url: "{{.api_base}}/health"
+  # method: GET       # default: GET
+  # status: 200       # default: 200
+  # timeout: 30s      # default: 60s
+  # interval: 1s      # default: 2s
+
+# Global environment variables available to all migrations
+env:
+  - name: api_base
+    value: http://localhost:3000
+  - name: example_user
+    value: sample
+  # - name: from_os
+  #   valueFromEnv: EXAMPLE_FROM_OS
+
+# Store settings
+store:
+  # Whether to record response bodies alongside status codes in migration history
+  save_response_body: false
+
+  # Backend type: "sqlite" (default) or "postgres"
+  # type: sqlite
+
+  # SQLite options (used when type is sqlite)
+  sqlite:
+    # path: ./config/migration/apimigrate.db   # default: <migrate_dir>/apimigrate.db
+
+  # PostgreSQL options (used when type is postgres)
+  # postgres:
+  #   # Option A: provide a full DSN
+  #   # dsn: postgres://user:pass@localhost:5432/apimigrate?sslmode=disable
+  #
+  #   # Option B: or provide components to build the DSN
+  #   host: localhost
+  #   port: 5432
+  #   user: postgres
+  #   password: postgres
+  #   dbname: apimigrate
+  #   sslmode: disable
+
+# HTTP client TLS settings (optional)
+client:
+  # insecure: false
+  # min_tls_version: "1.2"   # or "tls1.2"
+  # max_tls_version: "1.3"   # or "tls1.3"
+```
+
+Notes:
+- If store.type is omitted or set to sqlite, apimigrate stores migration history in a local SQLite file under <migrate_dir>/apimigrate.db by default. You can override the path via store.sqlite.path.
+- To use PostgreSQL, set store.type to postgres and either:
+  - provide store.postgres.dsn directly, or
+  - provide the component fields (host/port/user/password/dbname[/sslmode]) and a DSN will be constructed.
+- The migration history schema is managed automatically via embedded goose migrations. The goose version table name is apimigrate_goose_version.
+- You can inspect current/applied versions with: `apimigrate status --config <path>`.
+
+See also:
+- `config/config.yaml` (commented template)
+- `examples/keycloak_migration/config.yaml`
+- `examples/grafana_migration/config.yaml`
+- Embedded examples: `examples/embedded`, `examples/embedded_postgresql`
 
 ## Migration file format
 
@@ -230,6 +308,8 @@ go run ./examples/auth_registry
 - `examples/keycloak_migration`: Keycloak realm/user provisioning.
 - `examples/grafana_migration`: Dashboard/user import for Grafana.
 - `examples/embedded`: Minimal example running a single migration inline.
+- `examples/embedded_sqlite`: Programmatic example using the default SQLite store with versioned migrations.
+- `examples/embedded_postgresql`: Programmatic example using a PostgreSQL store with versioned migrations.
 - `examples/auth_registry`: Demonstrates custom auth provider registration.
 - `examples/auth_embedded`: Embed apimigrate and acquire auth via typed wrappers; uses a local test server.
 

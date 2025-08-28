@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/loykin/apimigrate"
-	"github.com/loykin/apimigrate/internal/httpc"
 )
 
 // doWait polls an HTTP endpoint until it returns the expected status or timeout elapses.
@@ -49,13 +48,13 @@ func doWait(ctx context.Context, env apimigrate.Env, wc WaitConfig, clientCfg Cl
 	ctxWait := ctx
 	// Apply TLS options for the wait HTTP client
 	if clientCfg.Insecure {
-		ctxWait = context.WithValue(ctxWait, httpc.CtxTLSInsecureKey, true)
+		ctxWait = apimigrate.WithTLSInsecure(ctxWait, true)
 	}
 	if s := strings.TrimSpace(clientCfg.MinTLSVersion); s != "" {
-		ctxWait = context.WithValue(ctxWait, httpc.CtxTLSMinVersionKey, s)
+		ctxWait = apimigrate.WithTLSMinVersion(ctxWait, s)
 	}
 	if s := strings.TrimSpace(clientCfg.MaxTLSVersion); s != "" {
-		ctxWait = context.WithValue(ctxWait, httpc.CtxTLSMaxVersionKey, s)
+		ctxWait = apimigrate.WithTLSMaxVersion(ctxWait, s)
 	}
 
 	if verbose {
@@ -64,7 +63,7 @@ func doWait(ctx context.Context, env apimigrate.Env, wc WaitConfig, clientCfg Cl
 	deadline := time.Now().Add(timeout)
 	var lastStatus int
 	for {
-		client := httpc.New(ctxWait)
+		client := apimigrate.NewHTTPClient(ctxWait)
 		req := client.R().SetContext(ctxWait)
 		var status int
 		var err error

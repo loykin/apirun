@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"path/filepath"
 	"strings"
 
 	"github.com/loykin/apimigrate"
@@ -20,12 +19,14 @@ var statusCmd = &cobra.Command{
 		configPath := v.GetString("config")
 		verbose := v.GetBool("v")
 		ctx := context.Background()
+		var storeOpts *apimigrate.StoreOptions
 		dir := ""
 		if strings.TrimSpace(configPath) != "" {
 			if verbose {
 				log.Printf("loading config from %s", configPath)
 			}
-			mDir, _, _, _, _, _, err := loadConfigAndAcquire(ctx, configPath, verbose)
+			mDir, _, _, _, _, _, tmpStoreOpts, err := loadConfigAndAcquire(ctx, configPath, verbose)
+			storeOpts = tmpStoreOpts
 			if err != nil {
 				log.Printf("warning: failed to load config: %v", err)
 			} else {
@@ -37,8 +38,8 @@ var statusCmd = &cobra.Command{
 		if strings.TrimSpace(dir) == "" {
 			dir = "./config/migration"
 		}
-		dbPath := filepath.Join(dir, apimigrate.StoreDBFileName)
-		st, err := apimigrate.OpenStore(dbPath)
+		// centralized store opening
+		st, err := apimigrate.OpenStoreFromOptions(dir, storeOpts)
 		if err != nil {
 			return err
 		}
