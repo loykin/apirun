@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   test:
@@ -56,3 +56,32 @@ jobs:
         with:
           name: coverage
           path: coverage.out
+
+      - name: Extract coverage percentage (push only)
+        if: github.event_name == 'push'
+        id: coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          LINE=$(go tool cover -func=coverage.out | tail -n 1)
+          PCT=$(echo "$LINE" | awk '{print $3}')
+          PCT_NUM=${PCT%%%}
+          if [ "${PCT_NUM%.*}" -ge 80 ]; then COLOR=brightgreen; elif [ "${PCT_NUM%.*}" -ge 60 ]; then COLOR=yellow; else COLOR=red; fi
+          echo "COVERAGE=$PCT_NUM" >> "$GITHUB_ENV"
+          echo "BADGE_COLOR=$COLOR" >> "$GITHUB_ENV"
+
+      - name: Generate coverage badge (push only)
+        if: github.event_name == 'push'
+        uses: emibcn/badge-action@v2
+        with:
+          label: Coverage
+          status: "${{ env.COVERAGE }}%"
+          color: "${{ env.BADGE_COLOR }}"
+          path: coverage-badge.svg
+
+      - name: Commit coverage badge (push only)
+        if: github.event_name == 'push'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(ci): update coverage badge"
+          file_pattern: coverage-badge.svg
