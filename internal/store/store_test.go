@@ -133,3 +133,36 @@ func TestCloseNilSafety(t *testing.T) {
 		t.Fatalf("nil Close should return nil, got %v", err)
 	}
 }
+
+func TestStoredEnv_CRUD(t *testing.T) {
+	st := openTempStore(t)
+	// insert
+	in := map[string]string{"rid": "123", "user": "alice"}
+	if err := st.InsertStoredEnv(1, in); err != nil {
+		t.Fatalf("InsertStoredEnv: %v", err)
+	}
+	// load
+	m, err := st.LoadStoredEnv(1)
+	if err != nil {
+		t.Fatalf("LoadStoredEnv: %v", err)
+	}
+	if len(m) != 2 || m["rid"] != "123" || m["user"] != "alice" {
+		t.Fatalf("unexpected stored env: %#v", m)
+	}
+	// update same version+name should replace
+	if err := st.InsertStoredEnv(1, map[string]string{"rid": "999"}); err != nil {
+		t.Fatalf("InsertStoredEnv replace: %v", err)
+	}
+	m, _ = st.LoadStoredEnv(1)
+	if m["rid"] != "999" {
+		t.Fatalf("expected rid=999 after replace, got %#v", m)
+	}
+	// delete
+	if err := st.DeleteStoredEnv(1); err != nil {
+		t.Fatalf("DeleteStoredEnv: %v", err)
+	}
+	m, _ = st.LoadStoredEnv(1)
+	if len(m) != 0 {
+		t.Fatalf("expected empty after delete, got %#v", m)
+	}
+}

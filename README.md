@@ -124,6 +124,7 @@ down:
 Notes:
 - Empty `result_code` means any HTTP status is allowed.
 - `env_from` uses gjson paths (e.g., `id`, `0.id`, `data.items.0.id`).
+- All values extracted via `env_from` are automatically persisted into the local store so they can be reused later (e.g., in down).
 
 ### Templating in config (requests, auth, wait)
 - Only basic Go templates are supported: use `{{.var}}`.

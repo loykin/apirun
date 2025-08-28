@@ -83,6 +83,8 @@ func MigrateUp(ctx context.Context, dir string, baseEnv env.Env, targetVersion i
 	sort.Slice(plan, func(i, j int) bool { return plan[i].index < plan[j].index })
 
 	results := make([]*ExecWithVersion, 0, len(plan))
+	// sessionStored accumulates stored env created during this run to be available to later versions
+	sessionStored := map[string]string{}
 	for _, f := range plan {
 		t, err := loadTaskFromFile(f.path)
 		if err != nil {
@@ -96,6 +98,25 @@ func MigrateUp(ctx context.Context, dir string, baseEnv env.Env, targetVersion i
 		}
 		if t.Up.Env.Local == nil {
 			t.Up.Env.Local = map[string]string{}
+		}
+		// Merge stored env from previously applied versions and from earlier steps in this run
+		if applied, err := st.ListApplied(); err == nil {
+			for _, av := range applied {
+				if m, _ := st.LoadStoredEnv(av); len(m) > 0 {
+					for k, val := range m {
+						if _, exists := t.Up.Env.Local[k]; !exists {
+							t.Up.Env.Local[k] = val
+						}
+					}
+				}
+			}
+		}
+		if len(sessionStored) > 0 {
+			for k, val := range sessionStored {
+				if _, exists := t.Up.Env.Local[k]; !exists {
+					t.Up.Env.Local[k] = val
+				}
+			}
 		}
 		res, err := t.UpExecute(ctx, "", "")
 		results = append(results, &ExecWithVersion{Version: f.index, Result: res})
@@ -112,7 +133,22 @@ func MigrateUp(ctx context.Context, dir string, baseEnv env.Env, targetVersion i
 				b := res.ResponseBody
 				bodyPtr = &b
 			}
-			_ = st.RecordRun(f.index, "up", res.StatusCode, bodyPtr)
+			// persist all extracted env (auto-store) into run record and stored_env
+			var toStore map[string]string
+			if res.ExtractedEnv != nil {
+				toStore = res.ExtractedEnv
+			} else {
+				toStore = map[string]string{}
+			}
+			_ = st.RecordRun(f.index, "up", res.StatusCode, bodyPtr, toStore)
+			// also insert into stored_env for reuse and lifecycle mgmt
+			_ = st.InsertStoredEnv(f.index, toStore)
+			// update sessionStored so subsequent versions in the same run can use these values
+			if len(toStore) > 0 {
+				for k, v := range toStore {
+					sessionStored[k] = v
+				}
+			}
 		}
 		if err != nil {
 			return results, fmt.Errorf("migration %s failed: %w", f.name, err)
@@ -189,6 +225,20 @@ func MigrateDown(ctx context.Context, dir string, baseEnv env.Env, targetVersion
 		if t.Down.Env.Local == nil {
 			t.Down.Env.Local = map[string]string{}
 		}
+		// Merge stored env for this version into Down's Local env (prefer stored_env table; fallback to legacy env_json)
+		if loaded, _ := st.LoadStoredEnv(v); len(loaded) > 0 {
+			for k, val := range loaded {
+				if _, exists := t.Down.Env.Local[k]; !exists {
+					t.Down.Env.Local[k] = val
+				}
+			}
+		} else if loadedLegacy, _ := st.LoadEnv(v, "up"); len(loadedLegacy) > 0 {
+			for k, val := range loadedLegacy {
+				if _, exists := t.Down.Env.Local[k]; !exists {
+					t.Down.Env.Local[k] = val
+				}
+			}
+		}
 		res, err := t.DownExecute(ctx, "", "")
 		results = append(results, &ExecWithVersion{Version: v, Result: res})
 		if res != nil {
@@ -203,7 +253,7 @@ func MigrateDown(ctx context.Context, dir string, baseEnv env.Env, targetVersion
 				b := res.ResponseBody
 				bodyPtr = &b
 			}
-			_ = st.RecordRun(v, "down", res.StatusCode, bodyPtr)
+			_ = st.RecordRun(v, "down", res.StatusCode, bodyPtr, nil)
 		}
 		if err != nil {
 			return results, fmt.Errorf("down %s failed: %w", f.name, err)
@@ -211,6 +261,8 @@ func MigrateDown(ctx context.Context, dir string, baseEnv env.Env, targetVersion
 		if err := st.Remove(v); err != nil {
 			return results, fmt.Errorf("record remove %d: %w", v, err)
 		}
+		// Cleanup stored env rows for this version
+		_ = st.DeleteStoredEnv(v)
 	}
 	return results, nil
 }

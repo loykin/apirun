@@ -1,0 +1,15 @@
+up:
+  name: create resource
+  request:
+    method: POST
+    url: http://your.api/create
+    body: '{"name":"demo"}'
+  response:
+    result_code: ["200"]
+    env_from:
+      rid: id
+
+down:
+  name: delete resource
+  method: DELETE
+  url: http://your.api/resource/{{.rid}}

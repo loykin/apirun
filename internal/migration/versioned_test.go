@@ -125,3 +125,117 @@ func TestMigrateUp_RecordsStatusAndBody(t *testing.T) {
 		})
 	}
 }
+
+// Ensure stored_env from Up is persisted to the store (basic verification)
+func TestMigrateUp_StoresEnv_Persisted(t *testing.T) {
+	var createCalls int
+	// Server: up returns id
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/create" {
+			createCalls++
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"id":"abc"}`))
+			return
+		}
+		w.WriteHeader(404)
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	m1 := "up:\n  name: create\n  env: { }\n  request:\n    method: POST\n    url: " + srv.URL + "/create\n  response:\n    result_code: [\"200\"]\n    env_from:\n      rid: id\n"
+	if err := os.WriteFile(filepath.Join(dir, "001_create.yaml"), []byte(m1), 0o600); err != nil {
+		t.Fatalf("write m1: %v", err)
+	}
+	ctx := context.Background()
+	base := env.Env{Global: map[string]string{}}
+	if _, err := MigrateUp(ctx, dir, base, 0); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+	if createCalls == 0 {
+		t.Fatalf("expected create to be called")
+	}
+	// verify stored_env contains rid
+	st, err := store.Open(filepath.Join(dir, store.DbFileName))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	rows, err := st.DB.Query(`SELECT COUNT(1) FROM stored_env WHERE version=1 AND name='rid' AND value='abc'`)
+	if err != nil {
+		t.Fatalf("query stored_env: %v", err)
+	}
+	var cnt int
+	if rows.Next() {
+		if err := rows.Scan(&cnt); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+	}
+	_ = rows.Close()
+	if cnt != 1 {
+		t.Fatalf("expected 1 stored_env row for version=1 rid=abc, got %d", cnt)
+	}
+}
+
+// Verify that stored_env entries are used by Down templating and are deleted after Down
+func TestMigrateDown_UsesStoredEnvAndCleans(t *testing.T) {
+	var delPath string
+	// Server: up returns id; down DELETE must hit /resource/123
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p := r.URL.Path
+		if p == "/create" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"id":"123"}`))
+			return
+		}
+		if p == "/resource/123" && r.Method == http.MethodDelete {
+			delPath = p
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"ok":true}`))
+			return
+		}
+		w.WriteHeader(404)
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	mig := "up:\n  name: create resource\n  env: { }\n  request:\n    method: POST\n    url: " + srv.URL + "/create\n  response:\n    result_code: [\"200\"]\n    env_from:\n      rid: id\n\n" +
+		"down:\n  name: delete resource\n  env: { }\n  method: DELETE\n  url: \"" + srv.URL + "/resource/{{.rid}}\"\n"
+	if err := os.WriteFile(filepath.Join(dir, "001_create_and_delete.yaml"), []byte(mig), 0o600); err != nil {
+		t.Fatalf("write mig: %v", err)
+	}
+	ctx := context.Background()
+	base := env.Env{Global: map[string]string{}}
+	// Apply up
+	if _, err := MigrateUp(ctx, dir, base, 0); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+	// Now perform down to 0, expecting DELETE with rid from store and cleanup
+	if _, err := MigrateDown(ctx, dir, base, 0); err != nil {
+		t.Fatalf("migrate down: %v", err)
+	}
+	if delPath != "/resource/123" {
+		t.Fatalf("expected DELETE to /resource/123, got %s", delPath)
+	}
+	// ensure stored_env cleaned for version 1
+	st, err := store.Open(filepath.Join(dir, store.DbFileName))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	rows, err := st.DB.Query(`SELECT COUNT(1) FROM stored_env WHERE version=1`)
+	if err != nil {
+		t.Fatalf("query stored_env: %v", err)
+	}
+	var cnt int
+	if rows.Next() {
+		if err := rows.Scan(&cnt); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+	}
+	_ = rows.Close()
+	if cnt != 0 {
+		t.Fatalf("expected 0 stored_env rows after down, got %d", cnt)
+	}
+}

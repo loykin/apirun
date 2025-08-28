@@ -35,14 +35,14 @@ func (e *Env) UnmarshalYAML(value *yaml.Node) error {
 }
 
 // merged returns a combined map (Global then overridden by Local).
-func (e Env) merged() map[string]string {
+func (e *Env) merged() map[string]string {
 	m := map[string]string{}
-	if e.Global != nil {
+	if e != nil && e.Global != nil {
 		for k, v := range e.Global {
 			m[k] = v
 		}
 	}
-	if e.Local != nil {
+	if e != nil && e.Local != nil {
 		for k, v := range e.Local {
 			m[k] = v
 		}
@@ -51,13 +51,13 @@ func (e Env) merged() map[string]string {
 }
 
 // Lookup searches Local first, then Global.
-func (e Env) Lookup(key string) (string, bool) {
-	if e.Local != nil {
+func (e *Env) Lookup(key string) (string, bool) {
+	if e != nil && e.Local != nil {
 		if v, ok := e.Local[key]; ok {
 			return v, true
 		}
 	}
-	if e.Global != nil {
+	if e != nil && e.Global != nil {
 		if v, ok := e.Global[key]; ok {
 			return v, true
 		}
@@ -68,7 +68,7 @@ func (e Env) Lookup(key string) (string, bool) {
 // RenderGoTemplate renders strings like {{.username}} with html/template using default Go delimiters.
 // The merged map (Local over Global) is used as the dot (.). Missing keys keep the original string unchanged.
 // Note: html/template escapes HTML by default to mitigate XSS when used in HTML contexts.
-func (e Env) RenderGoTemplate(s string) string {
+func (e *Env) RenderGoTemplate(s string) string {
 	if len(s) == 0 {
 		return s
 	}
