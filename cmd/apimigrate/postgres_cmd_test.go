@@ -149,8 +149,8 @@ store:
 	}
 	defer func() { _ = db.Close() }()
 
-	// Verify tables exist (including goose version table)
-	mustHave := []string{"schema_migrations", "migration_runs", "stored_env", "apimigrate_goose_version"}
+	// Verify tables exist (goose version table removed)
+	mustHave := []string{"schema_migrations", "migration_runs", "stored_env"}
 	for _, tbl := range mustHave {
 		row := db.QueryRow(`SELECT 1 FROM information_schema.tables WHERE table_name = $1`, tbl)
 		var one int

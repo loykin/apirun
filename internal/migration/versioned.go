@@ -64,13 +64,22 @@ func MigrateUp(ctx context.Context, dir string, baseEnv env.Env, targetVersion i
 				if opts.PostgresDSN == "" {
 					return nil, fmt.Errorf("store backend=postgres requires dsn")
 				}
-				st, err = store.OpenPostgres(opts.PostgresDSN)
+				// Use custom names if provided
+				if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
+					st, err = store.OpenPostgresWithNames(opts.PostgresDSN, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
+				} else {
+					st, err = store.OpenPostgres(opts.PostgresDSN)
+				}
 			} else {
 				path := opts.SQLitePath
 				if path == "" {
 					path = filepath.Join(dir, store.DbFileName)
 				}
-				st, err = store.Open(path)
+				if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
+					st, err = store.OpenWithNames(path, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
+				} else {
+					st, err = store.Open(path)
+				}
 			}
 		} else {
 			// fallback
@@ -200,13 +209,22 @@ func MigrateDown(ctx context.Context, dir string, baseEnv env.Env, targetVersion
 				if opts.PostgresDSN == "" {
 					return nil, fmt.Errorf("store backend=postgres requires dsn")
 				}
-				st, err = store.OpenPostgres(opts.PostgresDSN)
+				// Use custom names if provided
+				if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
+					st, err = store.OpenPostgresWithNames(opts.PostgresDSN, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
+				} else {
+					st, err = store.OpenPostgres(opts.PostgresDSN)
+				}
 			} else {
 				path := opts.SQLitePath
 				if path == "" {
 					path = filepath.Join(dir, store.DbFileName)
 				}
-				st, err = store.Open(path)
+				if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
+					st, err = store.OpenWithNames(path, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
+				} else {
+					st, err = store.Open(path)
+				}
 			}
 		} else {
 			path := filepath.Join(dir, store.DbFileName)

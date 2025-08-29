@@ -141,8 +141,8 @@ func TestSQLite_TablesExist(t *testing.T) {
 	if err := st.EnsureSchema(); err != nil {
 		t.Fatalf("EnsureSchema: %v", err)
 	}
-	// Check sqlite_master for table names
-	mustHave := []string{"schema_migrations", "migration_runs", "stored_env", "apimigrate_goose_version"}
+	// Check sqlite_master for table names (no goose table anymore)
+	mustHave := []string{"schema_migrations", "migration_runs", "stored_env"}
 	for _, tbl := range mustHave {
 		row := st.DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, tbl)
 		var name string

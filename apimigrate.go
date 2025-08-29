@@ -75,11 +75,18 @@ func OpenStoreFromOptions(dir string, opts *StoreOptions) (*Store, error) {
 		if strings.TrimSpace(opts.PostgresDSN) == "" {
 			return nil, fmt.Errorf("store backend=postgres requires dsn")
 		}
+		// If any custom names provided, use the WithNames constructor
+		if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
+			return store.OpenPostgresWithNames(opts.PostgresDSN, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
+		}
 		return store.OpenPostgres(opts.PostgresDSN)
 	default:
 		path := strings.TrimSpace(opts.SQLitePath)
 		if path == "" {
 			path = filepath.Join(dir, StoreDBFileName)
+		}
+		if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
+			return store.OpenWithNames(path, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
 		}
 		return store.Open(path)
 	}

@@ -79,6 +79,13 @@ store:
   #   dbname: apimigrate
   #   sslmode: disable
 
+  # Optional: customize table names.
+  # You can set a single prefix to derive names, or override individually.
+  # table_prefix: app1            # results in: app1_schema_migrations, app1_migration_runs, app1_stored_env
+  # table_schema_migrations: schema_migrations
+  # table_migration_runs: migration_runs
+  # table_stored_env: stored_env
+
 # HTTP client TLS settings
 # If none of these are set, Go defaults are used.
 client:

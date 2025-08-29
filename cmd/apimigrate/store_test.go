@@ -399,3 +399,94 @@ type StoreOptionsShimSQLite struct {
 	Type string
 	Path string
 }
+
+func TestBuildStoreOptions_TableNames_PassThrough(t *testing.T) {
+	doc := ConfigDoc{Store: StoreConfig{
+		Type:                    "sqlite",
+		SQLite:                  SQLiteStoreConfig{Path: "/tmp/x.db"},
+		TableSchemaMigrations:   "sm_custom",
+		TableMigrationRuns:      "mr_custom",
+		TableStoredEnv:          "se_custom",
+		IndexStoredEnvByVersion: "idx_se_ver",
+	}}
+	got := buildStoreOptionsFromDoc(doc)
+	if got == nil {
+		t.Fatalf("expected non-nil store options")
+	}
+	if got.TableSchemaMigrations != "sm_custom" || got.TableMigrationRuns != "mr_custom" || got.TableStoredEnv != "se_custom" || got.IndexStoredEnvByVersion != "idx_se_ver" {
+		t.Fatalf("table names not passed through: %#v", got)
+	}
+}
+
+func TestOpenStoreFromOptions_SQLite_CustomTableNames(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "named.db")
+	doc := ConfigDoc{Store: StoreConfig{
+		Type:                    "sqlite",
+		SQLite:                  SQLiteStoreConfig{Path: dbPath},
+		TableSchemaMigrations:   "sm_custom",
+		TableMigrationRuns:      "mr_custom",
+		TableStoredEnv:          "se_custom",
+		IndexStoredEnvByVersion: "idx_se_ver",
+	}}
+	opts := buildStoreOptionsFromDoc(doc)
+	st, err := apimigrate.OpenStoreFromOptions(dir, opts)
+	if err != nil {
+		t.Fatalf("OpenStoreFromOptions with names: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	// Check sqlite_master for custom table names
+	must := []string{"sm_custom", "mr_custom", "se_custom"}
+	for _, tbl := range must {
+		row := st.DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, tbl)
+		var name string
+		if err := row.Scan(&name); err != nil {
+			t.Fatalf("expected table %s to exist: %v", tbl, err)
+		}
+		if name != tbl {
+			t.Fatalf("expected table %s, got %s", tbl, name)
+		}
+	}
+}
+
+func TestBuildStoreOptions_TablePrefix_ComputesNames(t *testing.T) {
+	doc := ConfigDoc{Store: StoreConfig{
+		Type:        "sqlite",
+		SQLite:      SQLiteStoreConfig{Path: "/tmp/x.db"},
+		TablePrefix: "app1",
+	}}
+	got := buildStoreOptionsFromDoc(doc)
+	if got == nil {
+		t.Fatalf("expected non-nil store options")
+	}
+	if got.TableSchemaMigrations != "app1_schema_migrations" || got.TableMigrationRuns != "app1_migration_runs" || got.TableStoredEnv != "app1_stored_env" {
+		t.Fatalf("prefix-derived names mismatch: %#v", got)
+	}
+}
+
+func TestOpenStoreFromOptions_SQLite_TablePrefix_CreatesTables(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "prefix.db")
+	doc := ConfigDoc{Store: StoreConfig{
+		Type:        "sqlite",
+		SQLite:      SQLiteStoreConfig{Path: dbPath},
+		TablePrefix: "pfx",
+	}}
+	opts := buildStoreOptionsFromDoc(doc)
+	st, err := apimigrate.OpenStoreFromOptions(dir, opts)
+	if err != nil {
+		t.Fatalf("OpenStoreFromOptions: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	must := []string{"pfx_schema_migrations", "pfx_migration_runs", "pfx_stored_env"}
+	for _, tbl := range must {
+		row := st.DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, tbl)
+		var name string
+		if err := row.Scan(&name); err != nil {
+			t.Fatalf("expected table %s to exist: %v", tbl, err)
+		}
+		if name != tbl {
+			t.Fatalf("expected %s, got %s", tbl, name)
+		}
+	}
+}

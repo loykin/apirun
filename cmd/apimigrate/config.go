@@ -33,6 +33,12 @@ type StoreConfig struct {
 	Type             string              `mapstructure:"type"`
 	SQLite           SQLiteStoreConfig   `mapstructure:"sqlite"`
 	Postgres         PostgresStoreConfig `mapstructure:"postgres"`
+	// Optional table name customization
+	TablePrefix             string `mapstructure:"table_prefix"`
+	TableSchemaMigrations   string `mapstructure:"table_schema_migrations"`
+	TableMigrationRuns      string `mapstructure:"table_migration_runs"`
+	TableStoredEnv          string `mapstructure:"table_stored_env"`
+	IndexStoredEnvByVersion string `mapstructure:"index_stored_env_by_version"`
 }
 
 type ClientConfig struct {

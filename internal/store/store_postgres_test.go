@@ -92,12 +92,11 @@ func TestPostgresStore_BasicCRUD(t *testing.T) {
 		t.Fatalf("EnsureSchema: %v", err)
 	}
 
-	// Verify required tables exist (including goose version table)
+	// Verify required tables exist (goose version table removed)
 	checks := []string{
 		"schema_migrations",
 		"migration_runs",
 		"stored_env",
-		"apimigrate_goose_version",
 	}
 	for _, tbl := range checks {
 		row := st.DB.QueryRow(`SELECT 1 FROM information_schema.tables WHERE table_name = $1`, tbl)

@@ -24,6 +24,24 @@ func buildStoreOptionsFromDoc(doc ConfigDoc) *apimigrate.StoreOptions {
 	if stType == "" {
 		return nil
 	}
+
+	// Derive table names from table_prefix when explicit names are not provided
+	prefix := strings.TrimSpace(doc.Store.TablePrefix)
+	sm := strings.TrimSpace(doc.Store.TableSchemaMigrations)
+	mr := strings.TrimSpace(doc.Store.TableMigrationRuns)
+	se := strings.TrimSpace(doc.Store.TableStoredEnv)
+	if prefix != "" {
+		if sm == "" {
+			sm = prefix + "_schema_migrations"
+		}
+		if mr == "" {
+			mr = prefix + "_migration_runs"
+		}
+		if se == "" {
+			se = prefix + "_stored_env"
+		}
+	}
+
 	if stType == "postgres" || stType == "postgresql" || stType == "pg" {
 		dsn := strings.TrimSpace(doc.Store.Postgres.DSN)
 		if dsn == "" && strings.TrimSpace(doc.Store.Postgres.Host) != "" {
@@ -40,8 +58,22 @@ func buildStoreOptionsFromDoc(doc ConfigDoc) *apimigrate.StoreOptions {
 				strings.TrimSpace(doc.Store.Postgres.Host), port, strings.TrimSpace(doc.Store.Postgres.DBName), ssl,
 			)
 		}
-		return &apimigrate.StoreOptions{Backend: "postgres", PostgresDSN: dsn}
+		return &apimigrate.StoreOptions{
+			Backend:                 "postgres",
+			PostgresDSN:             dsn,
+			TableSchemaMigrations:   sm,
+			TableMigrationRuns:      mr,
+			TableStoredEnv:          se,
+			IndexStoredEnvByVersion: strings.TrimSpace(doc.Store.IndexStoredEnvByVersion),
+		}
 	}
 	// default to sqlite if type is provided but not recognized as postgres
-	return &apimigrate.StoreOptions{Backend: "sqlite", SQLitePath: strings.TrimSpace(doc.Store.SQLite.Path)}
+	return &apimigrate.StoreOptions{
+		Backend:                 "sqlite",
+		SQLitePath:              strings.TrimSpace(doc.Store.SQLite.Path),
+		TableSchemaMigrations:   sm,
+		TableMigrationRuns:      mr,
+		TableStoredEnv:          se,
+		IndexStoredEnvByVersion: strings.TrimSpace(doc.Store.IndexStoredEnvByVersion),
+	}
 }

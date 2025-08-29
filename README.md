@@ -155,7 +155,8 @@ Notes:
 - To use PostgreSQL, set store.type to postgres and either:
   - provide store.postgres.dsn directly, or
   - provide the component fields (host/port/user/password/dbname[/sslmode]) and a DSN will be constructed.
-- The migration history schema is managed automatically via embedded goose migrations. The goose version table name is apimigrate_goose_version.
+- The migration history schema is initialized automatically by the library (no external migration tool needed).
+- Advanced: you can customize table names via store.table_prefix (derives three names automatically) or by setting store.table_schema_migrations, store.table_migration_runs, and store.table_stored_env individually (explicit names take precedence over the prefix).
 - You can inspect current/applied versions with: `apimigrate status --config <path>`.
 
 See also:
@@ -310,6 +311,7 @@ go run ./examples/auth_registry
 - `examples/embedded`: Minimal example running a single migration inline.
 - `examples/embedded_sqlite`: Programmatic example using the default SQLite store with versioned migrations.
 - `examples/embedded_postgresql`: Programmatic example using a PostgreSQL store with versioned migrations.
+- `examples/embedded_custom_table`: Programmatic example demonstrating custom table/index names for the store.
 - `examples/auth_registry`: Demonstrates custom auth provider registration.
 - `examples/auth_embedded`: Embed apimigrate and acquire auth via typed wrappers; uses a local test server.
 
