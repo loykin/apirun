@@ -17,6 +17,30 @@ import (
 )
 
 // CLI-level test: run up/down against PostgreSQL via Testcontainers and verify tables/records lifecycle.
+// waitForPostgresDSN pings the database until it responds or timeout elapses.
+func waitForPostgresDSN(dsn string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		db, err := sql.Open("pgx", dsn)
+		if err == nil {
+			pingErr := db.Ping()
+			_ = db.Close()
+			if pingErr == nil {
+				return nil
+			}
+			lastErr = pingErr
+		} else {
+			lastErr = err
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("timeout waiting for postgres")
+	}
+	return lastErr
+}
+
 func TestCmd_Postgres_UpDown_TablesAndRecords(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
@@ -52,6 +76,11 @@ func TestCmd_Postgres_UpDown_TablesAndRecords(t *testing.T) {
 		t.Fatalf("container port: %v", err)
 	}
 	dsn := fmt.Sprintf("postgres://test:test@%s:%s/apimigrate_test?sslmode=disable", host, port.Port())
+
+	// Ensure DB is accepting connections (avoid race after port readiness)
+	if err := waitForPostgresDSN(dsn, 30*time.Second); err != nil {
+		t.Fatalf("postgres not ready: %v", err)
+	}
 
 	// Test HTTP server to be called by migrations
 	var delPath string

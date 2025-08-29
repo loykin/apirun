@@ -2,13 +2,39 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"testing"
 	"time"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	tc "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
+
+// waitForPostgresDSN pings the DSN until it responds or timeout elapses (pgx stdlib).
+func waitForPostgresDSN(dsn string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		db, err := sql.Open("pgx", dsn)
+		if err == nil {
+			pingErr := db.Ping()
+			_ = db.Close()
+			if pingErr == nil {
+				return nil
+			}
+			lastErr = pingErr
+		} else {
+			lastErr = err
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("timeout waiting for postgres")
+	}
+	return lastErr
+}
 
 // Integration test with PostgreSQL via testcontainers
 func TestPostgresStore_BasicCRUD(t *testing.T) {
@@ -47,6 +73,12 @@ func TestPostgresStore_BasicCRUD(t *testing.T) {
 		t.Fatalf("container port: %v", err)
 	}
 	dsn := fmt.Sprintf("postgres://test:test@%s:%s/apimigrate_test?sslmode=disable", host, port.Port())
+
+	// Ensure DB is accepting connections before opening the store
+	if err := waitForPostgresDSN(dsn, 30*time.Second); err != nil {
+		_ = pg.Terminate(ctx)
+		t.Fatalf("postgres not ready: %v", err)
+	}
 
 	st, err := OpenPostgres(dsn)
 	if err != nil {
