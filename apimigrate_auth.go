@@ -151,3 +151,89 @@ func AcquirePocketBase(ctx context.Context, cfg PocketBaseAuthConfig) (string, s
 	}
 	return AcquireAuthByProviderSpec(ctx, "pocketbase", spec)
 }
+
+// Below are convenience variants that accept an explicit logical name argument
+// so callers don't need to embed the name into the config/spec.
+
+// AcquireBasicAuthWithName acquires and stores a Basic auth token under the provided name.
+// cfg.Name is ignored; pass the desired logical name via the name parameter.
+func AcquireBasicAuthWithName(ctx context.Context, name string, cfg BasicAuthConfig) (string, string, string, error) {
+	spec := map[string]interface{}{
+		"header":   cfg.Header,
+		"username": cfg.Username,
+		"password": cfg.Password,
+	}
+	return AcquireAuthByProviderSpecWithName(ctx, "basic", name, spec)
+}
+
+// AcquireOAuth2PasswordWithName acquires and stores an OAuth2 password-grant token under the provided name.
+// cfg.Name is ignored; pass the desired logical name via the name parameter.
+func AcquireOAuth2PasswordWithName(ctx context.Context, name string, cfg OAuth2PasswordConfig) (string, string, string, error) {
+	sub := map[string]interface{}{
+		"header":        cfg.Header,
+		"client_id":     cfg.ClientID,
+		"client_secret": cfg.ClientSec,
+		"auth_url":      cfg.AuthURL,
+		"token_url":     cfg.TokenURL,
+		"username":      cfg.Username,
+		"password":      cfg.Password,
+	}
+	if len(cfg.Scopes) > 0 {
+		sub["scopes"] = cfg.Scopes
+	}
+	spec := map[string]interface{}{
+		"grant_type":   "password",
+		"grant_config": sub,
+	}
+	return AcquireAuthByProviderSpecWithName(ctx, "oauth2", name, spec)
+}
+
+// AcquireOAuth2ClientCredentialsWithName acquires and stores a client-credentials token under the provided name.
+// cfg.Name is ignored; pass the desired logical name via the name parameter.
+func AcquireOAuth2ClientCredentialsWithName(ctx context.Context, name string, cfg OAuth2ClientCredentialsConfig) (string, string, string, error) {
+	sub := map[string]interface{}{
+		"header":        cfg.Header,
+		"client_id":     cfg.ClientID,
+		"client_secret": cfg.ClientSec,
+		"token_url":     cfg.TokenURL,
+	}
+	if len(cfg.Scopes) > 0 {
+		sub["scopes"] = cfg.Scopes
+	}
+	spec := map[string]interface{}{
+		"grant_type":   "client_credentials",
+		"grant_config": sub,
+	}
+	return AcquireAuthByProviderSpecWithName(ctx, "oauth2", name, spec)
+}
+
+// AcquireOAuth2ImplicitWithName prepares the implicit grant authorization URL value under the provided name.
+// cfg.Name is ignored; pass the desired logical name via the name parameter.
+func AcquireOAuth2ImplicitWithName(ctx context.Context, name string, cfg OAuth2ImplicitConfig) (string, string, string, error) {
+	sub := map[string]interface{}{
+		"header":       cfg.Header,
+		"client_id":    cfg.ClientID,
+		"redirect_url": cfg.RedirectURL,
+		"auth_url":     cfg.AuthURL,
+	}
+	if len(cfg.Scopes) > 0 {
+		sub["scopes"] = cfg.Scopes
+	}
+	spec := map[string]interface{}{
+		"grant_type":   "implicit",
+		"grant_config": sub,
+	}
+	return AcquireAuthByProviderSpecWithName(ctx, "oauth2", name, spec)
+}
+
+// AcquirePocketBaseWithName acquires and stores the PocketBase admin token under the provided name.
+// cfg.Name is ignored; pass the desired logical name via the name parameter.
+func AcquirePocketBaseWithName(ctx context.Context, name string, cfg PocketBaseAuthConfig) (string, string, string, error) {
+	spec := map[string]interface{}{
+		"header":   cfg.Header,
+		"base_url": cfg.BaseURL,
+		"email":    cfg.Email,
+		"password": cfg.Password,
+	}
+	return AcquireAuthByProviderSpecWithName(ctx, "pocketbase", name, spec)
+}

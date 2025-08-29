@@ -53,6 +53,12 @@ func AcquireAuthByProviderSpec(ctx context.Context, typ string, spec map[string]
 	return auth.AcquireAndStoreFromMap(ctx, typ, spec)
 }
 
+// AcquireAuthByProviderSpecWithName acquires auth by provider type/spec but stores under the provided name,
+// allowing callers to omit "name" inside spec and control the registry key explicitly.
+func AcquireAuthByProviderSpecWithName(ctx context.Context, typ string, name string, spec map[string]interface{}) (header, value, storedName string, err error) {
+	return auth.AcquireAndStoreWithName(ctx, typ, name, spec)
+}
+
 // Store is an alias to the internal store type.
 type Store = store.Store
 

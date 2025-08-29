@@ -76,6 +76,17 @@ func AcquireAndStoreFromMap(ctx context.Context, typ string, spec map[string]int
 	return h, v, name, err
 }
 
+// AcquireAndStoreWithName acquires using the provider spec but stores under the provided name,
+// ignoring the provider's Method.Name(). This allows callers to avoid including "name" in spec.
+func AcquireAndStoreWithName(ctx context.Context, typ string, name string, spec map[string]interface{}) (string, string, string, error) {
+	h, v, _, err := AcquireFromMap(ctx, typ, spec)
+	stored := strings.TrimSpace(name)
+	if err == nil && stored != "" {
+		SetToken(stored, h, v)
+	}
+	return h, v, stored, err
+}
+
 // Built-in provider registrations
 func init() {
 	// oauth2 (and common aliases)
