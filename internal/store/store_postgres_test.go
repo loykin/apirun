@@ -12,7 +12,8 @@ import (
 
 // Integration test with PostgreSQL via testcontainers
 func TestPostgresStore_BasicCRUD(t *testing.T) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
 
 	req := tc.ContainerRequest{
 		Image:        "postgres:16",
@@ -22,7 +23,10 @@ func TestPostgresStore_BasicCRUD(t *testing.T) {
 			"POSTGRES_PASSWORD": "test",
 			"POSTGRES_DB":       "apimigrate_test",
 		},
-		WaitingFor: wait.ForListeningPort("5432/tcp").WithStartupTimeout(120 * time.Second),
+		WaitingFor: wait.ForAll(
+			wait.ForListeningPort("5432/tcp"),
+			wait.ForLog("database system is ready to accept connections"),
+		),
 	}
 	pg, err := tc.GenericContainer(ctx, tc.GenericContainerRequest{ContainerRequest: req, Started: true})
 	if err != nil {

@@ -18,7 +18,8 @@ import (
 
 // CLI-level test: run up/down against PostgreSQL via Testcontainers and verify tables/records lifecycle.
 func TestCmd_Postgres_UpDown_TablesAndRecords(t *testing.T) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
 
 	// Start PostgreSQL container
 	req := tc.ContainerRequest{
@@ -29,7 +30,10 @@ func TestCmd_Postgres_UpDown_TablesAndRecords(t *testing.T) {
 			"POSTGRES_PASSWORD": "test",
 			"POSTGRES_DB":       "apimigrate_test",
 		},
-		WaitingFor: wait.ForListeningPort("5432/tcp").WithStartupTimeout(120 * time.Second),
+		WaitingFor: wait.ForAll(
+			wait.ForListeningPort("5432/tcp"),
+			wait.ForLog("database system is ready to accept connections"),
+		),
 	}
 	pg, err := tc.GenericContainer(ctx, tc.GenericContainerRequest{ContainerRequest: req, Started: true})
 	if err != nil {
