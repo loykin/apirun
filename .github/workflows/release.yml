@@ -39,27 +39,28 @@ jobs:
           BIN_NAME=apimigrate
           EXT=""
           if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
-          OUT="${BIN_NAME}_${{ matrix.goos }}_${{ matrix.goarch }}${EXT}"
-          echo "Building $OUT"
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o "$OUT" ./cmd/apimigrate
-          mkdir pkg
-          cp "$OUT" pkg/
-          if [ -f README.md ]; then cp README.md pkg/; fi
-          if [ -f LICENSE ]; then cp LICENSE pkg/; fi
-          # Include example config directory (exclude any SQLite DB files)
+          BIN_FILE="${BIN_NAME}${EXT}"
+          OUT_DIR="${BIN_NAME}_${{ matrix.goos }}_${{ matrix.goarch }}"
+
+          echo "Building $BIN_FILE for $OUT_DIR"
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o "$BIN_FILE" ./cmd/apimigrate
+
+          mkdir -p "$OUT_DIR/bin"
+          cp "$BIN_FILE" "$OUT_DIR/bin/"
+          if [ -f README.md ]; then cp README.md "$OUT_DIR/"; fi
+          if [ -f LICENSE ]; then cp LICENSE "$OUT_DIR/"; fi
           if [ -d config ]; then
-            cp -R config pkg/
-            find pkg/config -name '*.db' -type f -delete || true
+            cp -R config "$OUT_DIR/"
+            find "$OUT_DIR/config" -name '*.db' -type f -delete || true
           fi
-          ARCHIVE_BASE="${BIN_NAME}_${{ matrix.goos }}_${{ matrix.goarch }}"
-          TOPDIR="${ARCHIVE_BASE}"
-          mv pkg "$TOPDIR"
+
           if [ "${{ matrix.goos }}" = "windows" ]; then
-            zip -9 -r "dist/${ARCHIVE_BASE}.zip" "$TOPDIR"
+            zip -9 -r "dist/${OUT_DIR}.zip" "$OUT_DIR"
           else
-            tar -czf "dist/${ARCHIVE_BASE}.tar.gz" "$TOPDIR"
+            tar -czf "dist/${OUT_DIR}.tar.gz" "$OUT_DIR"
           fi
-          rm -rf "$TOPDIR" "$OUT"
+
+          rm -rf "$OUT_DIR" "$BIN_FILE"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -82,11 +83,18 @@ jobs:
       - name: Display files to release
         run: ls -la
 
+      - name: Generate checksums
+        run: |
+          sha256sum *.tar.gz *.zip > checksums.txt
+          cat checksums.txt
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             *.tar.gz
             *.zip
+            checksums.txt
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
