@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
@@ -187,3 +188,75 @@ func TestStoredEnv_CRUD(t *testing.T) {
 		t.Fatalf("expected empty after delete, got %#v", m)
 	}
 }
+
+// Test conv() converts '?' placeholders into $1, $2... when isPostgres is true
+func TestConv_Postgres(t *testing.T) {
+	st := &Store{isPostgres: true}
+	in := "INSERT INTO t(a,b,c) VALUES(?, ?, ?)"
+	exp := "INSERT INTO t(a,b,c) VALUES($1, $2, $3)"
+	if got := st.conv(in); got != exp {
+		t.Fatalf("conv mismatch: got %q want %q", got, exp)
+	}
+	// non-postgres must pass-through
+	st2 := &Store{isPostgres: false}
+	if got := st2.conv(in); got != in {
+		t.Fatalf("conv (sqlite) changed input: got %q want %q", got, in)
+	}
+}
+
+// Test safe table names fallback to defaults when invalid identifiers are set
+func TestSafeTableNames_FallbackOnInvalid(t *testing.T) {
+	st := &Store{}
+	// Set invalid names (contain dots/quotes)
+	st.SetTableNames("public.migs", "migration-runs", "stored env", "idx.name")
+	// Now ask for the safe names (should fallback to defaults)
+	tn := st.safeTableNames()
+	def := defaultTableNames()
+	if tn.schemaMigrations != def.schemaMigrations || tn.migrationRuns != def.migrationRuns || tn.storedEnv != def.storedEnv || tn.idxStoredEnvVersion != def.idxStoredEnvVersion {
+		t.Fatalf("expected defaults on invalid names, got %+v want %+v", tn, def)
+	}
+	// Valid names should be preserved
+	st.SetTableNames("app_schema", "app_runs", "app_env", "app_idx")
+	tn2 := st.safeTableNames()
+	if tn2.schemaMigrations != "app_schema" || tn2.migrationRuns != "app_runs" || tn2.storedEnv != "app_env" || tn2.idxStoredEnvVersion != "app_idx" {
+		t.Fatalf("valid names not preserved: %+v", tn2)
+	}
+}
+
+// Test RecordRun with env_json and LoadEnv returns that env
+func TestRecordRunAndLoadEnv(t *testing.T) {
+	st := openTempStore(t)
+	// Record a run with an env map
+	body := ""
+	if err := st.RecordRun(1, "up", 200, &body, map[string]string{"a": "1", "b": "2"}); err != nil {
+		t.Fatalf("RecordRun: %v", err)
+	}
+	m, err := st.LoadEnv(1, "up")
+	if err != nil {
+		t.Fatalf("LoadEnv: %v", err)
+	}
+	if len(m) != 2 || m["a"] != "1" || m["b"] != "2" {
+		t.Fatalf("unexpected env: %+v", m)
+	}
+	// When no row exists, should return empty map and no error
+	m2, err := st.LoadEnv(2, "up")
+	if err != nil {
+		t.Fatalf("LoadEnv (missing): %v", err)
+	}
+	if m2 == nil || len(m2) != 0 {
+		t.Fatalf("expected empty map for missing env_json, got %+v", m2)
+	}
+	// Insert a malformed env_json row to ensure graceful fallback
+	_, _ = st.DB.Exec("INSERT INTO migration_runs(version, direction, status_code, env_json, ran_at) VALUES(?, ?, ?, ?, ?)", 3, "up", 200, "not-json", "2020-01-01T00:00:00Z")
+	m3, err := st.LoadEnv(3, "up")
+	if err != nil {
+		t.Fatalf("LoadEnv (malformed): %v", err)
+	}
+	// Expect empty on malformed json
+	if len(m3) != 0 {
+		t.Fatalf("expected empty for malformed env_json, got %+v", m3)
+	}
+}
+
+// Ensure helper openTempStore is available in this package (from store_test.go), but add a guard here for IDEs.
+var _ *sql.DB

@@ -76,3 +76,65 @@ func TestRegistry_Register_IgnoresEmptyOrNil(t *testing.T) {
 		t.Fatalf("expected error for empty type after Register(\"\", nil)")
 	}
 }
+
+type dummyMethod struct{ v string }
+
+func (d dummyMethod) Acquire(_ context.Context) (string, error) { return d.v, nil }
+
+func dummyFactoryOK(spec map[string]interface{}) (Method, error) {
+	v, _ := spec["value"].(string)
+	return dummyMethod{v: v}, nil
+}
+
+func TestRegister_IgnoresEmptyKeyAndNilFactory(t *testing.T) {
+	// Capture current size
+	before := len(providers)
+	Register("", dummyFactoryOK)   // ignored due to empty key
+	Register("  ", dummyFactoryOK) // ignored due to whitespace
+	Register("demo", nil)          // ignored due to nil factory
+	if len(providers) != before {
+		t.Fatalf("providers size changed unexpectedly: before=%d after=%d", before, len(providers))
+	}
+}
+
+func TestNormalizeKey_LowerTrim(t *testing.T) {
+	if got := normalizeKey("  OAuth2  "); got != "oauth2" {
+		t.Fatalf("normalizeKey mismatch: got %q want %q", got, "oauth2")
+	}
+}
+
+func TestAcquireAndStoreWithName_UnsupportedTypeError(t *testing.T) {
+	ClearTokens()
+	if _, err := AcquireAndStoreWithName(context.Background(), "__nope__", "x", map[string]interface{}{}); err == nil {
+		t.Fatal("expected error for unsupported provider type, got nil")
+	}
+}
+
+func TestAcquireAndStoreWithName_StoresTokenAndRetrievable(t *testing.T) {
+	ClearTokens()
+	// Register a unique temporary provider key
+	key := "dummy-registry-test"
+	Register(key, dummyFactoryOK)
+	v, err := AcquireAndStoreWithName(context.Background(), key, "logical", map[string]interface{}{"value": "tok123"})
+	if err != nil {
+		t.Fatalf("AcquireAndStoreWithName error: %v", err)
+	}
+	if v != "tok123" {
+		t.Fatalf("unexpected token value: got %q want %q", v, "tok123")
+	}
+	// Ensure it was stored under the provided logical name with header Authorization
+	h, sv, ok := GetToken("logical")
+	if !ok || h != "Authorization" || sv != "tok123" {
+		t.Fatalf("stored token mismatch: ok=%v header=%q val=%q", ok, h, sv)
+	}
+}
+
+func TestAcquireAndStoreWithName_NilContextHandled(t *testing.T) {
+	ClearTokens()
+	key := "dummy-nilctx"
+	Register(key, dummyFactoryOK)
+	v, err := AcquireAndStoreWithName(nil, key, "nm", map[string]interface{}{"value": "x"})
+	if err != nil || v != "x" {
+		t.Fatalf("nil ctx path failed: v=%q err=%v", v, err)
+	}
+}
