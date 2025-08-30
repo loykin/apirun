@@ -163,6 +163,61 @@ Notes:
 - Advanced: you can customize table names via store.table_prefix (derives three names automatically) or by setting store.table_schema_migrations, store.table_migration_runs, and store.table_stored_env individually (explicit names take precedence over the prefix).
 - You can inspect current/applied versions with: `apimigrate status --config <path>`.
 
+### Customizing store table names (rules)
+You can change the SQLite/PostgreSQL table (and index) names used to persist the migration history. There are two ways to configure names under the store section:
+
+1) table_prefix (simple):
+- Derives names automatically as:
+  - <prefix>_schema_migrations
+  - <prefix>_migration_runs
+  - <prefix>_stored_env
+- Example:
+  store:
+    table_prefix: app1
+  results in: app1_schema_migrations, app1_migration_runs, app1_stored_env
+
+2) Explicit names (fine-grained):
+- Set one or more of these fields to override individually:
+  - table_schema_migrations
+  - table_migration_runs
+  - table_stored_env
+  - index_stored_env_by_version (optional index name, reserved for future use)
+- When both prefix and explicit names are provided, explicit names take precedence for the fields you set.
+
+Validation and constraints:
+- Allowed identifier characters: only ASCII letters, digits and underscores, starting with a letter or underscore.
+  - Regex: ^[a-zA-Z_][a-zA-Z0-9_]*$
+- If a provided name does not match the allowed pattern, apimigrate falls back to the safe default for that identifier.
+- Do not include quotes, dots, or schema qualifiers in names; use plain identifiers (e.g., my_schema_migrations, not public.my_schema_migrations). The default schema of your database connection will be used.
+- The same rules apply to both SQLite and PostgreSQL backends.
+
+Examples (YAML):
+- Using a single prefix:
+  store:
+    type: sqlite
+    table_prefix: app1
+
+- Overriding specific names:
+  store:
+    type: postgres
+    postgres:
+      dsn: postgres://user:pass@localhost:5432/postgres?sslmode=disable
+    table_schema_migrations: app_schema
+    table_migration_runs: app_runs
+    table_stored_env: app_env
+
+Programmatic (library) equivalent:
+- Use apimigrate.WithStoreOptions with StoreOptions fields:
+  opts := &apimigrate.StoreOptions{
+    Backend: "postgres",
+    PostgresDSN: "postgres://...",
+    TableSchemaMigrations: "app_schema",
+    TableMigrationRuns: "app_runs",
+    TableStoredEnv: "app_env",
+    // IndexStoredEnvByVersion is optional
+  }
+  ctx = apimigrate.WithStoreOptions(ctx, opts)
+
 See also:
 - `config/config.yaml` (commented template)
 - `examples/keycloak_migration/config.yaml`

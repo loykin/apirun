@@ -10,10 +10,11 @@ func (sqliteSchema) Ensure(s *Store) error {
 	if s.tn.schemaMigrations == "" {
 		s.tn = defaultTableNames()
 	}
+	tn := s.safeTableNames()
 	if _, err := s.DB.Exec(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
 		version INTEGER PRIMARY KEY,
 		applied_at TEXT NOT NULL
-	)`, s.tn.schemaMigrations)); err != nil {
+	)`, tn.schemaMigrations)); err != nil {
 		return err
 	}
 	if _, err := s.DB.Exec(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
@@ -24,17 +25,17 @@ func (sqliteSchema) Ensure(s *Store) error {
 		body TEXT,
 		env_json TEXT,
 		ran_at TEXT NOT NULL
-	)`, s.tn.migrationRuns)); err != nil {
+	)`, tn.migrationRuns)); err != nil {
 		return err
 	}
 	// Ensure env_json column exists for legacy DBs (best-effort)
-	_, _ = s.DB.Exec(fmt.Sprintf(`ALTER TABLE %s ADD COLUMN env_json TEXT`, s.tn.migrationRuns))
+	_, _ = s.DB.Exec(fmt.Sprintf(`ALTER TABLE %s ADD COLUMN env_json TEXT`, tn.migrationRuns))
 	if _, err := s.DB.Exec(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		version INTEGER NOT NULL,
 		name TEXT NOT NULL,
 		value TEXT NOT NULL
-	)`, s.tn.storedEnv)); err != nil {
+	)`, tn.storedEnv)); err != nil {
 		return err
 	}
 	return nil

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -35,6 +36,28 @@ type tableNames struct {
 	migrationRuns       string
 	storedEnv           string
 	idxStoredEnvVersion string
+}
+
+var identRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+// safeTableNames returns validated table/index names; if a custom name is invalid,
+// it falls back to the default for that identifier to avoid SQL injection via identifiers.
+func (s *Store) safeTableNames() tableNames {
+	d := defaultTableNames()
+	t := s.tn
+	if !identRe.MatchString(t.schemaMigrations) {
+		t.schemaMigrations = d.schemaMigrations
+	}
+	if !identRe.MatchString(t.migrationRuns) {
+		t.migrationRuns = d.migrationRuns
+	}
+	if !identRe.MatchString(t.storedEnv) {
+		t.storedEnv = d.storedEnv
+	}
+	if !identRe.MatchString(t.idxStoredEnvVersion) {
+		t.idxStoredEnvVersion = d.idxStoredEnvVersion
+	}
+	return t
 }
 
 func defaultTableNames() tableNames {
@@ -107,7 +130,8 @@ func (s *Store) RecordRun(version int, direction string, statusCode int, body *s
 	} else {
 		envJSON = nil
 	}
-	q := s.conv(fmt.Sprintf("INSERT INTO %s(version, direction, status_code, body, env_json, ran_at) VALUES(?, ?, ?, ?, ?, ?)", s.tn.migrationRuns))
+	tn := s.safeTableNames()
+	q := s.conv(fmt.Sprintf("INSERT INTO %s(version, direction, status_code, body, env_json, ran_at) VALUES(?, ?, ?, ?, ?, ?)", tn.migrationRuns))
 	_, err := s.DB.Exec(q, version, direction, statusCode, b, envJSON, time.Now().UTC().Format(time.RFC3339))
 	return err
 }
@@ -198,7 +222,8 @@ func (s *Store) LoadStoredEnv(version int) (map[string]string, error) {
 	if s == nil || s.DB == nil {
 		return map[string]string{}, errors.New("nil store")
 	}
-	rows, err := s.DB.Query(s.conv(fmt.Sprintf("SELECT name, value FROM %s WHERE version = ?", s.tn.storedEnv)), version)
+	tn := s.safeTableNames()
+	rows, err := s.DB.Query(s.conv(fmt.Sprintf("SELECT name, value FROM %s WHERE version = ?", tn.storedEnv)), version)
 	if err != nil {
 		return map[string]string{}, err
 	}
@@ -219,31 +244,36 @@ func (s *Store) DeleteStoredEnv(version int) error {
 	if s == nil || s.DB == nil {
 		return errors.New("nil store")
 	}
-	_, err := s.DB.Exec(s.conv(fmt.Sprintf("DELETE FROM %s WHERE version = ?", s.tn.storedEnv)), version)
+	tn := s.safeTableNames()
+	_, err := s.DB.Exec(s.conv(fmt.Sprintf("DELETE FROM %s WHERE version = ?", tn.storedEnv)), version)
 	return err
 }
 
 // Apply records that a migration version has been applied.
 func (s *Store) Apply(version int) error {
 	if s.isPostgres {
-		q := fmt.Sprintf("INSERT INTO %s(version, applied_at) VALUES($1, $2) ON CONFLICT (version) DO NOTHING", s.tn.schemaMigrations)
+		tn := s.safeTableNames()
+		q := fmt.Sprintf("INSERT INTO %s(version, applied_at) VALUES($1, $2) ON CONFLICT (version) DO NOTHING", tn.schemaMigrations)
 		_, err := s.DB.Exec(q, version, time.Now().UTC().Format(time.RFC3339))
 		return err
 	}
-	q := fmt.Sprintf("INSERT OR IGNORE INTO %s(version, applied_at) VALUES(?, ?)", s.tn.schemaMigrations)
+	tn := s.safeTableNames()
+	q := fmt.Sprintf("INSERT OR IGNORE INTO %s(version, applied_at) VALUES(?, ?)", tn.schemaMigrations)
 	_, err := s.DB.Exec(q, version, time.Now().UTC().Format(time.RFC3339))
 	return err
 }
 
 // Remove deletes a migration version record (used for down).
 func (s *Store) Remove(version int) error {
-	_, err := s.DB.Exec(s.conv(fmt.Sprintf("DELETE FROM %s WHERE version = ?", s.tn.schemaMigrations)), version)
+	tn := s.safeTableNames()
+	_, err := s.DB.Exec(s.conv(fmt.Sprintf("DELETE FROM %s WHERE version = ?", tn.schemaMigrations)), version)
 	return err
 }
 
 // IsApplied returns true if the version exists in the table.
 func (s *Store) IsApplied(version int) (bool, error) {
-	row := s.DB.QueryRow(s.conv(fmt.Sprintf("SELECT 1 FROM %s WHERE version = ?", s.tn.schemaMigrations)), version)
+	tn := s.safeTableNames()
+	row := s.DB.QueryRow(s.conv(fmt.Sprintf("SELECT 1 FROM %s WHERE version = ?", tn.schemaMigrations)), version)
 	var one int
 	err := row.Scan(&one)
 	if err == sql.ErrNoRows {
@@ -254,7 +284,8 @@ func (s *Store) IsApplied(version int) (bool, error) {
 
 // CurrentVersion returns the highest applied version, or 0 if none.
 func (s *Store) CurrentVersion() (int, error) {
-	row := s.DB.QueryRow(fmt.Sprintf("SELECT COALESCE(MAX(version), 0) FROM %s", s.tn.schemaMigrations))
+	tn := s.safeTableNames()
+	row := s.DB.QueryRow(fmt.Sprintf("SELECT COALESCE(MAX(version), 0) FROM %s", tn.schemaMigrations))
 	var v int
 	if err := row.Scan(&v); err != nil {
 		return 0, err
@@ -264,7 +295,8 @@ func (s *Store) CurrentVersion() (int, error) {
 
 // ListApplied returns applied versions sorted ascending.
 func (s *Store) ListApplied() ([]int, error) {
-	rows, err := s.DB.Query(fmt.Sprintf("SELECT version FROM %s ORDER BY version ASC", s.tn.schemaMigrations))
+	tn := s.safeTableNames()
+	rows, err := s.DB.Query(fmt.Sprintf("SELECT version FROM %s ORDER BY version ASC", tn.schemaMigrations))
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +326,8 @@ func (s *Store) SetVersion(target int) error {
 		return errors.New("SetVersion cannot move up; use MigrateUp")
 	}
 	// moving down: remove all versions > target
-	_, err = s.DB.Exec(s.conv(fmt.Sprintf("DELETE FROM %s WHERE version > ?", s.tn.schemaMigrations)), target)
+	tn := s.safeTableNames()
+	_, err = s.DB.Exec(s.conv(fmt.Sprintf("DELETE FROM %s WHERE version > ?", tn.schemaMigrations)), target)
 	return err
 }
 
@@ -303,7 +336,8 @@ func (s *Store) LoadEnv(version int, direction string) (map[string]string, error
 	if s == nil || s.DB == nil {
 		return map[string]string{}, errors.New("nil store")
 	}
-	row := s.DB.QueryRow(s.conv(fmt.Sprintf("SELECT env_json FROM %s WHERE version = ? AND direction = ? ORDER BY id DESC LIMIT 1", s.tn.migrationRuns)), version, direction)
+	tn := s.safeTableNames()
+	row := s.DB.QueryRow(s.conv(fmt.Sprintf("SELECT env_json FROM %s WHERE version = ? AND direction = ? ORDER BY id DESC LIMIT 1", tn.migrationRuns)), version, direction)
 	var envJSON sql.NullString
 	if err := row.Scan(&envJSON); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
