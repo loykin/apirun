@@ -2,6 +2,7 @@ package task
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/loykin/apimigrate/internal/auth"
@@ -59,6 +60,7 @@ func (r RequestSpec) Render(env env.Env) (map[string]string, map[string]string, 
 	if strings.TrimSpace(r.BodyFile) != "" {
 		path := r.BodyFile
 		path = env.RenderGoTemplate(path)
+		path = filepath.Clean(path)
 		if data, err := os.ReadFile(path); err == nil {
 			body = string(data)
 		} else {

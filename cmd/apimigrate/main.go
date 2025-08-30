@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -124,7 +125,16 @@ func main() {
 }
 
 func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (string, apimigrate.Env, bool, bool, string, string, *apimigrate.StoreOptions, error) {
-	f, err := os.Open(path)
+	clean := filepath.Clean(path)
+	// Ensure path points to a regular file to avoid opening directories/special files
+	if info, statErr := os.Stat(clean); statErr != nil || !info.Mode().IsRegular() {
+		if statErr != nil {
+			return "", apimigrate.Env{Global: map[string]string{}}, false, false, "", "", nil, statErr
+		}
+		return "", apimigrate.Env{Global: map[string]string{}}, false, false, "", "", nil, fmt.Errorf("not a regular file: %s", clean)
+	}
+	// #nosec G304 -- config path is provided intentionally by the user/CI; cleaned and validated above
+	f, err := os.Open(clean)
 	if err != nil {
 		return "", apimigrate.Env{Global: map[string]string{}}, false, false, "", "", nil, err
 	}

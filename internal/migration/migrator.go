@@ -3,13 +3,16 @@ package migration
 import (
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/loykin/apimigrate/internal/task"
 	"gopkg.in/yaml.v3"
 )
 
 func loadTaskFromFile(path string) (task.Task, error) {
-	f, err := os.Open(path)
+	clean := filepath.Clean(path)
+	// #nosec G304 -- path comes from controlled directory listing of migration files
+	f, err := os.Open(clean)
 	if err != nil {
 		return task.Task{}, err
 	}

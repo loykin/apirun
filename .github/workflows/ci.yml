@@ -40,6 +40,20 @@ jobs:
       - name: Staticcheck
         run: $(go env GOPATH)/bin/staticcheck ./...
 
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+      - name: Run gosec (static analysis)
+        run: |
+          set -e
+          $(go env GOPATH)/bin/gosec -no-fail -fmt=json -out=gosec-report.json ./...
+
+      - name: Upload gosec report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gosec-report
+          path: gosec-report.json
+
       - name: Build (all packages)
         run: go build ./...
 

@@ -253,11 +253,13 @@ func (s *Store) DeleteStoredEnv(version int) error {
 func (s *Store) Apply(version int) error {
 	if s.isPostgres {
 		tn := s.safeTableNames()
+		// #nosec G201 -- table identifier validated via safeTableNames(); values are parameterized placeholders
 		q := fmt.Sprintf("INSERT INTO %s(version, applied_at) VALUES($1, $2) ON CONFLICT (version) DO NOTHING", tn.schemaMigrations)
 		_, err := s.DB.Exec(q, version, time.Now().UTC().Format(time.RFC3339))
 		return err
 	}
 	tn := s.safeTableNames()
+	// #nosec G201 -- table identifier validated via safeTableNames(); values use placeholders
 	q := fmt.Sprintf("INSERT OR IGNORE INTO %s(version, applied_at) VALUES(?, ?)", tn.schemaMigrations)
 	_, err := s.DB.Exec(q, version, time.Now().UTC().Format(time.RFC3339))
 	return err

@@ -38,6 +38,7 @@ type Store = store.Store
 // authentication token value. It is injected into Env.Global by helpers like
 // AcquireAuthAndSetEnv and can be referenced in templates as {{._auth_token}}.
 // Library users can reference this constant to avoid hardcoding the key.
+// #nosec G101 -- not credentials: this is a constant key name used for env templating (e.g., {{._auth_token}})
 const AuthTokenVar = "_auth_token"
 
 // StoreDBFileName is the default sqlite filename used for migration history.
