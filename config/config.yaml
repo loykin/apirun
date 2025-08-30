@@ -88,7 +88,7 @@ store:
   # table_stored_env: stored_env
 
 # HTTP client TLS settings
-# If none of these are set, Go defaults are used.
+# If none of these are set, apimigrate defaults minimum TLS version to 1.3.
 client:
 # Explicit options:
 # insecure: false

@@ -19,7 +19,7 @@ A lightweight Go library and CLI for running API-driven migrations defined in YA
 - Response JSON extraction using `tidwall/gjson` paths.
 - Optional "find" step for down migrations to discover IDs before deletion.
 - Health-check wait feature to poll an endpoint until it returns the expected status before running migrations.
-- HTTP client TLS options per config document (insecure, min/max TLS version).
+- HTTP client TLS options per config document (insecure, min/max TLS version). Default minimum TLS version is 1.3 unless overridden.
 - Pluggable auth provider registry with helper APIs and typed wrappers for library users.
 - Explicit header handling: providers return only token values; the library never auto-prefixes Authorization. Set headers like `Authorization: "Basic {{._auth_token}}"` or `Authorization: "Bearer {{._auth_token}}"` in your migrations.
 
@@ -147,7 +147,7 @@ store:
   #   dbname: apimigrate
   #   sslmode: disable
 
-# HTTP client TLS settings (optional)
+# HTTP client TLS settings (optional, default minimum TLS is 1.3)
 client:
   # insecure: false
   # min_tls_version: "1.2"   # or "tls1.2"

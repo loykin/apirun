@@ -76,14 +76,20 @@ func TestHTTPClient_TLSConfigAppliedToClient(t *testing.T) {
 	if tr.TLSClientConfig.MinVersion != tls.VersionTLS13 || tr.TLSClientConfig.MaxVersion != tls.VersionTLS13 {
 		t.Fatalf("expected TLS1.3 only, got Min=%v Max=%v", tr.TLSClientConfig.MinVersion, tr.TLSClientConfig.MaxVersion)
 	}
-	// auto/default: we do not set TLS config (leave resty default)
+	// auto/default: we now set a default TLS config with MinVersion TLS1.3
 	cAuto := New(context.Background())
 	trAuto, _ := cAuto.GetClient().Transport.(*http.Transport)
-	if trAuto != nil && trAuto.TLSClientConfig != nil {
-		// Resty may reuse a default transport with nil TLS config; we only assert that we didn't force values.
-		if trAuto.TLSClientConfig.MinVersion != 0 || trAuto.TLSClientConfig.MaxVersion != 0 || trAuto.TLSClientConfig.InsecureSkipVerify {
-			t.Fatalf("expected default TLS config not to be constrained")
-		}
+	if trAuto == nil || trAuto.TLSClientConfig == nil {
+		t.Fatalf("expected TLSClientConfig to be set by default")
+	}
+	if trAuto.TLSClientConfig.MinVersion != tls.VersionTLS13 {
+		t.Fatalf("expected default MinVersion TLS1.3, got %v", trAuto.TLSClientConfig.MinVersion)
+	}
+	if trAuto.TLSClientConfig.MaxVersion != 0 {
+		t.Fatalf("expected default MaxVersion to be 0 (no max), got %v", trAuto.TLSClientConfig.MaxVersion)
+	}
+	if trAuto.TLSClientConfig.InsecureSkipVerify {
+		t.Fatalf("did not expect InsecureSkipVerify by default")
 	}
 }
 

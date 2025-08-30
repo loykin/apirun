@@ -46,21 +46,18 @@ func parseTLSVersion(s string) uint16 {
 func New(ctx context.Context) *resty.Client {
 	c := resty.New()
 
-	// Check new explicit keys first
-	var wantCfg bool
-	cfg := &tls.Config{}
+	// Build a TLS config that defaults to TLS 1.3 minimum unless explicitly overridden.
+	cfg := &tls.Config{MinVersion: tls.VersionTLS13}
+
 	if v := ctx.Value(CtxTLSInsecureKey); v != nil {
 		if b, ok := v.(bool); ok {
 			cfg.InsecureSkipVerify = b
-			// Presence of explicit key means we want to apply TLS config, regardless of value
-			wantCfg = true
 		}
 	}
 	if v := ctx.Value(CtxTLSMinVersionKey); v != nil {
 		if s, ok := v.(string); ok {
 			if ver := parseTLSVersion(s); ver != 0 {
 				cfg.MinVersion = ver
-				wantCfg = true
 			}
 		}
 	}
@@ -68,15 +65,11 @@ func New(ctx context.Context) *resty.Client {
 		if s, ok := v.(string); ok {
 			if ver := parseTLSVersion(s); ver != 0 {
 				cfg.MaxVersion = ver
-				wantCfg = true
 			}
 		}
 	}
-	if wantCfg {
-		c.SetTLSClientConfig(cfg)
-		return c
-	}
 
-	// No legacy fallback; if no explicit keys provided, use default Go TLS settings
+	// Always apply our TLS config (defaults to TLS1.3 minimum when not provided).
+	c.SetTLSClientConfig(cfg)
 	return c
 }
