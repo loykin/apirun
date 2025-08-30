@@ -62,6 +62,16 @@ jobs:
 
           rm -rf "$OUT_DIR" "$BIN_FILE"
 
+      - name: Sign artifacts with GPG
+        env:
+          GPG_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          echo "$GPG_KEY" | gpg --batch --import
+          for f in *.tar.gz *.zip checksums.txt; do
+            gpg --batch --yes --passphrase "$GPG_PASSPHRASE" --armor --detach-sign "$f"
+          done
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -93,8 +103,11 @@ jobs:
         with:
           files: |
             *.tar.gz
+            *.tar.gz.asc
             *.zip
+            *.zip.asc
             checksums.txt
+            checksums.txt.asc
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
