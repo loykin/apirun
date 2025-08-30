@@ -7,45 +7,41 @@ import (
 
 func TestToken_SetGet_CaseInsensitive(t *testing.T) {
 	ClearTokens()
-	SetToken("KeyCloak", "Authorization", "Bearer XYZ")
+	SetToken("KeyCloak", "Bearer XYZ")
 
-	if h, v, ok := GetToken("keycloak"); !ok || h != "Authorization" || v != "Bearer XYZ" {
-		t.Fatalf("GetToken case-insensitive failed: ok=%v h=%q v=%q", ok, h, v)
+	if v, ok := GetToken("keycloak"); !ok || v != "Bearer XYZ" {
+		t.Fatalf("GetToken case-insensitive failed: ok=%v v=%q", ok, v)
 	}
 
-	if h, v, ok := GetToken("KEYCLOAK"); !ok || h != "Authorization" || v != "Bearer XYZ" {
-		t.Fatalf("GetToken case-insensitive (upper) failed: ok=%v h=%q v=%q", ok, h, v)
+	if v, ok := GetToken("KEYCLOAK"); !ok || v != "Bearer XYZ" {
+		t.Fatalf("GetToken case-insensitive (upper) failed: ok=%v v=%q", ok, v)
 	}
 }
 
 func TestToken_EmptyInputsIgnored(t *testing.T) {
 	ClearTokens()
 
-	SetToken("", "Authorization", "v")
-	if _, _, ok := GetToken(""); ok {
+	SetToken("", "v")
+	if _, ok := GetToken(""); ok {
 		t.Fatalf("expected empty name not to be stored")
 	}
-	SetToken("n1", "", "v")
-	if _, _, ok := GetToken("n1"); ok {
-		t.Fatalf("expected empty header not to be stored")
-	}
-	SetToken("n2", "Authorization", "")
-	if _, _, ok := GetToken("n2"); ok {
+	SetToken("n1", "")
+	if _, ok := GetToken("n1"); ok {
 		t.Fatalf("expected empty value not to be stored")
 	}
 
 	// A valid one should be retrievable
-	SetToken("valid", "X-Auth", "ok")
-	if h, v, ok := GetToken("valid"); !ok || h != "X-Auth" || v != "ok" {
-		t.Fatalf("valid token missing: ok=%v h=%q v=%q", ok, h, v)
+	SetToken("valid", "ok")
+	if v, ok := GetToken("valid"); !ok || v != "ok" {
+		t.Fatalf("valid token missing: ok=%v v=%q", ok, v)
 	}
 }
 
 func TestToken_ClearTokens(t *testing.T) {
 	ClearTokens()
-	SetToken("a", "H", "V")
+	SetToken("a", "V")
 	ClearTokens()
-	if _, _, ok := GetToken("a"); ok {
+	if _, ok := GetToken("a"); ok {
 		t.Fatalf("expected tokens cleared")
 	}
 }
@@ -58,8 +54,8 @@ func TestToken_ConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			SetToken("name", "H", "V")
-			_, _, _ = GetToken("NAME")
+			SetToken("name", "V")
+			_, _ = GetToken("NAME")
 		}(i)
 	}
 	wg.Wait()

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/loykin/apimigrate/internal/auth"
 	"github.com/loykin/apimigrate/internal/env"
 )
 
@@ -47,8 +46,7 @@ func TestDown_Execute_WithFindAndTemplatingAndAuthFromEnv(t *testing.T) {
 
 	d := Down{
 		Name: "teardown",
-		Auth: "token", // will pick from env TOKEN
-		Env:  env.Env{Local: map[string]string{"TOKEN": "Bearer abc", "flag": "yes", "reason": "cleanup", "name": "bob"}},
+		Env:  env.Env{Local: map[string]string{"_auth_token": "Bearer abc", "flag": "yes", "reason": "cleanup", "name": "bob"}},
 		Find: &FindSpec{
 			Request: RequestSpec{
 				Method: http.MethodGet,
@@ -63,6 +61,7 @@ func TestDown_Execute_WithFindAndTemplatingAndAuthFromEnv(t *testing.T) {
 		URL:    srv.URL + "/items/{{.user_id}}",
 		Headers: []Header{
 			{Name: "X-Del", Value: "{{.flag}}"},
+			{Name: "Authorization", Value: "{{._auth_token}}"},
 		},
 		Queries: []Query{{Name: "reason", Value: "{{.reason}}"}},
 		Body:    "{}",
@@ -107,8 +106,6 @@ func TestDown_Execute_FinalNon2xx_ReturnsError(t *testing.T) {
 }
 
 func TestDown_Execute_DoesNotOverrideExplicitAuthorizationHeader(t *testing.T) {
-	auth.ClearTokens()
-	auth.SetToken("a1", "Authorization", "Bearer NEWTOKEN")
 	calls := 0
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -137,42 +134,6 @@ func TestDown_Execute_DoesNotOverrideExplicitAuthorizationHeader(t *testing.T) {
 	}
 	if res == nil || res.StatusCode != 200 {
 		t.Fatalf("expected 200, got %+v", res)
-	}
-	if calls != 1 {
-		t.Fatalf("expected 1 call, got %d", calls)
-	}
-}
-
-func TestDown_Execute_InjectsCustomHeaderFromTokenRegistry(t *testing.T) {
-	auth.ClearTokens()
-	auth.SetToken("my", "X-Api-Key", "abc123")
-	calls := 0
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls++
-		if got := r.Header.Get("X-Api-Key"); got != "abc123" {
-			t.Fatalf("expected X-Api-Key header injected, got %q", got)
-		}
-		if got := r.Header.Get("Authorization"); got != "" {
-			t.Fatalf("did not expect Authorization header, got %q", got)
-		}
-		w.WriteHeader(204)
-	}))
-	defer srv.Close()
-
-	d := Down{
-		Name:   "custom-header",
-		Auth:   "my",
-		Env:    env.Env{Local: map[string]string{}},
-		Method: http.MethodDelete,
-		URL:    srv.URL + "/x",
-	}
-	res, err := d.Execute(context.Background())
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
-	if res == nil || res.StatusCode != 204 {
-		t.Fatalf("expected 204, got %+v", res)
 	}
 	if calls != 1 {
 		t.Fatalf("expected 1 call, got %d", calls)

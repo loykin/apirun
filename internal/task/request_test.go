@@ -36,17 +36,17 @@ func TestEnv_RenderGoTemplate_BasicAndMissingAndEmpty(t *testing.T) {
 
 func TestRequest_Render_TemplatingAndAuthInjection(t *testing.T) {
 	env := env2.Env{Local: map[string]string{
-		"TOKEN":          "Bearer abc",
+		"_auth_token":    "Bearer abc",
 		"name":           "bob",
 		"CITY":           "busan",
 		"forwarded_data": "zzz",
 	}}
 
 	req := RequestSpec{
-		AuthName: "token", // should lookup upper-cased key
 		Headers: []Header{
 			{Name: "X-Name", Value: "{{.name}}"},
 			{Name: "Forwarded-Data", Value: "{{.forwarded_data}}"},
+			{Name: "Authorization", Value: "{{._auth_token}}"},
 		},
 		Queries: []Query{
 			{Name: "city", Value: "{{.CITY}}"},
@@ -64,9 +64,9 @@ func TestRequest_Render_TemplatingAndAuthInjection(t *testing.T) {
 	if hdrs["Forwarded-Data"] != "zzz" {
 		t.Fatalf("header Forwarded-Data not rendered, got %q", hdrs["Forwarded-Data"])
 	}
-	// Authorization injected
+	// Authorization templated from _auth_token
 	if hdrs["Authorization"] != "Bearer abc" {
-		t.Fatalf("expected Authorization to be injected, got %q", hdrs["Authorization"])
+		t.Fatalf("expected Authorization to be templated, got %q", hdrs["Authorization"])
 	}
 
 	// Queries templated and passthrough
@@ -84,10 +84,9 @@ func TestRequest_Render_TemplatingAndAuthInjection(t *testing.T) {
 }
 
 func TestRequest_Render_DoesNotOverrideAuthorization(t *testing.T) {
-	env := env2.Env{Local: map[string]string{"KEYCLOAK": "Bearer should-not-use"}}
+	env := env2.Env{Local: map[string]string{"KEY": "Bearer should-not-use"}}
 	req := RequestSpec{
-		AuthName: "keycloak",
-		Headers:  []Header{{Name: "Authorization", Value: "Bearer preset"}},
+		Headers: []Header{{Name: "Authorization", Value: "Bearer preset"}},
 	}
 
 	hdrs, _, _ := req.Render(env)

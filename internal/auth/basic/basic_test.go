@@ -18,9 +18,9 @@ func TestAcquireToken_Basic_Success_DefaultHeader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	sh, sv, ok := auth.GetToken("basic")
-	if !ok || !strings.EqualFold(sh, "authorization") || sv != v {
-		t.Fatalf("expected stored Authorization header with bare token value, got ok=%v header=%q val=%q", ok, sh, sv)
+	vv, ok := auth.GetToken("basic")
+	if !ok || vv != v {
+		t.Fatalf("expected stored token value, got ok=%v val=%q", ok, vv)
 	}
 	expected := "YWxpY2U6c2VjcmV0" // base64("alice:secret") without scheme
 	if v != expected {
@@ -38,9 +38,9 @@ func TestAcquireToken_Basic_CustomHeader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	sh, sv, ok := auth.GetToken("n1")
-	if !ok || !strings.EqualFold(sh, "authorization") || sv != v {
-		t.Fatalf("expected stored Authorization header with bare token value, got ok=%v header=%q val=%q", ok, sh, sv)
+	vv, ok := auth.GetToken("n1")
+	if !ok || vv != v {
+		t.Fatalf("expected stored token value, got ok=%v val=%q", ok, vv)
 	}
 	expected := "Ym9iOnBAc3M=" // base64("bob:p@ss") without scheme
 	if v != expected {

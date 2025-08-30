@@ -7,8 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-resty/resty/v2"
-	auth "github.com/loykin/apimigrate/internal/auth"
-	env "github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/internal/env"
 	"github.com/loykin/apimigrate/internal/httpc"
 )
 
@@ -57,7 +56,6 @@ func (d Down) Execute(ctx context.Context) (*ExecResult, error) {
 	}
 
 	hdrs := renderHeaders(d.Env, d.Headers)
-	injectAuthIfConfigured(hdrs, d.Auth, d.Env)
 	queries := renderQueries(d.Env, d.Queries)
 	body := renderBody(d.Env, d.Body)
 
@@ -174,26 +172,5 @@ func execByMethod(req *resty.Request, method, url string) (*resty.Response, erro
 		return req.Delete(url)
 	default:
 		return nil, fmt.Errorf("down.find: unsupported method: %s", method)
-	}
-}
-
-// injectAuthIfConfigured injects a token-based header only when d.Auth is provided
-// and the header is not already set. It also supports a legacy fallback to an
-// upper-cased env variable name when no token is registered under auth.GetToken.
-func injectAuthIfConfigured(hdrs map[string]string, authName string, e env.Env) {
-	if strings.TrimSpace(authName) == "" {
-		return
-	}
-	if h, v, ok := auth.GetToken(authName); ok {
-		if _, exists := hdrs[h]; !exists {
-			hdrs[h] = v
-		}
-		return
-	}
-	key := strings.ToUpper(authName)
-	if v, ok := e.Lookup(key); ok {
-		if _, exists := hdrs["Authorization"]; !exists {
-			hdrs["Authorization"] = v
-		}
 	}
 }

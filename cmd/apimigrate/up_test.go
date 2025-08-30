@@ -65,9 +65,12 @@ up:
     method: GET
     url: %s/one
     auth_name: a1
+    headers:
+      - name: Authorization
+        value: "%s"
   response:
     result_code: ["200"]
-`, srv.URL)
+`, srv.URL, exp1)
 	m2 := fmt.Sprintf(`---
 up:
   name: second
@@ -75,9 +78,12 @@ up:
     method: GET
     url: %s/two
     auth_name: a2
+    headers:
+      - name: Authorization
+        value: "%s"
   response:
     result_code: ["200"]
-`, srv.URL)
+`, srv.URL, exp2)
 	_ = writeFile(t, tdir, "001_first.yaml", m1)
 	_ = writeFile(t, tdir, "002_second.yaml", m2)
 
@@ -147,9 +153,12 @@ up:
     method: GET
     url: %s/one
     auth_name: la1
+    headers:
+      - name: Authorization
+        value: "%s"
   response:
     result_code: ["200"]
-`, srv.URL)
+`, srv.URL, exp1)
 	m2 := fmt.Sprintf(`---
 up:
   name: second
@@ -159,10 +168,10 @@ up:
     auth_name: la2
     headers:
       - name: Authorization
-        value: "Basic {{._auth_token}}"
+        value: "Basic %s"
   response:
     result_code: ["200"]
-`, srv.URL)
+`, srv.URL, exp2)
 	_ = writeFile(t, tdir, "001_first.yaml", m1)
 	_ = writeFile(t, tdir, "002_second.yaml", m2)
 

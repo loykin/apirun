@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/loykin/apimigrate/internal/auth"
 	"github.com/loykin/apimigrate/internal/env"
 )
 
@@ -29,21 +28,6 @@ func (r RequestSpec) Render(env env.Env) (map[string]string, map[string]string, 
 		}
 		val := h.Value
 		hdrs[h.Name] = env.RenderGoTemplate(val)
-	}
-	if r.AuthName != "" {
-		if h, v, ok := auth.GetToken(r.AuthName); ok {
-			if _, exists := hdrs[h]; !exists {
-				hdrs[h] = v
-			}
-		} else {
-			// 2) Backward-compatible fallback: look up from Env using layered lookup by upper-cased key
-			key := strings.ToUpper(r.AuthName)
-			if v, ok := env.Lookup(key); ok {
-				if _, exists := hdrs["Authorization"]; !exists {
-					hdrs["Authorization"] = v
-				}
-			}
-		}
 	}
 
 	queries := make(map[string]string)

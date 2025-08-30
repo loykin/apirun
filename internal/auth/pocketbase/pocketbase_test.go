@@ -30,9 +30,9 @@ func TestPocketBase_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	sh, sv, ok := auth.GetToken("pocket")
-	if !ok || sh == "" || sv == "" || sv != v {
-		t.Fatalf("expected stored token, got ok=%v header=%q val=%q", ok, sh, sv)
+	vv, ok := auth.GetToken("pocket")
+	if !ok || vv != v {
+		t.Fatalf("expected stored token, got ok=%v val=%q", ok, vv)
 	}
 	if v != "pbtoken" {
 		t.Fatalf("expected token 'pbtoken', got %q", v)

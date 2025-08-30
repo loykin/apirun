@@ -22,9 +22,9 @@ func TestAcquireAuthByProviderSpecWithName_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AcquireAuthByProviderSpecWithName error: %v", err)
 	}
-	sh, sv, ok := iauth.GetToken("explicit_basic")
-	if !ok || sh == "" || sv != v {
-		t.Fatalf("token not stored under explicit name: ok=%v h=%q v=%q", ok, sh, sv)
+	stored, ok := iauth.GetToken("explicit_basic")
+	if !ok || stored != v {
+		t.Fatalf("token not stored under explicit name: ok=%v stored=%q want=%q", ok, stored, v)
 	}
 }
 
@@ -32,14 +32,14 @@ func TestAcquireBasicAuthWithName_IgnoresCfgName(t *testing.T) {
 	iauth.ClearTokens()
 	ctx := context.Background()
 	cfg := BasicAuthConfig{Username: "u", Password: "p"}
-	h, v, err := AcquireBasicAuthWithName(ctx, "basic_named", cfg)
+	v, err := AcquireBasicAuthWithName(ctx, "basic_named", cfg)
 	if err != nil {
 		t.Fatalf("AcquireBasicAuthWithName error: %v", err)
 	}
-	// ensure stored under provided name (stored value is prefixed for basic)
-	sh, sv, ok := iauth.GetToken("basic_named")
-	if !ok || sh != h || sv != v {
-		t.Fatalf("stored token mismatch: ok=%v h=%q v=%q", ok, sh, sv)
+	// ensure stored under provided name
+	stored, ok := iauth.GetToken("basic_named")
+	if !ok || stored != v {
+		t.Fatalf("stored token mismatch: ok=%v stored=%q want=%q", ok, stored, v)
 	}
 }
 
@@ -61,14 +61,14 @@ func TestAcquireOAuth2ClientCredentialsWithName_IgnoresCfgName(t *testing.T) {
 		ClientSec: "sec",
 		TokenURL:  srv.URL + "/token",
 	}
-	h, v, err := AcquireOAuth2ClientCredentialsWithName(ctx, "cc_named", cfg)
+	v, err := AcquireOAuth2ClientCredentialsWithName(ctx, "cc_named", cfg)
 	if err != nil {
 		t.Fatalf("AcquireOAuth2ClientCredentialsWithName error: %v", err)
 	}
 	// stored token check
-	sh, sv, ok := iauth.GetToken("cc_named")
-	if !ok || sh != h || sv != v {
-		t.Fatalf("stored token mismatch: ok=%v h=%q v=%q", ok, sh, sv)
+	stored, ok := iauth.GetToken("cc_named")
+	if !ok || stored != v {
+		t.Fatalf("stored token mismatch: ok=%v stored=%q want=%q", ok, stored, v)
 	}
 }
 
@@ -91,13 +91,13 @@ func TestAcquireOAuth2PasswordWithName_IgnoresCfgName(t *testing.T) {
 		Username: "u",
 		Password: "p",
 	}
-	h, v, err := AcquireOAuth2PasswordWithName(ctx, "pw_named", cfg)
+	v, err := AcquireOAuth2PasswordWithName(ctx, "pw_named", cfg)
 	if err != nil {
 		t.Fatalf("AcquireOAuth2PasswordWithName error: %v", err)
 	}
-	sh, sv, ok := iauth.GetToken("pw_named")
-	if !ok || sh != h || sv != v {
-		t.Fatalf("stored token mismatch: ok=%v h=%q v=%q", ok, sh, sv)
+	stored, ok := iauth.GetToken("pw_named")
+	if !ok || stored != v {
+		t.Fatalf("stored token mismatch: ok=%v stored=%q want=%q", ok, stored, v)
 	}
 }
 
@@ -109,12 +109,12 @@ func TestAcquireOAuth2ImplicitWithName_IgnoresCfgName(t *testing.T) {
 		RedirectURL: "http://localhost/redirect",
 		AuthURL:     "http://auth.example/authorize",
 	}
-	h, v, err := AcquireOAuth2ImplicitWithName(ctx, "impl_named", cfg)
+	v, err := AcquireOAuth2ImplicitWithName(ctx, "impl_named", cfg)
 	if err != nil {
 		t.Fatalf("AcquireOAuth2ImplicitWithName error: %v", err)
 	}
-	if h == "" || v == "" {
-		t.Fatalf("expected non-empty header/value for implicit")
+	if v == "" {
+		t.Fatalf("expected non-empty token value for implicit")
 	}
 }
 
@@ -136,12 +136,12 @@ func TestAcquirePocketBaseWithName_IgnoresCfgName(t *testing.T) {
 		Email:    "a@b.c",
 		Password: "secret",
 	}
-	h, v, err := AcquirePocketBaseWithName(ctx, "pb_named", cfg)
+	v, err := AcquirePocketBaseWithName(ctx, "pb_named", cfg)
 	if err != nil {
 		t.Fatalf("AcquirePocketBaseWithName error: %v", err)
 	}
-	sh, sv, ok := iauth.GetToken("pb_named")
-	if !ok || sh != h || sv != v {
-		t.Fatalf("stored token mismatch: ok=%v h=%q v=%q", ok, sh, sv)
+	stored, ok := iauth.GetToken("pb_named")
+	if !ok || stored != v {
+		t.Fatalf("stored token mismatch: ok=%v stored=%q want=%q", ok, stored, v)
 	}
 }

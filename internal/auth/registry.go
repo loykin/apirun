@@ -60,7 +60,7 @@ func AcquireAndStoreWithName(ctx context.Context, typ string, name string, spec 
 	v, err := m.Acquire(ctx)
 	stored := strings.TrimSpace(name)
 	if err == nil && stored != "" {
-		SetToken(stored, "Authorization", v)
+		SetToken(stored, v)
 	}
 	return v, err
 }

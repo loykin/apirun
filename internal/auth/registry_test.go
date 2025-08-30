@@ -40,9 +40,9 @@ func TestRegistry_RegisterAndAcquire_CustomProvider(t *testing.T) {
 		t.Fatalf("unexpected acquire: v=%q", v)
 	}
 	// stored under provided name
-	sh, sv, ok := GetToken("demo")
-	if !ok || sh == "" || sv != v {
-		t.Fatalf("expected token stored as 'demo': ok=%v h=%q v=%q", ok, sh, sv)
+	vv, ok := GetToken("demo")
+	if !ok || vv != v {
+		t.Fatalf("expected token stored as 'demo': ok=%v v=%q want=%q", ok, vv, v)
 	}
 }
 
@@ -57,9 +57,9 @@ func TestRegistry_AcquireAndStoreWithName_StoresToken(t *testing.T) {
 	if v == "" {
 		t.Fatalf("expected non-empty value, got %q", v)
 	}
-	gh, gv, ok := GetToken("store")
-	if !ok || gh == "" || gv != v {
-		t.Fatalf("expected token stored: ok=%v gh=%q gv=%q; want v=%q", ok, gh, gv, v)
+	vv, ok := GetToken("store")
+	if !ok || vv != v {
+		t.Fatalf("expected token stored: ok=%v v=%q; want v=%q", ok, vv, v)
 	}
 }
 
@@ -122,10 +122,10 @@ func TestAcquireAndStoreWithName_StoresTokenAndRetrievable(t *testing.T) {
 	if v != "tok123" {
 		t.Fatalf("unexpected token value: got %q want %q", v, "tok123")
 	}
-	// Ensure it was stored under the provided logical name with header Authorization
-	h, sv, ok := GetToken("logical")
-	if !ok || h != "Authorization" || sv != "tok123" {
-		t.Fatalf("stored token mismatch: ok=%v header=%q val=%q", ok, h, sv)
+	// Ensure it was stored under the provided logical name
+	vv, ok := GetToken("logical")
+	if !ok || vv != "tok123" {
+		t.Fatalf("stored token mismatch: ok=%v val=%q", ok, vv)
 	}
 }
 

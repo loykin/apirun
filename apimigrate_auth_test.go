@@ -22,21 +22,18 @@ func TestAcquireBasicAuth_Wrapper(t *testing.T) {
 	iauth.ClearTokens()
 	ctx := context.Background()
 	cfg := BasicAuthConfig{Username: "user", Password: "pass"}
-	h, v, err := AcquireBasicAuthWithName(ctx, "b1", cfg)
+	v, err := AcquireBasicAuthWithName(ctx, "b1", cfg)
 	if err != nil {
 		t.Fatalf("AcquireBasicAuthWithName error: %v", err)
-	}
-	if h != "Authorization" {
-		t.Fatalf("unexpected header: %q", h)
 	}
 	// Now v is the bare base64 token without the "Basic " prefix
 	if strings.HasPrefix(v, "Basic ") || v == "" {
 		t.Fatalf("expected bare base64 token, got %q", v)
 	}
-	// verify token stored (registry stores prefixed value for basic)
-	sh, sv, ok := iauth.GetToken("b1")
-	if !ok || sh != h || sv != v {
-		t.Fatalf("stored token mismatch: ok=%v, h=%q v=%q", ok, sh, sv)
+	// verify token stored
+	stored, ok := iauth.GetToken("b1")
+	if !ok || stored != v {
+		t.Fatalf("stored token mismatch: ok=%v, stored=%q want=%q", ok, stored, v)
 	}
 }
 
@@ -63,12 +60,12 @@ func TestAcquireOAuth2Password_Wrapper(t *testing.T) {
 		Username: "u",
 		Password: "p",
 	}
-	h, v, err := AcquireOAuth2PasswordWithName(ctx, "pw1", cfg)
+	v, err := AcquireOAuth2PasswordWithName(ctx, "pw1", cfg)
 	if err != nil {
 		t.Fatalf("AcquireOAuth2PasswordWithName error: %v", err)
 	}
-	if h != "Authorization" || v != "t-pass" {
-		t.Fatalf("unexpected header/value: %q %q", h, v)
+	if v != "t-pass" {
+		t.Fatalf("unexpected token value: %q", v)
 	}
 }
 
@@ -94,12 +91,12 @@ func TestAcquireOAuth2ClientCredentials_Wrapper(t *testing.T) {
 		ClientSec: "sec",
 		TokenURL:  srv.URL + "/token",
 	}
-	h, v, err := AcquireOAuth2ClientCredentialsWithName(ctx, "cc1", cfg)
+	v, err := AcquireOAuth2ClientCredentialsWithName(ctx, "cc1", cfg)
 	if err != nil {
 		t.Fatalf("AcquireOAuth2ClientCredentialsWithName error: %v", err)
 	}
-	if h != "Authorization" || v != "t-cc" {
-		t.Fatalf("unexpected header/value: %q %q", h, v)
+	if v != "t-cc" {
+		t.Fatalf("unexpected token value: %q", v)
 	}
 }
 
@@ -112,12 +109,9 @@ func TestAcquireOAuth2Implicit_Wrapper(t *testing.T) {
 		AuthURL:     "http://auth.example/authorize",
 		Scopes:      []string{"read", "write"},
 	}
-	h, v, err := AcquireOAuth2ImplicitWithName(ctx, "impl1", cfg)
+	v, err := AcquireOAuth2ImplicitWithName(ctx, "impl1", cfg)
 	if err != nil {
 		t.Fatalf("AcquireOAuth2ImplicitWithName error: %v", err)
-	}
-	if h != "Authorization" {
-		t.Fatalf("unexpected header: %q", h)
 	}
 	// value is an URL containing response_type=token and params
 	if !strings.Contains(v, "response_type=token") || !strings.Contains(v, "client_id=cid") {
@@ -149,12 +143,12 @@ func TestAcquirePocketBase_Wrapper(t *testing.T) {
 		Email:    "a@b.c",
 		Password: "secret",
 	}
-	h, v, err := AcquirePocketBaseWithName(ctx, "pb1", cfg)
+	v, err := AcquirePocketBaseWithName(ctx, "pb1", cfg)
 	if err != nil {
 		t.Fatalf("AcquirePocketBaseWithName error: %v", err)
 	}
-	if h != "Authorization" || v != "pb-token" {
-		t.Fatalf("unexpected header/value: %q %q", h, v)
+	if v != "pb-token" {
+		t.Fatalf("unexpected token value: %q", v)
 	}
 }
 
@@ -170,9 +164,9 @@ func TestRegistry_LoadsWithPublicConstants_Basic(t *testing.T) {
 		t.Fatalf("AcquireAndStoreWithName basic error: v=%q err=%v", v, err)
 	}
 	// Ensure stored
-	h, sv, ok := iauth.GetToken("b2")
-	if !ok || h != "Authorization" || sv != v {
-		t.Fatalf("stored basic token mismatch: ok=%v h=%q v=%q", ok, h, sv)
+	stored, ok := iauth.GetToken("b2")
+	if !ok || stored != v {
+		t.Fatalf("stored basic token mismatch: ok=%v stored=%q want=%q", ok, stored, v)
 	}
 }
 
