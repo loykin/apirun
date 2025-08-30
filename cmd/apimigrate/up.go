@@ -19,8 +19,9 @@ var upCmd = &cobra.Command{
 		verbose := v.GetBool("v")
 		to := v.GetInt("to")
 		ctx := context.Background()
-		baseEnv := apimigrate.Env{Global: map[string]string{}}
+		baseEnv := apimigrate.NewEnv()
 		dir := ""
+		saveResp := false
 		if strings.TrimSpace(configPath) != "" {
 			if verbose {
 				log.Printf("loading config from %s", configPath)
@@ -32,13 +33,12 @@ var upCmd = &cobra.Command{
 			if mDir != "" {
 				dir = mDir
 			}
-			if len(envFromCfg.Global) > 0 {
-				baseEnv = envFromCfg
-			}
+			// Always use env from config (may carry Auth even if Global is empty)
+			baseEnv = envFromCfg
 			if storeOpts != nil {
 				// store options are now applied via the Migrator struct
 			}
-			ctx = apimigrate.WithSaveResponseBody(ctx, saveBody)
+			saveResp = saveBody
 		}
 		if strings.TrimSpace(dir) == "" {
 			dir = "./config/migration"
@@ -46,7 +46,7 @@ var upCmd = &cobra.Command{
 		if verbose {
 			log.Printf("up migrations in %s to %d", dir, to)
 		}
-		m := apimigrate.Migrator{Env: baseEnv, Dir: dir}
+		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp}
 		// Open store: from options when provided, otherwise default sqlite under dir
 		var st *apimigrate.Store
 		if strings.TrimSpace(configPath) != "" {

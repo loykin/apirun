@@ -12,4 +12,4 @@ up:
 down:
   name: delete resource
   method: DELETE
-  url: http://your.api/resource/{{.rid}}
+  url: http://your.api/resource/{{.env.rid}}

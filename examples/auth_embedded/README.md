@@ -2,7 +2,7 @@
 
 This example shows how to embed apimigrate into your Go program and configure auth programmatically.
 
-It acquires a Basic auth token at startup using AcquireAuthAndSetEnv, which stores the token under the internal env key _auth_token. Important: the library does not add any Authorization prefix automatically. Since this example uses Basic auth, the migration sets the header explicitly as: Authorization: "Basic {{._auth_token}}". If you use an OAuth2 provider, set it as: Authorization: "Bearer {{._auth_token}}".
+It acquires a Basic auth token at startup using AcquireAuthAndSetEnv, which stores the token under the internal env key _auth_token for backward compatibility and also under the logical name "basic" in .auth. Important: the library does not add any Authorization prefix automatically. Since this example uses Basic auth, the migration sets the header explicitly as: Authorization: "Basic {{.auth.basic}}". The URL also uses the namespaced env: {{.env.api_base}}.
 
 How to run:
 

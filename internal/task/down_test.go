@@ -46,7 +46,7 @@ func TestDown_Execute_WithFindAndTemplatingAndAuthFromEnv(t *testing.T) {
 
 	d := Down{
 		Name: "teardown",
-		Env:  env.Env{Local: map[string]string{"_auth_token": "Bearer abc", "flag": "yes", "reason": "cleanup", "name": "bob"}},
+		Env:  env.Env{Auth: map[string]string{"kc": "Bearer abc"}, Local: map[string]string{"flag": "yes", "reason": "cleanup", "name": "bob"}},
 		Find: &FindSpec{
 			Request: RequestSpec{
 				Method: http.MethodGet,
@@ -61,7 +61,7 @@ func TestDown_Execute_WithFindAndTemplatingAndAuthFromEnv(t *testing.T) {
 		URL:    srv.URL + "/items/{{.user_id}}",
 		Headers: []Header{
 			{Name: "X-Del", Value: "{{.flag}}"},
-			{Name: "Authorization", Value: "{{._auth_token}}"},
+			{Name: "Authorization", Value: "{{.auth.kc}}"},
 		},
 		Queries: []Query{{Name: "reason", Value: "{{.reason}}"}},
 		Body:    "{}",

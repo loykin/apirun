@@ -36,8 +36,7 @@ func main() {
 	}
 	// store options are now configured on the Migrator struct
 
-	// Optional: whether to save response bodies into the runs table
-	ctx = apimigrate.WithSaveResponseBody(ctx, false)
+	// Optional: whether to save response bodies can be set on Migrator.SaveResponseBody
 
 	// Base env for templating (empty here)
 	base := apimigrate.Env{Global: map[string]string{}}

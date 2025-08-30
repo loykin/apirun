@@ -36,8 +36,7 @@ func main() {
 	ctx := context.Background()
 	storeOpts := &apimigrate.StoreOptions{Backend: "postgres", PostgresDSN: dsn}
 
-	// Optional: toggle saving response bodies to the migration history
-	ctx = apimigrate.WithSaveResponseBody(ctx, false)
+	// Optional: saving response bodies can be toggled via Migrator.SaveResponseBody
 
 	// Base environment (empty is fine for this example)
 	base := apimigrate.Env{Global: map[string]string{}}

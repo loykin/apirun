@@ -29,22 +29,23 @@ import (
 // Exported fields mirror the user's configuration surface.
 // #nosec G101 -- field name isn't a credential
 type Migrator struct {
-	Dir   string
-	Store Store
-	Env   Env
+	Dir              string
+	Store            Store
+	Env              Env
+	SaveResponseBody bool
 	//tokenStore auth.TokenStore
 }
 
 // MigrateUp applies pending migrations up to targetVersion (0 = all) using this Migrator's Store and Env.
 func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
 	// Store options are taken from the struct (no context propagation)
-	im := imig.Migrator{Dir: m.Dir, Store: m.Store, Env: m.Env}
+	im := imig.Migrator{Dir: m.Dir, Store: m.Store, Env: m.Env, SaveResponseBody: m.SaveResponseBody}
 	return im.MigrateUp(ctx, targetVersion)
 }
 
 // MigrateDown rolls back applied migrations down to targetVersion using this Migrator's Store and Env.
 func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
-	im := imig.Migrator{Dir: m.Dir, Store: m.Store, Env: m.Env}
+	im := imig.Migrator{Dir: m.Dir, Store: m.Store, Env: m.Env, SaveResponseBody: m.SaveResponseBody}
 	return im.MigrateDown(ctx, targetVersion)
 }
 
@@ -63,6 +64,13 @@ type StoreOptions = imig.StoreOptions
 
 // Store is an alias to the internal store type.
 type Store = store.Store
+
+// NewEnv returns a value Env with initialized internal maps, suitable for direct use
+// in public APIs that expect Env by value.
+func NewEnv() Env {
+	p := env.New()
+	return *p
+}
 
 // StoreDBFileName is the default sqlite filename used for migration history.
 const StoreDBFileName = store.DbFileName
@@ -99,12 +107,9 @@ func (s mapAuthSpec) ToMap() map[string]interface{} { return s.m }
 // NewAuthSpecFromMap returns an AuthSpec backed by the provided map.
 func NewAuthSpecFromMap(m map[string]interface{}) AuthSpec { return mapAuthSpec{m: m} }
 
-// AcquireAuthAndSetEnv acquires auth by provider type/spec, stores it under the given name,
-// and automatically injects the acquired token into the provided base environment under
-// the internal variable key "_auth_token". The token is stored as-is (trimmed), so if the
-// provider returns a prefixed value like "Bearer ...", that full string is assigned.
-// Returns the acquired token value.
-func AcquireAuthAndSetEnv(ctx context.Context, typ string, spec AuthSpec, base *Env) (string, error) {
+// AcquireAuthAndSetEnv acquires auth by provider type/spec, and stores the acquired token
+// into base.Auth[name] for template access via {{.auth.name}}. It returns the token value.
+func AcquireAuthAndSetEnv(ctx context.Context, typ string, name string, spec AuthSpec, base *Env) (string, error) {
 	var mp map[string]interface{}
 	if spec != nil {
 		mp = spec.ToMap()
@@ -114,10 +119,10 @@ func AcquireAuthAndSetEnv(ctx context.Context, typ string, spec AuthSpec, base *
 		return "", err
 	}
 	if base != nil {
-		if base.Global == nil {
-			base.Global = map[string]string{}
+		if base.Auth == nil {
+			base.Auth = map[string]string{}
 		}
-		base.Global[AuthTokenVar] = strings.TrimSpace(v)
+		base.Auth[strings.TrimSpace(name)] = strings.TrimSpace(v)
 	}
 	return v, nil
 }
@@ -153,12 +158,6 @@ func OpenStoreFromOptions(dir string, opts *StoreOptions) (*Store, error) {
 		}
 		return store.Open(path)
 	}
-}
-
-// WithSaveResponseBody returns a derived context that toggles saving response bodies
-// alongside status codes in the migration history.
-func WithSaveResponseBody(ctx context.Context, save bool) context.Context {
-	return context.WithValue(ctx, imig.SaveResponseBodyKey, save)
 }
 
 // NewHTTPClient returns a resty.Client using default TLS settings (Min TLS 1.3).

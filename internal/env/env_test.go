@@ -71,6 +71,21 @@ func TestEnv_RenderGoTemplate_LocalOverridesGlobal(t *testing.T) {
 	}
 }
 
+func TestEnv_RenderGoTemplate_GroupedEnvAndAuth(t *testing.T) {
+	// .env should expose merged map with Local overriding Global
+	e := Env{
+		Global: map[string]string{"base": "http://g", "user": "global"},
+		Local:  map[string]string{"user": "local"},
+		Auth:   map[string]string{"kc": "Bearer TKN"},
+	}
+	in := "url={{.env.base}}/u={{.env.user}} auth={{.auth.kc}}"
+	out := e.RenderGoTemplate(in)
+	expected := "url=http://g/u=local auth=Bearer TKN"
+	if out != expected {
+		t.Fatalf("expected %q, got %q", expected, out)
+	}
+}
+
 func TestEnv_RenderGoTemplate_HtmlEscaping(t *testing.T) {
 	// html/template should escape by default
 	e := Env{Global: map[string]string{"danger": "<script>alert('x')</script>"}}

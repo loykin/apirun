@@ -42,11 +42,11 @@ func main() {
 		Password: "admin",
 	}
 
-	// Acquire token, store under a logical name (optional), and inject into base env as _auth_token
-	if v, err := apimigrate.AcquireAuthAndSetEnv(ctx, apimigrate.AuthTypeBasic, spec, &base); err != nil {
+	// Acquire token and store under .auth.basic for template access
+	if _, err := apimigrate.AcquireAuthAndSetEnv(ctx, apimigrate.AuthTypeBasic, "basic", spec, &base); err != nil {
 		log.Fatalf("acquire auth failed: %v", err)
 	} else {
-		fmt.Printf("auth token acquired and injected (_auth_token): %q\n", v)
+		fmt.Printf("auth token acquired; available as .auth.basic\n")
 	}
 
 	// Run migrations from the local directory

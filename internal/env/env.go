@@ -4,17 +4,25 @@ import (
 	"bytes"
 	"html/template"
 
-	yaml "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 )
 
 type Map map[string]string
 
+// New returns a pointer to Env with all internal maps initialized.
+// Using this helps avoid nil map checks when populating Auth/Global/Local.
+func New() *Env {
+	return &Env{Auth: map[string]string{}, Global: map[string]string{}, Local: map[string]string{}}
+}
+
 // Env supports layered variables:
+// - Auth: variables from auth providers (apply to the whole run)
 // - Global: variables from config (apply to the whole run)
 // - Local: variables from each task (reset per task)
 // Lookup and rendering give precedence to Local over Global.
 // Note: zero values (nil maps) are handled gracefully.
 type Env struct {
+	Auth   Map `yaml:"-" json:"-" mapstructure:"-"`
 	Global Map `yaml:"-" json:"-" mapstructure:"-"`
 	Local  Map `yaml:"-" json:"env" mapstructure:"env"`
 }
@@ -50,6 +58,32 @@ func (e *Env) merged() map[string]string {
 	return m
 }
 
+// dataForTemplate builds the dot object for template execution supporting both
+// legacy flat lookups (e.g., {{.kc_base}}) and the new
+// grouped lookups ({{.env.kc_base}}, {{.auth.keycloak}}).
+func (e *Env) dataForTemplate() map[string]interface{} {
+	data := map[string]interface{}{}
+	// Expose merged env flat for backward compatibility
+	merged := e.merged()
+	for k, v := range merged {
+		data[k] = v
+	}
+	// Grouped access under .env
+	data["env"] = merged
+	// Grouped access under .auth (may be nil)
+	if e != nil && e.Auth != nil {
+		// Copy to interface map to avoid accidental mutation
+		a := map[string]string{}
+		for k, v := range e.Auth {
+			a[k] = v
+		}
+		data["auth"] = a
+	} else {
+		data["auth"] = map[string]string{}
+	}
+	return data
+}
+
 // Lookup searches Local first, then Global.
 func (e *Env) Lookup(key string) (string, bool) {
 	if e != nil && e.Local != nil {
@@ -66,7 +100,7 @@ func (e *Env) Lookup(key string) (string, bool) {
 }
 
 // RenderGoTemplate renders strings like {{.username}} with html/template using default Go delimiters.
-// The merged map (Local over Global) is used as the dot (.). Missing keys keep the original string unchanged.
+// Missing keys keep the original string unchanged.
 // Note: html/template escapes HTML by default to mitigate XSS when used in HTML contexts.
 func (e *Env) RenderGoTemplate(s string) string {
 	if len(s) == 0 {
@@ -77,7 +111,7 @@ func (e *Env) RenderGoTemplate(s string) string {
 		return s
 	}
 	var buf bytes.Buffer
-	if err := t.Execute(&buf, e.merged()); err != nil {
+	if err := t.Execute(&buf, e.dataForTemplate()); err != nil {
 		return s
 	}
 	return buf.String()

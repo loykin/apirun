@@ -10,7 +10,7 @@ Key points:
 
 How it works in this example:
 - 001: `up` POSTs to `/create` and receives `{ "id": "123" }`. The migration extracts `rid` from `id` and it is automatically persisted.
-- 001: `down` DELETEs `/resource/{{.rid}}`, which resolves to `/resource/123` thanks to the stored value.
+- 001: `down` DELETEs `/resource/{{.env.rid}}`, which resolves to `/resource/123` thanks to the stored value.
 
 This example uses illustrative endpoints. To run it, you should replace the base URL with your own API that mimics the behavior.
 
@@ -33,5 +33,5 @@ up:
 down:
   name: delete resource
   method: DELETE
-  url: "http://your.api/resource/{{.rid}}"
+  url: "http://your.api/resource/{{.env.rid}}"
 ```

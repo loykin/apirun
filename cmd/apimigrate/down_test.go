@@ -18,8 +18,8 @@ import (
 func TestDownCmd_FullRollback_AuthChanges(t *testing.T) {
 	calls := make(map[string]int)
 
-	// Expect Authorization headers to use the last acquired token for both downs (reverted behavior)
-	exp1 := basicVal("u2", "p2")
+	// Expect Authorization headers based on the configured auth names per down
+	exp1 := basicVal("u1", "p1")
 	exp2 := basicVal("u2", "p2")
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +69,7 @@ down:
   url: %s/down1
   headers:
     - name: Authorization
-      value: "Basic {{._auth_token}}"
+      value: "Basic {{.auth.a1}}"
 `, srv.URL, srv.URL)
 	m2 := fmt.Sprintf(`---
 up:
@@ -86,7 +86,7 @@ down:
   url: %s/down2
   headers:
     - name: Authorization
-      value: "Basic {{._auth_token}}"
+      value: "Basic {{.auth.a2}}"
 `, srv.URL, srv.URL)
 	_ = writeFile(t, tdir, "001_first.yaml", m1)
 	_ = writeFile(t, tdir, "002_second.yaml", m2)
@@ -166,7 +166,7 @@ down:
   url: %s/down1
   headers:
     - name: Authorization
-      value: "Basic {{._auth_token}}"
+      value: "Basic {{.auth.aa1}}"
 `, srv.URL, srv.URL)
 	m2 := fmt.Sprintf(`---
 up:
@@ -183,7 +183,7 @@ down:
   url: %s/down2
   headers:
     - name: Authorization
-      value: "Basic {{._auth_token}}"
+      value: "Basic {{.auth.aa2}}"
 `, srv.URL, srv.URL)
 	_ = writeFile(t, tdir, "001_first.yaml", m1)
 	_ = writeFile(t, tdir, "002_second.yaml", m2)

@@ -12,16 +12,15 @@ import (
 	"testing"
 
 	httpc "github.com/loykin/apimigrate/internal/httpc"
-	imig "github.com/loykin/apimigrate/internal/migration"
 )
 
-// Test that AcquireAuthAndSetEnv acquires a basic token and injects it into base env under _auth_token
+// Test that AcquireAuthAndSetEnv acquires a basic token and stores it under .auth[name]
 func TestAcquireAuthAndSetEnv_Basic(t *testing.T) {
 	ctx := context.Background()
 	base := Env{Global: map[string]string{}}
 	// basic: username/password -> base64(username:password)
 	spec := NewAuthSpecFromMap(map[string]interface{}{"username": "u", "password": "p"})
-	v, err := AcquireAuthAndSetEnv(ctx, "basic", spec, &base)
+	v, err := AcquireAuthAndSetEnv(ctx, "basic", "b1", spec, &base)
 	if err != nil {
 		t.Fatalf("AcquireAuthAndSetEnv error: %v", err)
 	}
@@ -29,8 +28,8 @@ func TestAcquireAuthAndSetEnv_Basic(t *testing.T) {
 	if v != exp {
 		t.Fatalf("unexpected token: got %q want %q", v, exp)
 	}
-	if base.Global[AuthTokenVar] != exp {
-		t.Fatalf("_auth_token not injected: got %q want %q", base.Global[AuthTokenVar], exp)
+	if base.Auth["b1"] != exp {
+		t.Fatalf("token not stored under auth name: got %q want %q", base.Auth["b1"], exp)
 	}
 }
 
@@ -185,16 +184,6 @@ func TestOpenStore_CreatesSQLiteFile(t *testing.T) {
 	t.Cleanup(func() { _ = st.Close() })
 	if _, err := os.Stat(p); err != nil {
 		t.Fatalf("expected sqlite file at %s, stat err: %v", p, err)
-	}
-}
-
-func TestWithSaveResponseBody_SetsContextValue(t *testing.T) {
-	ctx := context.Background()
-	ctx = WithSaveResponseBody(ctx, true)
-	v := ctx.Value(imig.SaveResponseBodyKey)
-	b, ok := v.(bool)
-	if !ok || !b {
-		t.Fatalf("expected SaveResponseBodyKey=true in context, got %#v", v)
 	}
 }
 

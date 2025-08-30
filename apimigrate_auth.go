@@ -10,13 +10,6 @@ import (
 	"github.com/loykin/apimigrate/internal/auth/pocketbase"
 )
 
-// AuthTokenVar is the internal environment variable name that holds the acquired
-// authentication token value. It is injected into Env.Global by helpers like
-// AcquireAuthAndSetEnv and can be referenced in templates as {{._auth_token}}.
-// Library users can reference this constant to avoid hardcoding the key.
-// #nosec G101 -- not credentials: this is a constant key name used for env templating (e.g., {{._auth_token}})
-const AuthTokenVar = "_auth_token"
-
 // Public constants for known auth provider types usable with AcquireAuthAndSetEnv typ parameter.
 // These map to the built-in registry keys. Custom providers can use their own type strings.
 const (

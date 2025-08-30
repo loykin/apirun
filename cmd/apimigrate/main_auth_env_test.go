@@ -11,8 +11,8 @@ import (
 )
 
 // This test verifies that when using an OAuth2 (client_credentials) provider,
-// the CLI acquires a Bearer token, stores the bare token in _auth_token, and a
-// migration that sets Authorization: "Bearer {{._auth_token}}" sends the correct header.
+// the CLI acquires a Bearer token, stores the bare token under .auth[kc], and a
+// migration that sets Authorization: "Bearer {{.auth.kc}}" sends the correct header.
 func TestMain_AuthEnv_BearerTokenInjected(t *testing.T) {
 	// Mock OAuth2 token endpoint that returns a Bearer token
 	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +35,7 @@ func TestMain_AuthEnv_BearerTokenInjected(t *testing.T) {
 
 	tdir := t.TempDir()
 
-	// One migration that uses Authorization: Bearer {{._auth_token}}
+	// One migration that uses Authorization: Bearer {{.auth.kc}}
 	mig := fmt.Sprintf(`---
 up:
   name: env-bearer
@@ -44,7 +44,7 @@ up:
     url: %s/test
     headers:
       - name: Authorization
-        value: "Bearer {{._auth_token}}"
+        value: "Bearer {{.auth.kc}}"
   response:
     result_code: ["200"]
 `, apiSrv.URL)

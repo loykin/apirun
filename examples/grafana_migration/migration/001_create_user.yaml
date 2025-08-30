@@ -3,17 +3,17 @@ up:
   env: {}
   request:
     method: POST
-    url: "{{.grafana_base}}/api/admin/users"
+    url: "{{.env.grafana_base}}/api/admin/users"
     headers:
       - name: Authorization
-        value: "{{.gf_admin_auth}}"
+        value: "{{.env.gf_admin_auth}}"
     queries: []
     body: |
       {
-        "name": "{{.gf_user}}",
-        "email": "{{.gf_user_email}}",
-        "login": "{{.gf_user}}",
-        "password": "{{.gf_user_password}}"
+        "name": "{{.env.gf_user}}",
+        "email": "{{.env.gf_user_email}}",
+        "login": "{{.env.gf_user}}",
+        "password": "{{.env.gf_user_password}}"
       }
   response:
     result_code: ["200", "409"]
@@ -23,9 +23,9 @@ down:
   env: {}
   # Grafana does not provide delete by login directly; keep as no-op/sample
   method: GET
-  url: "{{.grafana_base}}/api/health"
+  url: "{{.env.grafana_base}}/api/health"
   headers:
     - name: Authorization
-      value: "{{.gf_admin_auth}}"
+      value: "{{.env.gf_admin_auth}}"
   queries: []
   body: ""

@@ -23,8 +23,6 @@ func main() {
 
 	// Context can carry options; by default we use SQLite, so no store options are needed.
 	ctx := context.Background()
-	// Optional: toggle saving response bodies (kept false for brevity)
-	ctx = apimigrate.WithSaveResponseBody(ctx, false)
 
 	// Base environment (empty is fine for this example)
 	base := apimigrate.Env{Global: map[string]string{}}

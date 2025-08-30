@@ -35,8 +35,7 @@ func TestEnv_RenderGoTemplate_BasicAndMissingAndEmpty(t *testing.T) {
 }
 
 func TestRequest_Render_TemplatingAndAuthInjection(t *testing.T) {
-	env := env2.Env{Local: map[string]string{
-		"_auth_token":    "Bearer abc",
+	env := env2.Env{Auth: map[string]string{"kc": "Bearer abc"}, Local: map[string]string{
 		"name":           "bob",
 		"CITY":           "busan",
 		"forwarded_data": "zzz",
@@ -46,7 +45,7 @@ func TestRequest_Render_TemplatingAndAuthInjection(t *testing.T) {
 		Headers: []Header{
 			{Name: "X-Name", Value: "{{.name}}"},
 			{Name: "Forwarded-Data", Value: "{{.forwarded_data}}"},
-			{Name: "Authorization", Value: "{{._auth_token}}"},
+			{Name: "Authorization", Value: "{{.auth.kc}}"},
 		},
 		Queries: []Query{
 			{Name: "city", Value: "{{.CITY}}"},
@@ -64,7 +63,7 @@ func TestRequest_Render_TemplatingAndAuthInjection(t *testing.T) {
 	if hdrs["Forwarded-Data"] != "zzz" {
 		t.Fatalf("header Forwarded-Data not rendered, got %q", hdrs["Forwarded-Data"])
 	}
-	// Authorization templated from _auth_token
+	// Authorization templated from .auth.kc
 	if hdrs["Authorization"] != "Bearer abc" {
 		t.Fatalf("expected Authorization to be templated, got %q", hdrs["Authorization"])
 	}

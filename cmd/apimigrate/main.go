@@ -28,8 +28,9 @@ var rootCmd = &cobra.Command{
 		verbose := v.GetBool("v")
 
 		ctx := context.Background()
-		baseEnv := apimigrate.Env{Global: map[string]string{}}
+		baseEnv := apimigrate.NewEnv()
 		var storeOptsRet *apimigrate.StoreOptions
+		saveResp := false
 
 		if strings.TrimSpace(configPath) != "" {
 			if verbose {
@@ -42,11 +43,10 @@ var rootCmd = &cobra.Command{
 			if mDir != "" {
 				dir = mDir
 			}
-			if len(envFromCfg.Global) > 0 {
-				baseEnv = envFromCfg
-			}
+			// Always use env from config (may carry Auth even if Global is empty)
+			baseEnv = envFromCfg
 			storeOptsRet = soRet
-			ctx = apimigrate.WithSaveResponseBody(ctx, saveBody)
+			saveResp = saveBody
 			// TLS settings are now configured via httpc.Httpc struct at client creation time.
 		}
 
@@ -58,7 +58,7 @@ var rootCmd = &cobra.Command{
 			log.Printf("running migrations in %s (versioned, will be recorded)", dir)
 		}
 		// Use versioned executor so applied versions are persisted to the store
-		m := apimigrate.Migrator{Env: baseEnv, Dir: dir}
+		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp}
 		var st *apimigrate.Store
 		var err error
 		st, err = apimigrate.OpenStoreFromOptions(dir, storeOptsRet)
@@ -129,19 +129,19 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 	// Ensure path points to a regular file to avoid opening directories/special files
 	if info, statErr := os.Stat(clean); statErr != nil || !info.Mode().IsRegular() {
 		if statErr != nil {
-			return "", apimigrate.Env{Global: map[string]string{}}, false, false, "", "", nil, statErr
+			return "", apimigrate.NewEnv(), false, false, "", "", nil, statErr
 		}
-		return "", apimigrate.Env{Global: map[string]string{}}, false, false, "", "", nil, fmt.Errorf("not a regular file: %s", clean)
+		return "", apimigrate.NewEnv(), false, false, "", "", nil, fmt.Errorf("not a regular file: %s", clean)
 	}
 	// #nosec G304 -- config path is provided intentionally by the user/CI; cleaned and validated above
 	f, err := os.Open(clean)
 	if err != nil {
-		return "", apimigrate.Env{Global: map[string]string{}}, false, false, "", "", nil, err
+		return "", apimigrate.NewEnv(), false, false, "", "", nil, err
 	}
 	defer func() { _ = f.Close() }()
 	dec := yaml.NewDecoder(f)
 	migrateDir := ""
-	base := apimigrate.Env{Global: map[string]string{}}
+	base := apimigrate.NewEnv()
 	saveBody := false
 	tlsInsecure := false
 	tlsMin := ""
@@ -202,12 +202,12 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 				// Render templated values in the auth config using the base env
 				renderedAny := apimigrate.RenderAnyTemplate(a.Config, base)
 				renderedCfg, _ := renderedAny.(map[string]interface{})
-				v, err := apimigrate.AcquireAuthAndSetEnv(ctx, pt, apimigrate.NewAuthSpecFromMap(renderedCfg), &base)
+				v, err := apimigrate.AcquireAuthAndSetEnv(ctx, pt, storedName, apimigrate.NewAuthSpecFromMap(renderedCfg), &base)
 				if err != nil {
 					return "", base, false, false, "", "", nil, fmt.Errorf("auth[%d] type=%s name=%s: acquire failed: %w", i, pt, storedName, err)
 				}
 				if verbose {
-					_ = v // token acquired and injected into base env
+					_ = v
 					log.Printf("auth %s: token acquired", strings.TrimSpace(storedName))
 				}
 			}

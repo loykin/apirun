@@ -1,11 +1,11 @@
 ---
 up:
-  name: httpbin_check
+  name: check-b-with-a2
   request:
     method: GET
-    url: "{{.env.api_base}}/200"
+    url: "{{.env.api_base}}/b"
     headers:
       - name: Authorization
-        value: "Basic {{.auth.basic}}"
+        value: "Basic {{.auth.a2}}"
   response:
     result_code: [ "200" ]

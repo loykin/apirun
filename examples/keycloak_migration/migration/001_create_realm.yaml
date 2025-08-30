@@ -4,10 +4,10 @@ up:
   request:
     auth_name: keycloak
     method: POST
-    url: "{{.kc_base}}/admin/realms"
+    url: "{{.env.kc_base}}/admin/realms"
     headers:
       - name: Authorization
-        value: "Bearer {{._auth_token}}"
+        value: "{{.auth.keycloak}}"
     queries: [ ]
     body: |
       {"realm": "{{.realm}}", "enabled": true}
@@ -20,9 +20,9 @@ down:
   auth: keycloak
   env: { }
   method: DELETE
-  url: "{{.kc_base}}/admin/realms/{{.realm}}"
+  url: "{{.env.kc_base}}/admin/realms/{{.env.realm}}"
   headers:
     - name: Authorization
-      value: "Bearer {{._auth_token}}"
+      value: "{{.auth.keycloak}}"
   queries: [ ]
   body: ""

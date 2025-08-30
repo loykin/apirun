@@ -8,7 +8,7 @@ Prerequisites:
 - apimigrate built (go build ./cmd/apimigrate)
 
 Auth configuration:
-- The config logs in to Keycloak using Resource Owner Password Credentials against the master realm and the built-in client_id admin-cli. The acquired token is stored under the logical auth name "keycloak" and referenced by request.auth_name: keycloak. Note: the library does not auto-prefix Authorization; migrations explicitly set `Authorization: "Bearer {{._auth_token}}"`.
+- The config logs in to Keycloak using Resource Owner Password Credentials against the master realm and the built-in client_id admin-cli. The acquired token is stored under the logical auth name "keycloak" and is referenced in templates as {{.auth.keycloak}}. Note: the library does not auto-prefix Authorization; migrations explicitly set `Authorization: "{{.auth.keycloak}}"`. Base URLs are referenced via {{.env.kc_base}}.
 
 How to run (single command):
 - We placed two migrations, 001_create_realm.yaml and 002_create_user.yaml, together under examples/keycloak_migration/migration.

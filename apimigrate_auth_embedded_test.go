@@ -46,7 +46,7 @@ func TestEmbeddedAuthAndMigrateUp(t *testing.T) {
 		"username": "admin",
 		"password": "admin",
 	})
-	if _, err := AcquireAuthAndSetEnv(ctx, AuthTypeBasic, spec, &base); err != nil {
+	if _, err := AcquireAuthAndSetEnv(ctx, AuthTypeBasic, "basic", spec, &base); err != nil {
 		t.Fatalf("AcquireAuthAndSetEnv failed: %v", err)
 	}
 

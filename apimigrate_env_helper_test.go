@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// TestAcquireAuthAndSetEnv_SetsAuthToken verifies the helper acquires and injects _auth_token.
-func TestAcquireAuthAndSetEnv_SetsAuthToken(t *testing.T) {
+// TestAcquireAuthAndSetEnv_StoresInAuth verifies the helper acquires a token and stores under .auth[name].
+func TestAcquireAuthAndSetEnv_StoresInAuth(t *testing.T) {
 	// Register a dummy provider that returns a fixed token value
 	RegisterAuthProvider("dummy", func(spec map[string]interface{}) (AuthMethod, error) {
 		return dummyMethodEnvHelper{}, nil
@@ -14,15 +14,15 @@ func TestAcquireAuthAndSetEnv_SetsAuthToken(t *testing.T) {
 
 	ctx := context.Background()
 	base := Env{Global: map[string]string{"pre": "x"}}
-	v, err := AcquireAuthAndSetEnv(ctx, "dummy", NewAuthSpecFromMap(map[string]interface{}{}), &base)
+	v, err := AcquireAuthAndSetEnv(ctx, "dummy", "demo", NewAuthSpecFromMap(map[string]interface{}{}), &base)
 	if err != nil {
 		t.Fatalf("AcquireAuthAndSetEnv error: %v", err)
 	}
 	if v != "Bearer unit-token" {
 		t.Fatalf("unexpected token value: %q", v)
 	}
-	if base.Global["_auth_token"] != v {
-		t.Fatalf("_auth_token not set correctly: %q", base.Global["_auth_token"])
+	if base.Auth["demo"] != v {
+		t.Fatalf("auth token not stored under name: got %q", base.Auth["demo"])
 	}
 }
 

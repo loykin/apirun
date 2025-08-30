@@ -6,20 +6,20 @@ up:
   request:
     auth_name: keycloak
     method: POST
-    url: "{{.kc_base}}/admin/realms/{{.realm}}/users"
+    url: "{{.env.kc_base}}/admin/realms/{{.env.realm}}/users"
     headers:
       - name: Authorization
-        value: "Bearer {{._auth_token}}"
+        value: "{{.auth.keycloak}}"
     queries: [ ]
     body: |
       {
-        "username": "{{.username}}",
+        "username": "{{.env.username}}",
         "enabled": true,
-        "email": "{{.username}}@example.com",
-        "firstName": "{{.firstname}}",
-        "lastName": "{{.lastname}}",
+        "email": "{{.env.username}}@example.com",
+        "firstName": "{{.env.firstname}}",
+        "lastName": "{{.env.lastname}}",
         "credentials": [
-          { "type": "password", "value": "{{.password}}", "temporary": false }
+          { "type": "password", "value": "{{.env.password}}", "temporary": false }
         ]
       }
   response:
@@ -35,10 +35,10 @@ down:
     request:
       auth_name: keycloak
       method: GET
-      url: "{{.kc_base}}/admin/realms/{{.realm}}/users?username={{.username}}&exact=true"
+      url: "{{.env.kc_base}}/admin/realms/{{.env.realm}}/users?username={{.env.username}}&exact=true"
       headers:
         - name: Authorization
-          value: "Bearer {{._auth_token}}"
+          value: "{{.auth.keycloak}}"
       queries: [ ]
       body: ""
     response:
@@ -46,9 +46,9 @@ down:
       env_from:
         user_id: "0.id"
   method: DELETE
-  url: "{{.kc_base}}/admin/realms/{{.realm}}/users/{{.user_id}}"
+  url: "{{.env.kc_base}}/admin/realms/{{.env.realm}}/users/{{.user_id}}"
   headers:
     - name: Authorization
-      value: "Bearer {{._auth_token}}"
+      value: "{{.auth.keycloak}}"
   queries: [ ]
   body: ""

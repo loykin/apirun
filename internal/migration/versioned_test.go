@@ -82,14 +82,14 @@ func TestMigrateUp_RecordsStatusAndBody(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, "001_only.yaml"), []byte(mig), 0o600); err != nil {
 				t.Fatalf("write mig: %v", err)
 			}
-			ctx := context.WithValue(context.Background(), SaveResponseBodyKey, save)
+			ctx := context.Background()
 			base := env.Env{Global: map[string]string{}}
 			st, err := store.Open(filepath.Join(dir, store.DbFileName))
 			if err != nil {
 				t.Fatalf("open store: %v", err)
 			}
 			defer func() { _ = st.Close() }()
-			if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 0); err != nil {
+			if _, err := (&Migrator{Dir: dir, Env: base, Store: *st, SaveResponseBody: save}).MigrateUp(ctx, 0); err != nil {
 				t.Fatalf("migrate up: %v", err)
 			}
 

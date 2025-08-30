@@ -21,8 +21,8 @@ func TestRequest_Render_UsesAuthTokenFromEnvTemplate(t *testing.T) {
 	defer srv.Close()
 
 	up := Up{
-		Env:      env.Env{Local: map[string]string{"_auth_token": "Bearer XYZ"}},
-		Request:  RequestSpec{Headers: []Header{{Name: "Authorization", Value: "{{._auth_token}}"}}},
+		Env:      env.Env{Auth: map[string]string{"kc": "Bearer XYZ"}},
+		Request:  RequestSpec{Headers: []Header{{Name: "Authorization", Value: "{{.auth.kc}}"}}},
 		Response: ResponseSpec{ResultCode: []string{"200"}},
 	}
 

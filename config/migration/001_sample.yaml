@@ -12,7 +12,7 @@ up:
       - name: User-Agent
         value: apimigrate-sample
       - name: Authorization
-        value: "Bearer {{._auth_token}}"
+        value: "Bearer {{.auth.sample}}"
   response:
     # Accept HTTP 200 as success
     result_code: [ "200" ]
