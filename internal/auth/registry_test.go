@@ -133,7 +133,7 @@ func TestAcquireAndStoreWithName_NilContextHandled(t *testing.T) {
 	ClearTokens()
 	key := "dummy-nilctx"
 	Register(key, dummyFactoryOK)
-	v, err := AcquireAndStoreWithName(nil, key, "nm", map[string]interface{}{"value": "x"})
+	v, err := AcquireAndStoreWithName(context.TODO(), key, "nm", map[string]interface{}{"value": "x"})
 	if err != nil || v != "x" {
 		t.Fatalf("nil ctx path failed: v=%q err=%v", v, err)
 	}
