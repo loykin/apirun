@@ -17,6 +17,15 @@ type Config struct {
 	Password string `mapstructure:"password"`
 }
 
+// ToMap returns a spec map for the pocketbase provider.
+func (c Config) ToMap() map[string]interface{} {
+	return map[string]interface{}{
+		"base_url": c.BaseURL,
+		"email":    c.Email,
+		"password": c.Password,
+	}
+}
+
 func AcquirePocketBase(ctx context.Context, pc Config) (string, error) {
 	if strings.TrimSpace(pc.BaseURL) == "" || strings.TrimSpace(pc.Email) == "" || strings.TrimSpace(pc.Password) == "" {
 		return "", errors.New("pocketbase: base_url, email and password are required")

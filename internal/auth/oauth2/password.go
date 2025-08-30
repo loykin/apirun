@@ -19,6 +19,25 @@ type PasswordConfig struct {
 	Scopes    []string `mapstructure:"scopes"`
 }
 
+// ToMap returns a spec compatible with the oauth2 provider factory (password grant).
+func (c PasswordConfig) ToMap() map[string]interface{} {
+	sub := map[string]interface{}{
+		"client_id":     c.ClientID,
+		"client_secret": c.ClientSec,
+		"auth_url":      c.AuthURL,
+		"token_url":     c.TokenURL,
+		"username":      c.Username,
+		"password":      c.Password,
+	}
+	if len(c.Scopes) > 0 {
+		sub["scopes"] = c.Scopes
+	}
+	return map[string]interface{}{
+		"grant_type":   "password",
+		"grant_config": sub,
+	}
+}
+
 type passwordMethod struct {
 	c PasswordConfig
 }

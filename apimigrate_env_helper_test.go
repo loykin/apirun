@@ -14,7 +14,7 @@ func TestAcquireAuthAndSetEnv_SetsAuthToken(t *testing.T) {
 
 	ctx := context.Background()
 	base := Env{Global: map[string]string{"pre": "x"}}
-	v, err := AcquireAuthAndSetEnv(ctx, "dummy", "d1", map[string]interface{}{}, &base)
+	v, err := AcquireAuthAndSetEnv(ctx, "dummy", "d1", NewAuthSpecFromMap(map[string]interface{}{}), &base)
 	if err != nil {
 		t.Fatalf("AcquireAuthAndSetEnv error: %v", err)
 	}

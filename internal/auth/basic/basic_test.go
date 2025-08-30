@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/loykin/apimigrate/internal/auth"
+	"github.com/loykin/apimigrate/internal/auth/basic"
 )
 
 func TestAcquireToken_Basic_Success_DefaultHeader(t *testing.T) {
@@ -60,5 +61,13 @@ func TestAcquireToken_Basic_MissingCredentials_Error(t *testing.T) {
 		if !strings.Contains(err.Error(), "basic:") {
 			t.Fatalf("case %d: unexpected error: %v", i, err)
 		}
+	}
+}
+
+func TestInternalBasicConfig_ToMap(t *testing.T) {
+	c := basic.Config{Username: "u", Password: "p"}
+	m := c.ToMap()
+	if m["username"] != "u" || m["password"] != "p" {
+		t.Fatalf("basic.Config.ToMap mismatch: %+v", m)
 	}
 }

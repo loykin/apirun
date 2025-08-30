@@ -43,11 +43,11 @@ func TestEmbeddedAuthAndMigrateUp(t *testing.T) {
 	}}
 
 	// Acquire token and inject into base env as _auth_token using AcquireAuthAndSetEnv
-	spec := map[string]interface{}{
+	spec := NewAuthSpecFromMap(map[string]interface{}{
 		"username": "admin",
 		"password": "admin",
-	}
-	if _, err := AcquireAuthAndSetEnv(ctx, "basic", "example_basic", spec, &base); err != nil {
+	})
+	if _, err := AcquireAuthAndSetEnv(ctx, AuthTypeBasic, "example_basic", spec, &base); err != nil {
 		t.Fatalf("AcquireAuthAndSetEnv failed: %v", err)
 	}
 

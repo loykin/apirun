@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/loykin/apimigrate/internal/auth"
+	"github.com/loykin/apimigrate/internal/auth/pocketbase"
 )
 
 func TestPocketBase_Success(t *testing.T) {
@@ -54,5 +55,13 @@ func TestPocketBase_Non2xx_Error(t *testing.T) {
 	_, err := auth.AcquireAndStoreWithName(context.Background(), "pocketbase", "pocket", spec)
 	if err == nil {
 		t.Fatalf("expected error for non-2xx response")
+	}
+}
+
+func TestInternalPocketBaseConfig_ToMap(t *testing.T) {
+	c := pocketbase.Config{BaseURL: "b", Email: "e", Password: "p"}
+	m := c.ToMap()
+	if m["base_url"] != "b" || m["email"] != "e" || m["password"] != "p" {
+		t.Fatalf("pocketbase.Config.ToMap mismatch: %+v", m)
 	}
 }

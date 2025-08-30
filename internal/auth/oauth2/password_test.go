@@ -44,3 +44,30 @@ func TestAcquirePassword_ValidationErrors(t *testing.T) {
 		t.Fatal("expected error for missing fields")
 	}
 }
+
+func TestInternalPasswordConfig_ToMap(t *testing.T) {
+	c := PasswordConfig{
+		ClientID:  "cid",
+		ClientSec: "sec",
+		AuthURL:   "a",
+		TokenURL:  "t",
+		Username:  "u",
+		Password:  "p",
+	}
+	m := c.ToMap()
+	if m["grant_type"] != "password" {
+		t.Fatalf("grant_type mismatch: %+v", m)
+	}
+	sub := m["grant_config"].(map[string]interface{})
+	if sub["client_id"] != "cid" || sub["client_secret"] != "sec" || sub["auth_url"] != "a" || sub["token_url"] != "t" || sub["username"] != "u" || sub["password"] != "p" {
+		t.Fatalf("password grant_config mismatch: %+v", sub)
+	}
+	if _, ok := sub["scopes"]; ok {
+		t.Fatalf("scopes should be absent when empty: %+v", sub)
+	}
+	c.Scopes = []string{"x"}
+	sub2 := c.ToMap()["grant_config"].(map[string]interface{})
+	if got, ok := sub2["scopes"].([]string); !ok || len(got) != 1 || got[0] != "x" {
+		t.Fatalf("scopes not preserved: %+v", sub2["scopes"])
+	}
+}

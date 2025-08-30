@@ -4,6 +4,25 @@ import (
 	"context"
 
 	iauth "github.com/loykin/apimigrate/internal/auth"
+	"github.com/loykin/apimigrate/internal/auth/basic"
+	"github.com/loykin/apimigrate/internal/auth/common"
+	"github.com/loykin/apimigrate/internal/auth/oauth2"
+	"github.com/loykin/apimigrate/internal/auth/pocketbase"
+)
+
+// AuthTokenVar is the internal environment variable name that holds the acquired
+// authentication token value. It is injected into Env.Global by helpers like
+// AcquireAuthAndSetEnv and can be referenced in templates as {{._auth_token}}.
+// Library users can reference this constant to avoid hardcoding the key.
+// #nosec G101 -- not credentials: this is a constant key name used for env templating (e.g., {{._auth_token}})
+const AuthTokenVar = "_auth_token"
+
+// Public constants for known auth provider types usable with AcquireAuthAndSetEnv typ parameter.
+// These map to the built-in registry keys. Custom providers can use their own type strings.
+const (
+	AuthTypeBasic      = common.AuthTypeBasic
+	AuthTypeOAuth2     = common.AuthTypeOAuth2
+	AuthTypePocketBase = common.AuthTypePocketBase
 )
 
 // Public, type-safe wrappers for built-in auth providers.
@@ -11,47 +30,42 @@ import (
 
 // BasicAuthConfig mirrors the internal basic.Config.
 // Header defaults to "Authorization" when empty.
-type BasicAuthConfig struct {
-	Username string
-	Password string
+type BasicAuthConfig basic.Config
+
+func (b BasicAuthConfig) ToMap() map[string]interface{} {
+	return basic.Config(b).ToMap()
 }
 
 // OAuth2PasswordConfig mirrors fields for the OAuth2 Resource Owner Password Credentials grant.
 // ClientSec is the client_secret. AuthURL is optional for password grant; TokenURL required.
 // Scopes is optional.
-type OAuth2PasswordConfig struct {
-	ClientID  string
-	ClientSec string
-	AuthURL   string
-	TokenURL  string
-	Username  string
-	Password  string
-	Scopes    []string
+type OAuth2PasswordConfig oauth2.PasswordConfig
+
+func (c OAuth2PasswordConfig) ToMap() map[string]interface{} {
+	return oauth2.PasswordConfig(c).ToMap()
 }
 
 // OAuth2ClientCredentialsConfig mirrors fields for the OAuth2 Client Credentials grant.
 // Scopes is optional.
-type OAuth2ClientCredentialsConfig struct {
-	ClientID  string
-	ClientSec string
-	TokenURL  string
-	Scopes    []string
+type OAuth2ClientCredentialsConfig oauth2.ClientCredentialsConfig
+
+func (c OAuth2ClientCredentialsConfig) ToMap() map[string]interface{} {
+	return oauth2.ClientCredentialsConfig(c).ToMap()
 }
 
 // OAuth2ImplicitConfig mirrors fields for the OAuth2 Implicit grant.
 // Acquire returns the header and a URL containing response_type=token so you can complete the flow externally.
 // Scopes is optional.
-type OAuth2ImplicitConfig struct {
-	ClientID    string
-	RedirectURL string
-	AuthURL     string
-	Scopes      []string
+type OAuth2ImplicitConfig oauth2.ImplicitConfig
+
+func (c OAuth2ImplicitConfig) ToMap() map[string]interface{} {
+	return oauth2.ImplicitConfig(c).ToMap()
 }
 
-type PocketBaseAuthConfig struct {
-	BaseURL  string
-	Email    string
-	Password string
+type PocketBaseAuthConfig pocketbase.Config
+
+func (c PocketBaseAuthConfig) ToMap() map[string]interface{} {
+	return pocketbase.Config(c).ToMap()
 }
 
 // Below are convenience variants that accept an explicit logical name argument

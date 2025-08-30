@@ -34,13 +34,6 @@ type StoreOptions = imig.StoreOptions
 // Store is an alias to the internal store type.
 type Store = store.Store
 
-// AuthTokenVar is the internal environment variable name that holds the acquired
-// authentication token value. It is injected into Env.Global by helpers like
-// AcquireAuthAndSetEnv and can be referenced in templates as {{._auth_token}}.
-// Library users can reference this constant to avoid hardcoding the key.
-// #nosec G101 -- not credentials: this is a constant key name used for env templating (e.g., {{._auth_token}})
-const AuthTokenVar = "_auth_token"
-
 // StoreDBFileName is the default sqlite filename used for migration history.
 const StoreDBFileName = store.DbFileName
 
@@ -70,13 +63,32 @@ func AcquireAuthByProviderSpecWithName(ctx context.Context, typ string, name str
 	return v, err
 }
 
+// AuthSpec is a small interface allowing callers to pass strongly typed auth configs
+// while keeping the internal registry based on map[string]interface{}.
+// Implementations must return a map compatible with internal provider decoders.
+type AuthSpec interface {
+	ToMap() map[string]interface{}
+}
+
+// mapAuthSpec adapts a plain map into an AuthSpec.
+type mapAuthSpec struct{ m map[string]interface{} }
+
+func (s mapAuthSpec) ToMap() map[string]interface{} { return s.m }
+
+// NewAuthSpecFromMap returns an AuthSpec backed by the provided map.
+func NewAuthSpecFromMap(m map[string]interface{}) AuthSpec { return mapAuthSpec{m: m} }
+
 // AcquireAuthAndSetEnv acquires auth by provider type/spec, stores it under the given name,
 // and automatically injects the acquired token into the provided base environment under
 // the internal variable key "_auth_token". The token is stored as-is (trimmed), so if the
 // provider returns a prefixed value like "Bearer ...", that full string is assigned.
 // Returns the acquired token value.
-func AcquireAuthAndSetEnv(ctx context.Context, typ string, name string, spec map[string]interface{}, base *Env) (string, error) {
-	v, err := AcquireAuthByProviderSpecWithName(ctx, typ, name, spec)
+func AcquireAuthAndSetEnv(ctx context.Context, typ string, name string, spec AuthSpec, base *Env) (string, error) {
+	var mp map[string]interface{}
+	if spec != nil {
+		mp = spec.ToMap()
+	}
+	v, err := AcquireAuthByProviderSpecWithName(ctx, typ, name, mp)
 	if err != nil {
 		return "", err
 	}

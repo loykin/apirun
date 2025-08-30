@@ -17,6 +17,22 @@ type ClientCredentialsConfig struct {
 	Scopes    []string `mapstructure:"scopes"`
 }
 
+// ToMap returns a spec for oauth2 client_credentials
+func (c ClientCredentialsConfig) ToMap() map[string]interface{} {
+	sub := map[string]interface{}{
+		"client_id":     c.ClientID,
+		"client_secret": c.ClientSec,
+		"token_url":     c.TokenURL,
+	}
+	if len(c.Scopes) > 0 {
+		sub["scopes"] = c.Scopes
+	}
+	return map[string]interface{}{
+		"grant_type":   "client_credentials",
+		"grant_config": sub,
+	}
+}
+
 type clientCredentialsMethod struct {
 	c ClientCredentialsConfig
 }

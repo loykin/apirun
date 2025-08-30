@@ -37,13 +37,13 @@ func main() {
 	}}
 
 	// Programmatically define an auth provider (basic) using AcquireAuthAndSetEnv
-	spec := map[string]interface{}{
-		"username": "admin",
-		"password": "admin",
+	spec := apimigrate.BasicAuthConfig{
+		Username: "admin",
+		Password: "admin",
 	}
 
 	// Acquire token, store under a logical name (optional), and inject into base env as _auth_token
-	if v, err := apimigrate.AcquireAuthAndSetEnv(ctx, "basic", "example_basic", spec, &base); err != nil {
+	if v, err := apimigrate.AcquireAuthAndSetEnv(ctx, apimigrate.AuthTypeBasic, "example_basic", spec, &base); err != nil {
 		log.Fatalf("acquire auth failed: %v", err)
 	} else {
 		fmt.Printf("auth token acquired and injected (_auth_token): %q\n", v)

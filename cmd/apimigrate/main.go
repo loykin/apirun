@@ -202,7 +202,7 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 				// Render templated values in the auth config using the base env
 				renderedAny := apimigrate.RenderAnyTemplate(a.Config, base)
 				renderedCfg, _ := renderedAny.(map[string]interface{})
-				v, err := apimigrate.AcquireAuthAndSetEnv(ctx, pt, storedName, renderedCfg, &base)
+				v, err := apimigrate.AcquireAuthAndSetEnv(ctx, pt, storedName, apimigrate.NewAuthSpecFromMap(renderedCfg), &base)
 				if err != nil {
 					return "", base, false, false, "", "", nil, fmt.Errorf("auth[%d] type=%s name=%s: acquire failed: %w", i, pt, storedName, err)
 				}

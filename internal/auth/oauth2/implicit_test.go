@@ -43,3 +43,23 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
+
+func TestInternalImplicitConfig_ToMap(t *testing.T) {
+	c := ImplicitConfig{ClientID: "id", RedirectURL: "r", AuthURL: "a"}
+	m := c.ToMap()
+	if m["grant_type"] != "implicit" {
+		t.Fatalf("grant_type mismatch: %+v", m)
+	}
+	sub := m["grant_config"].(map[string]interface{})
+	if sub["client_id"] != "id" || sub["redirect_url"] != "r" || sub["auth_url"] != "a" {
+		t.Fatalf("implicit grant_config mismatch: %+v", sub)
+	}
+	if _, ok := sub["scopes"]; ok {
+		t.Fatalf("scopes should be absent when empty: %+v", sub)
+	}
+	c.Scopes = []string{"p"}
+	sub2 := c.ToMap()["grant_config"].(map[string]interface{})
+	if got, ok := sub2["scopes"].([]string); !ok || len(got) != 1 || got[0] != "p" {
+		t.Fatalf("scopes not preserved: %+v", sub2["scopes"])
+	}
+}

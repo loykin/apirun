@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/loykin/apimigrate/internal/auth/basic"
+	"github.com/loykin/apimigrate/internal/auth/common"
 	"github.com/loykin/apimigrate/internal/auth/oauth2"
 	"github.com/loykin/apimigrate/internal/auth/pocketbase"
 )
@@ -67,7 +68,7 @@ func AcquireAndStoreWithName(ctx context.Context, typ string, name string, spec 
 // Built-in provider registrations
 func init() {
 	// oauth2 (and common aliases)
-	Register("oauth2", func(spec map[string]interface{}) (Method, error) {
+	Register(common.AuthTypeOAuth2, func(spec map[string]interface{}) (Method, error) {
 		var c oauth2.Auth2Config
 		if err := mapstructure.Decode(spec, &c); err != nil {
 			return nil, err
@@ -80,7 +81,7 @@ func init() {
 	})
 
 	// basic
-	Register("basic", func(spec map[string]interface{}) (Method, error) {
+	Register(common.AuthTypeBasic, func(spec map[string]interface{}) (Method, error) {
 		var c basic.Config
 		if err := mapstructure.Decode(spec, &c); err != nil {
 			return nil, err
@@ -89,7 +90,7 @@ func init() {
 	})
 
 	// pocketbase
-	Register("pocketbase", func(spec map[string]interface{}) (Method, error) {
+	Register(common.AuthTypePocketBase, func(spec map[string]interface{}) (Method, error) {
 		var c pocketbase.Config
 		if err := mapstructure.Decode(spec, &c); err != nil {
 			return nil, err

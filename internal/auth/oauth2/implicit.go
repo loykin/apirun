@@ -15,6 +15,22 @@ type ImplicitConfig struct {
 	Scopes      []string `mapstructure:"scopes"`
 }
 
+// ToMap returns a spec for oauth2 implicit grant
+func (c ImplicitConfig) ToMap() map[string]interface{} {
+	sub := map[string]interface{}{
+		"client_id":    c.ClientID,
+		"redirect_url": c.RedirectURL,
+		"auth_url":     c.AuthURL,
+	}
+	if len(c.Scopes) > 0 {
+		sub["scopes"] = c.Scopes
+	}
+	return map[string]interface{}{
+		"grant_type":   "implicit",
+		"grant_config": sub,
+	}
+}
+
 type implicitMethod struct {
 	c ImplicitConfig
 }
