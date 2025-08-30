@@ -90,11 +90,14 @@ jobs:
           cat checksums.txt
 
       - name: Sign artifacts with GPG (optional)
-        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
         env:
           GPG_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
+          if [ -z "${GPG_KEY}" ]; then
+            echo "No GPG key provided; skipping signing."
+            exit 0
+          fi
           echo "$GPG_KEY" | gpg --batch --yes --import
           for f in *.tar.gz *.zip checksums.txt; do
             gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" --armor --detach-sign "$f"
