@@ -37,7 +37,7 @@ func main() {
 		"value": "hello",
 	}
 
-	v, err := apimigrate.AcquireAuthByProviderSpecWithName(context.Background(), "demo", "my-demo", spec)
+	v, err := apimigrate.AcquireAuthByProviderSpecWithName(context.Background(), "demo", spec)
 	if err != nil {
 		panic(err)
 	}
