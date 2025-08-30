@@ -2,10 +2,16 @@ package apimigrate
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	imig "github.com/loykin/apimigrate/internal/migration"
 )
 
 // Test that AcquireAuthAndSetEnv acquires a basic token and injects it into base env under _auth_token
@@ -165,5 +171,140 @@ func TestPublicToMap_PocketBaseAuthConfig(t *testing.T) {
 	m := c.ToMap()
 	if m["base_url"] != "b" || m["email"] != "e" || m["password"] != "p" {
 		t.Fatalf("PocketBaseAuthConfig.ToMap mismatch: %+v", m)
+	}
+}
+
+func TestOpenStore_CreatesSQLiteFile(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "test.db")
+	st, err := OpenStore(p)
+	if err != nil {
+		t.Fatalf("OpenStore error: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if _, err := os.Stat(p); err != nil {
+		t.Fatalf("expected sqlite file at %s, stat err: %v", p, err)
+	}
+}
+
+func TestWithSaveResponseBody_SetsContextValue(t *testing.T) {
+	ctx := context.Background()
+	ctx = WithSaveResponseBody(ctx, true)
+	v := ctx.Value(imig.SaveResponseBodyKey)
+	b, ok := v.(bool)
+	if !ok || !b {
+		t.Fatalf("expected SaveResponseBodyKey=true in context, got %#v", v)
+	}
+}
+
+func TestNewHTTPClient_TLSHelpers(t *testing.T) {
+	// Default settings
+	c := NewHTTPClient(context.Background())
+	hc := c.GetClient()
+	tr, _ := hc.Transport.(*http.Transport)
+	if tr == nil || tr.TLSClientConfig == nil {
+		t.Fatalf("expected TLSClientConfig to be set")
+	}
+	if tr.TLSClientConfig.MinVersion != tls.VersionTLS13 {
+		t.Fatalf("default MinVersion mismatch: got %v want %v", tr.TLSClientConfig.MinVersion, tls.VersionTLS13)
+	}
+	if tr.TLSClientConfig.InsecureSkipVerify {
+		t.Fatalf("default InsecureSkipVerify should be false")
+	}
+
+	// Insecure and version hints
+	ctx := context.Background()
+	ctx = WithTLSInsecure(ctx, true)
+	ctx = WithTLSMinVersion(ctx, "1.2")
+	ctx = WithTLSMaxVersion(ctx, "1.2")
+	c2 := NewHTTPClient(ctx)
+	hc2 := c2.GetClient()
+	tr2, _ := hc2.Transport.(*http.Transport)
+	if tr2 == nil || tr2.TLSClientConfig == nil {
+		t.Fatalf("expected TLSClientConfig to be set on client 2")
+	}
+	if !tr2.TLSClientConfig.InsecureSkipVerify {
+		t.Fatalf("expected InsecureSkipVerify=true")
+	}
+	if tr2.TLSClientConfig.MinVersion != tls.VersionTLS12 {
+		t.Fatalf("MinVersion not applied: got %v want %v", tr2.TLSClientConfig.MinVersion, tls.VersionTLS12)
+	}
+	if tr2.TLSClientConfig.MaxVersion != tls.VersionTLS12 {
+		t.Fatalf("MaxVersion not applied: got %v want %v", tr2.TLSClientConfig.MaxVersion, tls.VersionTLS12)
+	}
+}
+
+func TestRenderAnyTemplate_Basic(t *testing.T) {
+	base := Env{Global: map[string]string{"name": "world"}}
+	in := map[string]interface{}{
+		"greet": "hello {{.name}}",
+	}
+	out := RenderAnyTemplate(in, base).(map[string]interface{})
+	if s, _ := out["greet"].(string); !strings.Contains(s, "hello world") {
+		t.Fatalf("RenderAnyTemplate failed: got %q", s)
+	}
+}
+
+func TestMigrateDown_RollsBack(t *testing.T) {
+	// Create a test server with two endpoints: up and down
+	var hitsUp, hitsDown int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/up":
+			hitsUp++
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte("ok"))
+		case "/down":
+			hitsDown++
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte("ok"))
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer srv.Close()
+
+	// Prepare a temporary migration file
+	dir := t.TempDir()
+	migFile := filepath.Join(dir, "001_demo.yaml")
+	content := "" +
+		"up:\n" +
+		"  name: demo-up\n" +
+		"  request:\n" +
+		"    method: GET\n" +
+		"    url: " + srv.URL + "/up\n" +
+		"  response:\n" +
+		"    result_code: [\"200\"]\n" +
+		"\n" +
+		"down:\n" +
+		"  name: demo-down\n" +
+		"  method: GET\n" +
+		"  url: " + srv.URL + "/down\n"
+	if err := os.WriteFile(migFile, []byte(content), 0600); err != nil {
+		t.Fatalf("write migration file: %v", err)
+	}
+
+	// Use a sqlite store in temp dir
+	storePath := filepath.Join(dir, "state.db")
+	ctx := WithStoreOptions(context.Background(), &StoreOptions{SQLitePath: storePath})
+
+	base := Env{Global: map[string]string{}}
+
+	// Run Up
+	resUp, err := MigrateUp(ctx, dir, base, 0)
+	if err != nil {
+		t.Fatalf("MigrateUp error: %v", err)
+	}
+	if len(resUp) != 1 || hitsUp != 1 {
+		t.Fatalf("expected 1 up migration and 1 hit, got len=%d hitsUp=%d", len(resUp), hitsUp)
+	}
+
+	// Run Down to version 0
+	resDown, err := MigrateDown(ctx, dir, base, 0)
+	if err != nil {
+		t.Fatalf("MigrateDown error: %v", err)
+	}
+	if len(resDown) != 1 || hitsDown != 1 {
+		t.Fatalf("expected 1 down migration and 1 hit, got len=%d hitsDown=%d", len(resDown), hitsDown)
 	}
 }

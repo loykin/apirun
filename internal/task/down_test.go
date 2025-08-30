@@ -258,3 +258,28 @@ func TestDown_Execute_JSONBodySetsContentType(t *testing.T) {
 		t.Fatalf("unexpected body: %q", gotBody)
 	}
 }
+
+func TestExecByMethod_SupportedAndUnsupported(t *testing.T) {
+	// Set up a server that responds 201 to all methods to distinguish from default 200
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(201)
+	}))
+	defer srv.Close()
+
+	req := buildRequest(context.Background(), map[string]string{}, map[string]string{}, "")
+	// Supported methods
+	cases := []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete}
+	for _, m := range cases {
+		resp, err := execByMethod(req, m, srv.URL)
+		if err != nil {
+			t.Fatalf("%s: unexpected err: %v", m, err)
+		}
+		if resp.StatusCode() != 201 {
+			t.Fatalf("%s: expected 201, got %d", m, resp.StatusCode())
+		}
+	}
+	// Unsupported method (HEAD is not implemented in switch)
+	if _, err := execByMethod(req, http.MethodHead, srv.URL); err == nil {
+		t.Fatalf("HEAD: expected error for unsupported method")
+	}
+}

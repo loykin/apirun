@@ -367,3 +367,47 @@ func TestMigrate_StoreOptions_ExplicitSQLitePath(t *testing.T) {
 		t.Fatalf("expected 1 run row, got %d", cnt)
 	}
 }
+
+func TestOpenStoreFromCtx_DefaultOnNilAndWrongType(t *testing.T) {
+	dir := t.TempDir()
+	// nil context value -> default sqlite path
+	st, err := openStoreFromCtx(context.Background(), dir)
+	if err != nil {
+		t.Fatalf("openStoreFromCtx (nil) err: %v", err)
+	}
+	_ = st.Close()
+	if _, err := os.Stat(filepath.Join(dir, store.DbFileName)); err != nil {
+		t.Fatalf("expected default sqlite db created: %v", err)
+	}
+	// wrong type in context -> should still default to sqlite path in dir
+	ctx := context.WithValue(context.Background(), StoreOptionsKey, 123) // not *StoreOptions
+	st2, err := openStoreFromCtx(ctx, dir)
+	if err != nil {
+		t.Fatalf("openStoreFromCtx (wrong type) err: %v", err)
+	}
+	_ = st2.Close()
+}
+
+func TestOpenStoreFromCtx_SQLiteCustomPath(t *testing.T) {
+	dir := t.TempDir()
+	customDir := t.TempDir()
+	customPath := filepath.Join(customDir, "custom.db")
+	ctx := context.WithValue(context.Background(), StoreOptionsKey, &StoreOptions{SQLitePath: customPath})
+	st, err := openStoreFromCtx(ctx, dir)
+	if err != nil {
+		t.Fatalf("openStoreFromCtx (sqlite custom) err: %v", err)
+	}
+	_ = st.Close()
+	if _, err := os.Stat(customPath); err != nil {
+		t.Fatalf("expected custom sqlite db at %s: %v", customPath, err)
+	}
+}
+
+func TestOpenStoreFromCtx_Postgres_EmptyDSN_Error(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.WithValue(context.Background(), StoreOptionsKey, &StoreOptions{Backend: "postgres", PostgresDSN: ""})
+	st, err := openStoreFromCtx(ctx, dir)
+	if err == nil || st != nil {
+		t.Fatalf("expected error for empty DSN postgres, got st=%#v err=%v", st, err)
+	}
+}

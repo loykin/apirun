@@ -138,3 +138,48 @@ func TestAcquireAndStoreWithName_NilContextHandled(t *testing.T) {
 		t.Fatalf("nil ctx path failed: v=%q err=%v", v, err)
 	}
 }
+
+// Ensure built-in providers are registered by init() and factories can build Methods.
+func TestRegistry_BuiltinsRegisteredAndBuildable(t *testing.T) {
+	// oauth2
+	f, ok := providers[normalizeKey("oauth2")]
+	if !ok || f == nil {
+		t.Fatal("oauth2 provider not registered in init")
+	}
+	// Build an implicit grant method to avoid network
+	m, err := f(map[string]interface{}{
+		"grant_type": "implicit",
+		"grant_config": map[string]interface{}{
+			"client_id":    "cid",
+			"redirect_url": "http://localhost/redirect",
+			"auth_url":     "http://auth.example/authorize",
+		},
+	})
+	if err != nil || m == nil {
+		t.Fatalf("oauth2 factory build failed: m=%#v err=%v", m, err)
+	}
+
+	// basic
+	f2, ok := providers[normalizeKey("basic")]
+	if !ok || f2 == nil {
+		t.Fatal("basic provider not registered in init")
+	}
+	m2, err := f2(map[string]interface{}{"username": "u", "password": "p"})
+	if err != nil || m2 == nil {
+		t.Fatalf("basic factory build failed: m=%#v err=%v", m2, err)
+	}
+	if _, err := m2.Acquire(context.Background()); err != nil {
+		t.Fatalf("basic acquire failed unexpectedly: %v", err)
+	}
+
+	// pocketbase
+	f3, ok := providers[normalizeKey("pocketbase")]
+	if !ok || f3 == nil {
+		t.Fatal("pocketbase provider not registered in init")
+	}
+	// Build method; do not call Acquire to avoid network
+	m3, err := f3(map[string]interface{}{"base_url": "http://example", "email": "a@b.c", "password": "x"})
+	if err != nil || m3 == nil {
+		t.Fatalf("pocketbase factory build failed: m=%#v err=%v", m3, err)
+	}
+}
