@@ -1,8 +1,11 @@
 package main
 
 type AuthConfig struct {
-	// Single provider format when auth is an object
-	Type   string                 `mapstructure:"type"`
+	// Provider type key (e.g., "basic", "oauth2", "pocketbase")
+	Type string `mapstructure:"type"`
+	// Logical name under which the acquired token will be stored
+	Name string `mapstructure:"name"`
+	// Provider-specific configuration (rendered before acquisition)
 	Config map[string]interface{} `mapstructure:"config"`
 	// Legacy: providers array inside the object (optional, alternative to single provider)
 	Providers []map[string]interface{} `mapstructure:"providers"`

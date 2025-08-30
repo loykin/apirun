@@ -4,15 +4,11 @@ import (
 	"context"
 	"errors"
 	"strings"
-
-	"github.com/loykin/apimigrate/internal/auth/common"
 )
 
 // ImplicitConfig holds configuration for the Implicit grant.
 // Behavior: returns the header name and an authorization URL that includes response_type=token.
 type ImplicitConfig struct {
-	Name        string   `mapstructure:"name"`
-	Header      string   `mapstructure:"header"`
 	ClientID    string   `mapstructure:"client_id"`
 	RedirectURL string   `mapstructure:"redirect_url"`
 	AuthURL     string   `mapstructure:"auth_url"`
@@ -23,22 +19,18 @@ type implicitMethod struct {
 	c ImplicitConfig
 }
 
-func (m implicitMethod) Name() string {
-	return m.c.Name
-}
-
-func (m implicitMethod) Acquire(_ context.Context) (string, string, error) {
+func (m implicitMethod) Acquire(_ context.Context) (string, error) {
 	clientID := strings.TrimSpace(m.c.ClientID)
 	authURL := strings.TrimSpace(m.c.AuthURL)
 	redirect := strings.TrimSpace(m.c.RedirectURL)
 	if authURL == "" {
-		return "", "", errors.New("oauth2: auth_url is required for implicit grant")
+		return "", errors.New("oauth2: auth_url is required for implicit grant")
 	}
 	if clientID == "" {
-		return "", "", errors.New("oauth2: client_id is required for implicit grant")
+		return "", errors.New("oauth2: client_id is required for implicit grant")
 	}
 	if redirect == "" {
-		return "", "", errors.New("oauth2: redirect_url is required for implicit grant")
+		return "", errors.New("oauth2: redirect_url is required for implicit grant")
 	}
 	params := []string{
 		"response_type=token",
@@ -49,5 +41,5 @@ func (m implicitMethod) Acquire(_ context.Context) (string, string, error) {
 		params = append(params, "scope="+urlQueryEscape(strings.Join(m.c.Scopes, " ")))
 	}
 	u := strings.TrimRight(authURL, "?") + "?" + strings.Join(params, "&")
-	return common.HeaderOrDefault(m.c.Header), u, nil
+	return u, nil
 }

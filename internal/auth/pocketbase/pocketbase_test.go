@@ -20,18 +20,18 @@ func TestPocketBase_Success(t *testing.T) {
 	defer srv.Close()
 
 	spec := map[string]interface{}{
-		"name":     "pocket",
 		"base_url": srv.URL,
 		"email":    "admin@example.com",
 		"password": "secret",
 	}
 
-	h, v, _, err := auth.AcquireFromMap(context.Background(), "pocketbase", spec)
+	v, err := auth.AcquireAndStoreWithName(context.Background(), "pocketbase", "pocket", spec)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if h == "" || v == "" {
-		t.Fatalf("expected non-empty header/value, got %q %q", h, v)
+	sh, sv, ok := auth.GetToken("pocket")
+	if !ok || sh == "" || sv == "" || sv != v {
+		t.Fatalf("expected stored token, got ok=%v header=%q val=%q", ok, sh, sv)
 	}
 	if v != "pbtoken" {
 		t.Fatalf("expected token 'pbtoken', got %q", v)
@@ -46,13 +46,12 @@ func TestPocketBase_Non2xx_Error(t *testing.T) {
 	defer srv.Close()
 
 	spec := map[string]interface{}{
-		"name":     "pocket",
 		"base_url": srv.URL,
 		"email":    "admin@example.com",
 		"password": "secret",
 	}
 
-	_, _, _, err := auth.AcquireFromMap(context.Background(), "pocketbase", spec)
+	_, err := auth.AcquireAndStoreWithName(context.Background(), "pocketbase", "pocket", spec)
 	if err == nil {
 		t.Fatalf("expected error for non-2xx response")
 	}

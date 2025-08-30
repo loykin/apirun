@@ -31,6 +31,18 @@ type ExecWithVersion = imig.ExecWithVersion
 // This is a type alias to the internal implementation for convenience in public APIs.
 type StoreOptions = imig.StoreOptions
 
+// Store is an alias to the internal store type.
+type Store = store.Store
+
+// AuthTokenVar is the internal environment variable name that holds the acquired
+// authentication token value. It is injected into Env.Global by helpers like
+// AcquireAuthAndSetEnv and can be referenced in templates as {{._auth_token}}.
+// Library users can reference this constant to avoid hardcoding the key.
+const AuthTokenVar = "_auth_token"
+
+// StoreDBFileName is the default sqlite filename used for migration history.
+const StoreDBFileName = store.DbFileName
+
 // MigrateUp applies pending migrations up to targetVersion (0 = all).
 func MigrateUp(ctx context.Context, dir string, base Env, targetVersion int) ([]*ExecWithVersion, error) {
 	return imig.MigrateUp(ctx, dir, base, targetVersion)
@@ -49,21 +61,32 @@ type AuthFactory = auth.Factory
 // RegisterAuthProvider exposes custom auth provider registration for library users.
 func RegisterAuthProvider(typ string, f AuthFactory) { auth.Register(typ, f) }
 
-func AcquireAuthByProviderSpec(ctx context.Context, typ string, spec map[string]interface{}) (header, value, name string, err error) {
-	return auth.AcquireAndStoreFromMap(ctx, typ, spec)
-}
-
 // AcquireAuthByProviderSpecWithName acquires auth by provider type/spec but stores under the provided name,
 // allowing callers to omit "name" inside spec and control the registry key explicitly.
-func AcquireAuthByProviderSpecWithName(ctx context.Context, typ string, name string, spec map[string]interface{}) (header, value, storedName string, err error) {
-	return auth.AcquireAndStoreWithName(ctx, typ, name, spec)
+// It returns only the acquired token value; header handling is decided by the caller (e.g., via env variables).
+func AcquireAuthByProviderSpecWithName(ctx context.Context, typ string, name string, spec map[string]interface{}) (value string, err error) {
+	v, err := auth.AcquireAndStoreWithName(ctx, typ, name, spec)
+	return v, err
 }
 
-// Store is an alias to the internal store type.
-type Store = store.Store
-
-// StoreDBFileName is the default sqlite filename used for migration history.
-const StoreDBFileName = store.DbFileName
+// AcquireAuthAndSetEnv acquires auth by provider type/spec, stores it under the given name,
+// and automatically injects the acquired token into the provided base environment under
+// the internal variable key "_auth_token". The token is stored as-is (trimmed), so if the
+// provider returns a prefixed value like "Bearer ...", that full string is assigned.
+// Returns the acquired token value.
+func AcquireAuthAndSetEnv(ctx context.Context, typ string, name string, spec map[string]interface{}, base *Env) (string, error) {
+	v, err := AcquireAuthByProviderSpecWithName(ctx, typ, name, spec)
+	if err != nil {
+		return "", err
+	}
+	if base != nil {
+		if base.Global == nil {
+			base.Global = map[string]string{}
+		}
+		base.Global[AuthTokenVar] = strings.TrimSpace(v)
+	}
+	return v, nil
+}
 
 // OpenStore opens (and initializes) the sqlite store at the given path.
 func OpenStore(path string) (*Store, error) { return store.Open(path) }

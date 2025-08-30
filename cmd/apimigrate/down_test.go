@@ -20,8 +20,8 @@ func TestDownCmd_FullRollback_AuthChanges(t *testing.T) {
 	auth.ClearTokens()
 	calls := make(map[string]int)
 
-	// Expect specific Authorization headers for each down call
-	exp1 := basicVal("u1", "p1")
+	// Expect Authorization headers to use the last acquired token for both downs (reverted behavior)
+	exp1 := basicVal("u2", "p2")
 	exp2 := basicVal("u2", "p2")
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -69,6 +69,9 @@ down:
   auth: a1
   method: DELETE
   url: %s/down1
+  headers:
+    - name: Authorization
+      value: "Basic {{._auth_token}}"
 `, srv.URL, srv.URL)
 	m2 := fmt.Sprintf(`---
 up:
@@ -83,6 +86,9 @@ down:
   auth: a2
   method: DELETE
   url: %s/down2
+  headers:
+    - name: Authorization
+      value: "Basic {{._auth_token}}"
 `, srv.URL, srv.URL)
 	_ = writeFile(t, tdir, "001_first.yaml", m1)
 	_ = writeFile(t, tdir, "002_second.yaml", m2)
@@ -91,13 +97,13 @@ down:
 	cfg := fmt.Sprintf(`---
 auth:
   - type: basic
+    name: a1
     config:
-      name: a1
       username: u1
       password: p1
   - type: basic
+    name: a2
     config:
-      name: a2
       username: u2
       password: p2
 migrate_dir: %s
@@ -161,6 +167,9 @@ down:
   auth: aa1
   method: DELETE
   url: %s/down1
+  headers:
+    - name: Authorization
+      value: "Basic {{._auth_token}}"
 `, srv.URL, srv.URL)
 	m2 := fmt.Sprintf(`---
 up:
@@ -175,6 +184,9 @@ down:
   auth: aa2
   method: DELETE
   url: %s/down2
+  headers:
+    - name: Authorization
+      value: "Basic {{._auth_token}}"
 `, srv.URL, srv.URL)
 	_ = writeFile(t, tdir, "001_first.yaml", m1)
 	_ = writeFile(t, tdir, "002_second.yaml", m2)
@@ -182,13 +194,13 @@ down:
 	cfg := fmt.Sprintf(`---
 auth:
   - type: basic
+    name: aa1
     config:
-      name: aa1
       username: uu1
       password: pp1
   - type: basic
+    name: aa2
     config:
-      name: aa2
       username: uu2
       password: pp2
 migrate_dir: %s

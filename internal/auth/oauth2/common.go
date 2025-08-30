@@ -5,8 +5,7 @@ import (
 )
 
 // Method is the local interface implemented by oauth2 auth methods.
-// It matches the parent auth.Method signature (Name, Acquire).
+// It matches the parent auth.Method signature (Acquire only, returning value).
 type Method interface {
-	Name() string
-	Acquire(ctx context.Context) (header string, value string, err error)
+	Acquire(ctx context.Context) (value string, err error)
 }

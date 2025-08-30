@@ -3,8 +3,8 @@
 ---
 auth:
   - type: oauth2
+    name: keycloak
     config:
-      name: keycloak
       grant_type: password
       grant_config:
         client_id: admin-cli
@@ -14,8 +14,8 @@ auth:
         password: root
         token_url: http://localhost:8080/realms/master/protocol/openid-connect/token
         auth_url: http://localhost:8080/realms/master/protocol/openid-connect/auth
-      # header: Authorization
-      # optional; defaults to Authorization
+    # header: Authorization
+    # optional; defaults to Authorization
 
 migrate_dir: ./migration
 

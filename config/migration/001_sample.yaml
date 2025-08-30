@@ -11,9 +11,11 @@ up:
     headers:
       - name: User-Agent
         value: apimigrate-sample
+      - name: Authorization
+        value: "Bearer {{._auth_token}}"
   response:
     # Accept HTTP 200 as success
-    result_code: ["200"]
+    result_code: [ "200" ]
     # You can extract values from JSON bodies using EnvFrom, e.g.:
     # env_from:
     #   example: path.to.value

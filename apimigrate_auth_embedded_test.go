@@ -42,15 +42,13 @@ func TestEmbeddedAuthAndMigrateUp(t *testing.T) {
 		"api_base": srv.URL,
 	}}
 
-	// Acquire Basic auth and store under the explicit name used by the migration file
-	cfg := BasicAuthConfig{
-		Username: "admin",
-		Password: "admin",
+	// Acquire token and inject into base env as _auth_token using AcquireAuthAndSetEnv
+	spec := map[string]interface{}{
+		"username": "admin",
+		"password": "admin",
 	}
-	if _, _, name, err := AcquireBasicAuthWithName(ctx, "example_basic", cfg); err != nil {
-		t.Fatalf("AcquireBasicAuthWithName failed: %v", err)
-	} else if name != "example_basic" {
-		t.Fatalf("unexpected stored name: %q", name)
+	if _, err := AcquireAuthAndSetEnv(ctx, "basic", "example_basic", spec, &base); err != nil {
+		t.Fatalf("AcquireAuthAndSetEnv failed: %v", err)
 	}
 
 	// Act: run migrations from the example directory

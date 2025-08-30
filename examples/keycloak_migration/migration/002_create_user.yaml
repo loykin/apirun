@@ -7,8 +7,10 @@ up:
     auth_name: keycloak
     method: POST
     url: "{{.kc_base}}/admin/realms/{{.realm}}/users"
-    headers: []
-    queries: []
+    headers:
+      - name: Authorization
+        value: "Bearer {{._auth_token}}"
+    queries: [ ]
     body: |
       {
         "username": "{{.username}}",
@@ -22,27 +24,31 @@ up:
       }
   response:
     # 201: created, 409: already exists
-    result_code: ["201", "409"]
+    result_code: [ "201", "409" ]
 
 down:
   name: delete sample user
   auth: keycloak
-  env: {}
+  env: { }
   # First, find the user's internal id by username, then delete by id
   find:
     request:
       auth_name: keycloak
       method: GET
       url: "{{.kc_base}}/admin/realms/{{.realm}}/users?username={{.username}}&exact=true"
-      headers: []
-      queries: []
+      headers:
+        - name: Authorization
+          value: "Bearer {{._auth_token}}"
+      queries: [ ]
       body: ""
     response:
-      result_code: ["200"]
+      result_code: [ "200" ]
       env_from:
         user_id: "0.id"
   method: DELETE
   url: "{{.kc_base}}/admin/realms/{{.realm}}/users/{{.user_id}}"
-  headers: []
-  queries: []
+  headers:
+    - name: Authorization
+      value: "Bearer {{._auth_token}}"
+  queries: [ ]
   body: ""

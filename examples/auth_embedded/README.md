@@ -1,8 +1,8 @@
 # Auth Embedded Example
 
-This example shows how to embed apimigrate into your Go program and configure auth programmatically using the new WithName helpers.
+This example shows how to embed apimigrate into your Go program and configure auth programmatically.
 
-It acquires a Basic auth token at startup with AcquireBasicAuthWithName and stores it under an explicit logical name. A simple migration then uses that auth by referencing `auth_name`.
+It acquires a Basic auth token at startup using AcquireAuthAndSetEnv, which stores the token under the internal env key _auth_token. Important: the library does not add any Authorization prefix automatically. Since this example uses Basic auth, the migration sets the header explicitly as: Authorization: "Basic {{._auth_token}}". If you use an OAuth2 provider, set it as: Authorization: "Bearer {{._auth_token}}".
 
 How to run:
 

@@ -11,8 +11,6 @@ import (
 
 // ClientCredentialsConfig holds configuration for the Client Credentials grant.
 type ClientCredentialsConfig struct {
-	Name      string   `mapstructure:"name"`
-	Header    string   `mapstructure:"header"`
 	ClientID  string   `mapstructure:"client_id"`
 	ClientSec string   `mapstructure:"client_secret"`
 	TokenURL  string   `mapstructure:"token_url"`
@@ -23,19 +21,15 @@ type clientCredentialsMethod struct {
 	c ClientCredentialsConfig
 }
 
-func (m clientCredentialsMethod) Name() string {
-	return m.c.Name
-}
-
-func (m clientCredentialsMethod) Acquire(ctx context.Context) (string, string, error) {
+func (m clientCredentialsMethod) Acquire(ctx context.Context) (string, error) {
 	clientID := strings.TrimSpace(m.c.ClientID)
 	clientSecret := strings.TrimSpace(m.c.ClientSec)
 	tokenURL := strings.TrimSpace(m.c.TokenURL)
 	if tokenURL == "" {
-		return "", "", errors.New("oauth2: token_url is required for client_credentials grant")
+		return "", errors.New("oauth2: token_url is required for client_credentials grant")
 	}
 	if clientID == "" || clientSecret == "" {
-		return "", "", errors.New("oauth2: client_id and client_secret are required for client_credentials grant")
+		return "", errors.New("oauth2: client_id and client_secret are required for client_credentials grant")
 	}
 	cc := &clientcredentials.Config{
 		ClientID:     clientID,
@@ -46,7 +40,7 @@ func (m clientCredentialsMethod) Acquire(ctx context.Context) (string, string, e
 	}
 	tok, err := cc.Token(ctx)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
-	return normalizeOAuth2Token(m.c.Header, tok)
+	return normalizeOAuth2Token(tok)
 }

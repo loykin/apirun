@@ -178,22 +178,27 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 			return "", base, false, false, "", "", nil, err
 		}
 
-		// auth: new shape is an array of providers under doc.Auth
+		// auth: array of providers under doc.Auth (name at provider level)
 		if len(doc.Auth) > 0 {
 			for i, a := range doc.Auth {
 				pt := strings.TrimSpace(a.Type)
 				if pt == "" {
 					return "", base, false, false, "", "", nil, fmt.Errorf("auth[%d]: missing type", i)
 				}
+				storedName := strings.TrimSpace(a.Name)
+				if storedName == "" {
+					return "", base, false, false, "", "", nil, fmt.Errorf("auth[%d] type=%s: missing name (use auth[].name)", i, pt)
+				}
 				// Render templated values in the auth config using the base env
 				renderedAny := apimigrate.RenderAnyTemplate(a.Config, base)
 				renderedCfg, _ := renderedAny.(map[string]interface{})
-				h, _, name, err := apimigrate.AcquireAuthByProviderSpec(ctx, pt, renderedCfg)
+				v, err := apimigrate.AcquireAuthAndSetEnv(ctx, pt, storedName, renderedCfg, &base)
 				if err != nil {
-					return "", base, false, false, "", "", nil, fmt.Errorf("auth[%d] type=%s: acquire failed: %w", i, pt, err)
+					return "", base, false, false, "", "", nil, fmt.Errorf("auth[%d] type=%s name=%s: acquire failed: %w", i, pt, storedName, err)
 				}
 				if verbose {
-					log.Printf("auth %s: using header %s", strings.TrimSpace(name), h)
+					_ = v // token acquired and injected into base env
+					log.Printf("auth %s: token acquired", strings.TrimSpace(storedName))
 				}
 			}
 		}

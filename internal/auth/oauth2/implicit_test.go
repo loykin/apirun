@@ -7,19 +7,14 @@ import (
 
 func TestAcquireImplicit_Success(t *testing.T) {
 	cfg := ImplicitConfig{
-		Name:        "imp",
-		Header:      "",
 		ClientID:    "webapp",
 		RedirectURL: "http://localhost:3000/callback",
 		AuthURL:     "http://auth.local/realms/demo/protocol/openid-connect/auth",
 		Scopes:      []string{"openid", "profile"},
 	}
-	h, v, err := (implicitMethod{c: cfg}).Acquire(context.Background())
+	v, err := (implicitMethod{c: cfg}).Acquire(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	if h != "Authorization" {
-		t.Fatalf("unexpected header: %q", h)
 	}
 	if v == "" || v[:4] != "http" {
 		t.Fatalf("expected URL value, got %q", v)
@@ -30,7 +25,7 @@ func TestAcquireImplicit_Success(t *testing.T) {
 }
 
 func TestAcquireImplicit_ValidationErrors(t *testing.T) {
-	_, _, err := (implicitMethod{c: ImplicitConfig{}}).Acquire(context.Background())
+	_, err := (implicitMethod{c: ImplicitConfig{}}).Acquire(context.Background())
 	if err == nil {
 		t.Fatal("expected error for missing fields")
 	}

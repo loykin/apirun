@@ -1,24 +1,28 @@
 up:
   name: create sample realm
-  env: {}
+  env: { }
   request:
     auth_name: keycloak
     method: POST
     url: "{{.kc_base}}/admin/realms"
-    headers: []
-    queries: []
+    headers:
+      - name: Authorization
+        value: "Bearer {{._auth_token}}"
+    queries: [ ]
     body: |
       {"realm": "{{.realm}}", "enabled": true}
   response:
     # 201: created, 409: already exists
-    result_code: ["201", "409"]
+    result_code: [ "201", "409" ]
 
 down:
   name: delete sample realm
   auth: keycloak
-  env: {}
+  env: { }
   method: DELETE
   url: "{{.kc_base}}/admin/realms/{{.realm}}"
-  headers: []
-  queries: []
+  headers:
+    - name: Authorization
+      value: "Bearer {{._auth_token}}"
+  queries: [ ]
   body: ""

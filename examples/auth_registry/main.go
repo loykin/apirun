@@ -9,26 +9,14 @@ import (
 )
 
 type demoConfig struct {
-	Header string `mapstructure:"header"`
-	Value  string `mapstructure:"value"`
-	Name   string `mapstructure:"name"`
+	Value string `mapstructure:"value"`
+	Name  string `mapstructure:"name"`
 }
 
 type demoMethod struct{ c demoConfig }
 
-func (d demoMethod) Name() string {
-	if d.c.Name != "" {
-		return d.c.Name
-	}
-	return "demo"
-}
-
-func (d demoMethod) Acquire(_ context.Context) (string, string, error) {
-	header := d.c.Header
-	if header == "" {
-		header = "X-Demo"
-	}
-	return header, d.c.Value, nil
+func (d demoMethod) Acquire(_ context.Context) (string, error) {
+	return d.c.Value, nil
 }
 
 func demoFactory(spec map[string]interface{}) (apimigrate.AuthMethod, error) {
@@ -46,14 +34,12 @@ func main() {
 
 	// Prepare a spec map that would typically come from a migration config.
 	spec := map[string]interface{}{
-		"header": "X-Demo",
-		"value":  "hello",
-		"name":   "my-demo",
+		"value": "hello",
 	}
 
-	h, v, name, err := apimigrate.AcquireAuthByProviderSpec(context.Background(), "demo", spec)
+	v, err := apimigrate.AcquireAuthByProviderSpecWithName(context.Background(), "demo", "my-demo", spec)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("acquired: header=%s, value=%s, name=%s\n", h, v, name)
+	fmt.Printf("acquired: value=%s, name=%s\n", v, "my-demo")
 }

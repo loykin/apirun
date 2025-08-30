@@ -8,7 +8,6 @@ import (
 )
 
 type Auth2Config struct {
-	Name        string                 `mapstructure:"name"`
 	GrantType   string                 `mapstructure:"grant_type"`
 	GrantConfig map[string]interface{} `mapstructure:"grant_config"`
 }
@@ -30,26 +29,17 @@ func (c Auth2Config) GetGrantMethod() (Method, error) {
 		if err := mapstructure.Decode(sub, &pc); err != nil {
 			return nil, err
 		}
-		if strings.TrimSpace(pc.Name) == "" {
-			pc.Name = c.Name
-		}
 		return passwordMethod{c: pc}, nil
 	case "client_credentials", "client-credentials":
 		var cc ClientCredentialsConfig
 		if err := mapstructure.Decode(sub, &cc); err != nil {
 			return nil, err
 		}
-		if strings.TrimSpace(cc.Name) == "" {
-			cc.Name = c.Name
-		}
 		return clientCredentialsMethod{c: cc}, nil
 	case "implicit":
 		var ic ImplicitConfig
 		if err := mapstructure.Decode(sub, &ic); err != nil {
 			return nil, err
-		}
-		if strings.TrimSpace(ic.Name) == "" {
-			ic.Name = c.Name
 		}
 		return implicitMethod{c: ic}, nil
 	default:

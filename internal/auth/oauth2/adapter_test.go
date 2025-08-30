@@ -30,12 +30,12 @@ func TestGetGrantMethod_Password_WithGrantConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	h, v, err := m.Acquire(context.Background())
+	v, err := m.Acquire(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected acquire error: %v", err)
 	}
-	if h != "Authorization" || v != "Bearer t1" {
-		t.Fatalf("unexpected token: %s %s", h, v)
+	if v != "t1" {
+		t.Fatalf("unexpected token: %s", v)
 	}
 }
 
@@ -59,12 +59,12 @@ func TestGetGrantMethod_ClientCredentials_WithGrantConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	h, v, err := m.Acquire(context.Background())
+	v, err := m.Acquire(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected acquire error: %v", err)
 	}
-	if h != "Authorization" || v != "Bearer t2" {
-		t.Fatalf("unexpected token: %s %s", h, v)
+	if v != "t2" {
+		t.Fatalf("unexpected token: %s", v)
 	}
 }
 
@@ -81,12 +81,9 @@ func TestGetGrantMethod_Implicit_WithGrantConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	h, v, err := m.Acquire(context.Background())
+	v, err := m.Acquire(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected acquire error: %v", err)
-	}
-	if h != "Authorization" {
-		t.Fatalf("unexpected header: %s", h)
 	}
 	if v == "" || v[:4] != "http" {
 		t.Fatalf("expected URL, got %q", v)

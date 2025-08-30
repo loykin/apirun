@@ -23,28 +23,23 @@ func TestAcquirePassword_Success(t *testing.T) {
 	defer srv.Close()
 
 	cfg := PasswordConfig{
-		Name:     "pw",
-		Header:   "",
 		ClientID: "client",
 		AuthURL:  srv.URL + "/auth",
 		TokenURL: srv.URL + "/token",
 		Username: "user",
 		Password: "pass",
 	}
-	h, v, err := (passwordMethod{c: cfg}).Acquire(context.Background())
+	v, err := (passwordMethod{c: cfg}).Acquire(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if h != "Authorization" {
-		t.Fatalf("unexpected header: %q", h)
-	}
-	if v != "Bearer t-pass" {
+	if v != "t-pass" {
 		t.Fatalf("unexpected value: %q", v)
 	}
 }
 
 func TestAcquirePassword_ValidationErrors(t *testing.T) {
-	_, _, err := (passwordMethod{c: PasswordConfig{}}).Acquire(context.Background())
+	_, err := (passwordMethod{c: PasswordConfig{}}).Acquire(context.Background())
 	if err == nil {
 		t.Fatal("expected error for missing fields")
 	}

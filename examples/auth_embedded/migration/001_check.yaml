@@ -4,6 +4,8 @@ up:
   request:
     method: GET
     url: "{{.api_base}}/200"
-    auth_name: example_basic
+    headers:
+      - name: Authorization
+        value: "Basic {{._auth_token}}"
   response:
-    result_code: ["200"]
+    result_code: [ "200" ]

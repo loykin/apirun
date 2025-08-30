@@ -32,8 +32,8 @@ func basicVal(u, p string) string {
 func TestUpCmd_AuthChanges_WithTopLevelAuthArray(t *testing.T) {
 	auth.ClearTokens()
 	// Prepare expectations
-	exp1 := basicVal("u1", "p1")
-	exp2 := basicVal("u2", "p2")
+	exp1 := base64.StdEncoding.EncodeToString([]byte("u1:p1"))
+	exp2 := base64.StdEncoding.EncodeToString([]byte("u2:p2"))
 	calls := make(map[string]int)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -85,13 +85,13 @@ up:
 	cfg := fmt.Sprintf(`---
 auth:
   - type: basic
+    name: a1
     config:
-      name: a1
       username: u1
       password: p1
   - type: basic
+    name: a2
     config:
-      name: a2
       username: u2
       password: p2
 migrate_dir: %s
@@ -117,8 +117,8 @@ migrate_dir: %s
 // Verify again with different provider names using the same top-level auth array schema.
 func TestUpCmd_AuthChanges_WithTopLevelAuthArray_Variant(t *testing.T) {
 	auth.ClearTokens()
-	exp1 := basicVal("lu1", "lp1")
-	exp2 := basicVal("lu2", "lp2")
+	exp1 := base64.StdEncoding.EncodeToString([]byte("lu1:lp1"))
+	exp2 := base64.StdEncoding.EncodeToString([]byte("lu2:lp2"))
 	calls := make(map[string]int)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -131,8 +131,8 @@ func TestUpCmd_AuthChanges_WithTopLevelAuthArray_Variant(t *testing.T) {
 				t.Fatalf("/one expected Authorization %q, got %q", exp1, got)
 			}
 		case "/two":
-			if got := r.Header.Get("Authorization"); got != exp2 {
-				t.Fatalf("/two expected Authorization %q, got %q", exp2, got)
+			if got := r.Header.Get("Authorization"); got != ("Basic " + exp2) {
+				t.Fatalf("/two expected Authorization %q, got %q", ("Basic " + exp2), got)
 			}
 		}
 		_, _ = w.Write([]byte(`{"ok":true}`))
@@ -157,6 +157,9 @@ up:
     method: GET
     url: %s/two
     auth_name: la2
+    headers:
+      - name: Authorization
+        value: "Basic {{._auth_token}}"
   response:
     result_code: ["200"]
 `, srv.URL)
@@ -166,13 +169,13 @@ up:
 	cfg := fmt.Sprintf(`---
 auth:
   - type: basic
+    name: la1
     config:
-      name: la1
       username: lu1
       password: lp1
   - type: basic
+    name: la2
     config:
-      name: la2
       username: lu2
       password: lp2
 migrate_dir: %s

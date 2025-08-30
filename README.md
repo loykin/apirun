@@ -90,11 +90,12 @@ Below is a complete example with inline comments. You can copy this into your pr
 
 ```yaml
 ---
-# Define one or more auth providers. Each provider has a type and a config.
+# Define one or more auth providers. Each provider has a type, a top-level name,
+# and a config.
 auth:
   - type: basic
+    name: example_basic          # referenced by request.auth_name in migrations
     config:
-      name: example_basic          # referenced by request.auth_name in migrations
       username: admin
       password: admin
 

@@ -36,18 +36,17 @@ func main() {
 		"api_base": srv.URL,
 	}}
 
-	// Programmatically define an auth provider (basic) using the WithName helper
-	cfg := apimigrate.BasicAuthConfig{
-		// Name is intentionally omitted; we use an explicit logical name below
-		Username: "admin",
-		Password: "admin",
+	// Programmatically define an auth provider (basic) using AcquireAuthAndSetEnv
+	spec := map[string]interface{}{
+		"username": "admin",
+		"password": "admin",
 	}
 
-	// Acquire token and store under an explicit logical name for use by migrations
-	if _, _, name, err := apimigrate.AcquireBasicAuthWithName(ctx, "example_basic", cfg); err != nil {
+	// Acquire token, store under a logical name (optional), and inject into base env as _auth_token
+	if v, err := apimigrate.AcquireAuthAndSetEnv(ctx, "basic", "example_basic", spec, &base); err != nil {
 		log.Fatalf("acquire auth failed: %v", err)
 	} else {
-		fmt.Printf("auth provider %q is ready\n", name)
+		fmt.Printf("auth token acquired and injected (_auth_token): %q\n", v)
 	}
 
 	// Run migrations from the local directory

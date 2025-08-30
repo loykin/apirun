@@ -2,7 +2,8 @@
 #
 # Notes:
 # - auth: define one or more auth providers as a list. Each item must have
-#   a provider type (e.g., "basic", "oauth2", "pocketbase") and a nested
+#   a provider type (e.g., "basic", "oauth2", "pocketbase"), a top-level
+#   name (logical token name referenced by request.auth_name), and a nested
 #   config object with provider-specific fields. Tokens are acquired at startup
 #   and stored under the logical name for use in migrations via auth_name.
 # - migrate_dir: where your versioned migration YAML files live.
@@ -15,16 +16,16 @@
 auth:
   # Basic auth provider (sends Authorization: Basic <base64>)
   - type: basic
+    name: example_basic          # referenced by request.auth_name in migrations
     config:
-      name: example_basic          # referenced by request.auth_name in migrations
       username: admin
       password: admin
 
   # OAuth2 password grant (Keycloak/dev friendly)
   # Uncomment and adjust if needed
   # - type: oauth2
+  #   name: keycloak
   #   config:
-  #     name: keycloak
   #     grant_type: password
   #     grant_config:
   #       client_id: admin-cli
@@ -39,12 +40,12 @@ auth:
 migrate_dir: ./config/migration
 
 wait:
-  # Example HTTP health check (uncomment and adjust as needed)
-  # url: "{{.api_base}}/health"
-  # method: GET       # default: GET
-  # status: 200       # default: 200
-  # timeout: 30s      # default: 60s
-  # interval: 1s      # default: 2s
+# Example HTTP health check (uncomment and adjust as needed)
+# url: "{{.api_base}}/health"
+# method: GET       # default: GET
+# status: 200       # default: 200
+# timeout: 30s      # default: 60s
+# interval: 1s      # default: 2s
 
 # Global environment variables available to all migrations
 env:
@@ -66,7 +67,7 @@ store:
   # type: sqlite
   # SQLite options (used when type is sqlite)
   sqlite:
-    # path: ./config/migration/apimigrate.db
+  # path: ./config/migration/apimigrate.db
   # PostgreSQL options (used when type is postgres)
   # postgres:
   #   # Option A: provide full DSN
@@ -89,7 +90,7 @@ store:
 # HTTP client TLS settings
 # If none of these are set, Go defaults are used.
 client:
-  # Explicit options:
-  # insecure: false
-  # min_tls_version: ""   # e.g., "1.2" or "tls1.2"
-  # max_tls_version: ""   # e.g., "1.3" or "tls1.3"
+# Explicit options:
+# insecure: false
+# min_tls_version: ""   # e.g., "1.2" or "tls1.2"
+# max_tls_version: ""   # e.g., "1.3" or "tls1.3"

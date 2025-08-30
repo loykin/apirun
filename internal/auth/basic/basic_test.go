@@ -10,21 +10,18 @@ import (
 
 func TestAcquireToken_Basic_Success_DefaultHeader(t *testing.T) {
 	spec := map[string]interface{}{
-		"name":     "basic",
 		"username": "alice",
 		"password": "secret",
 	}
-	h, v, name, err := auth.AcquireFromMap(context.Background(), "basic", spec)
+	v, err := auth.AcquireAndStoreWithName(context.Background(), "basic", "basic", spec)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.EqualFold(h, "authorization") {
-		t.Fatalf("expected default Authorization header, got %s", h)
+	sh, sv, ok := auth.GetToken("basic")
+	if !ok || !strings.EqualFold(sh, "authorization") || sv != v {
+		t.Fatalf("expected stored Authorization header with bare token value, got ok=%v header=%q val=%q", ok, sh, sv)
 	}
-	if name != "basic" {
-		t.Fatalf("expected name 'basic', got %q", name)
-	}
-	expected := "Basic YWxpY2U6c2VjcmV0" // base64("alice:secret")
+	expected := "YWxpY2U6c2VjcmV0" // base64("alice:secret") without scheme
 	if v != expected {
 		t.Fatalf("expected %q, got %q", expected, v)
 	}
@@ -32,19 +29,19 @@ func TestAcquireToken_Basic_Success_DefaultHeader(t *testing.T) {
 
 func TestAcquireToken_Basic_CustomHeader(t *testing.T) {
 	spec := map[string]interface{}{
-		"name":     "basic",
 		"username": "bob",
 		"password": "p@ss",
 		"header":   "X-Auth",
 	}
-	h, v, _, err := auth.AcquireFromMap(context.Background(), "basic", spec)
+	v, err := auth.AcquireAndStoreWithName(context.Background(), "basic", "n1", spec)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if h != "X-Auth" {
-		t.Fatalf("expected custom header, got %s", h)
+	sh, sv, ok := auth.GetToken("n1")
+	if !ok || !strings.EqualFold(sh, "authorization") || sv != v {
+		t.Fatalf("expected stored Authorization header with bare token value, got ok=%v header=%q val=%q", ok, sh, sv)
 	}
-	expected := "Basic Ym9iOnBAc3M=" // base64("bob:p@ss")
+	expected := "Ym9iOnBAc3M=" // base64("bob:p@ss") without scheme
 	if v != expected {
 		t.Fatalf("expected %q, got %q", expected, v)
 	}
@@ -52,11 +49,11 @@ func TestAcquireToken_Basic_CustomHeader(t *testing.T) {
 
 func TestAcquireToken_Basic_MissingCredentials_Error(t *testing.T) {
 	cases := []map[string]interface{}{
-		{"name": "basic", "username": "", "password": "x"},
-		{"name": "basic", "username": "x", "password": ""},
+		{"username": "", "password": "x"},
+		{"username": "x", "password": ""},
 	}
 	for i, spec := range cases {
-		_, _, _, err := auth.AcquireFromMap(context.Background(), "basic", spec)
+		_, err := auth.AcquireAndStoreWithName(context.Background(), "basic", "n2", spec)
 		if err == nil {
 			t.Fatalf("case %d: expected error for missing credentials", i)
 		}
