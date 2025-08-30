@@ -40,66 +40,15 @@ type FindSpec struct {
 func (d Down) Execute(ctx context.Context) (*ExecResult, error) {
 	// 1) Optional find step
 	if d.Find != nil {
-		// Render request parts using current env (Global+Local)
-		fhdrs, fqueries, fbody := d.Find.Request.Render(d.Env)
-		fmethod := strings.ToUpper(strings.TrimSpace(d.Find.Request.Method))
-		furl := strings.TrimSpace(d.Find.Request.URL)
-		// Render Find URL if templated
-		if strings.Contains(furl, "{{") {
-			furl = d.Env.RenderGoTemplate(furl)
-		}
-		if fmethod == "" || furl == "" {
-			return nil, fmt.Errorf("down.find: method/url not specified")
-		}
-		client := httpc.New(ctx)
-		freq := client.R().SetContext(ctx).SetHeaders(fhdrs).SetQueryParams(fqueries)
-		if strings.TrimSpace(fbody) != "" {
-			if isJSON(fbody) {
-				freq.SetHeader("Content-Type", "application/json")
-				freq.SetBody([]byte(fbody))
-			} else {
-				freq.SetBody(fbody)
-			}
-		}
-		var fresp *resty.Response
-		var ferr error
-		switch fmethod {
-		case http.MethodGet:
-			fresp, ferr = freq.Get(furl)
-		case http.MethodPost:
-			fresp, ferr = freq.Post(furl)
-		case http.MethodPut:
-			fresp, ferr = freq.Put(furl)
-		case http.MethodPatch:
-			fresp, ferr = freq.Patch(furl)
-		case http.MethodDelete:
-			fresp, ferr = freq.Delete(furl)
-		default:
-			return nil, fmt.Errorf("down.find: unsupported method: %s", fmethod)
-		}
-		if ferr != nil {
-			return nil, ferr
-		}
-		// Validate allowed status if provided
-		if err := d.Find.Response.ValidateStatus(fresp.StatusCode(), d.Env); err != nil {
-			return &ExecResult{StatusCode: fresp.StatusCode(), ExtractedEnv: map[string]string{}}, err
-		}
-		// Extract and merge env
-		extracted := d.Find.Response.ExtractEnv(fresp.Body())
-		if len(extracted) > 0 {
-			if d.Env.Local == nil {
-				d.Env.Local = map[string]string{}
-			}
-			for k, v := range extracted {
-				d.Env.Local[k] = v
-			}
+		if res, err := runFind(ctx, &d); err != nil {
+			// When validation fails we must return an ExecResult with status and error
+			return res, err
 		}
 	}
 
 	// 2) Main down call
 	method := strings.ToUpper(strings.TrimSpace(d.Method))
 	url := strings.TrimSpace(d.URL)
-	// Render main URL if templated
 	if strings.Contains(url, "{{") {
 		url = d.Env.RenderGoTemplate(url)
 	}
@@ -107,77 +56,13 @@ func (d Down) Execute(ctx context.Context) (*ExecResult, error) {
 		return nil, fmt.Errorf("down: method/url not specified")
 	}
 
-	hdrs := make(map[string]string)
-	for _, h := range d.Headers {
-		if h.Name == "" {
-			continue
-		}
-		val := h.Value
-		if strings.Contains(val, "{{") {
-			val = d.Env.RenderGoTemplate(val)
-		}
-		hdrs[h.Name] = val
-	}
-	// Inject auth if configured
-	if strings.TrimSpace(d.Auth) != "" {
-		if h, v, ok := auth.GetToken(d.Auth); ok {
-			if _, exists := hdrs[h]; !exists {
-				hdrs[h] = v
-			}
-		} else {
-			key := strings.ToUpper(d.Auth)
-			if v, ok := d.Env.Lookup(key); ok {
-				if _, exists := hdrs["Authorization"]; !exists {
-					hdrs["Authorization"] = v
-				}
-			}
-		}
-	}
+	hdrs := renderHeaders(d.Env, d.Headers)
+	injectAuthIfConfigured(hdrs, d.Auth, d.Env)
+	queries := renderQueries(d.Env, d.Queries)
+	body := renderBody(d.Env, d.Body)
 
-	queries := make(map[string]string)
-	for _, q := range d.Queries {
-		if q.Name == "" {
-			continue
-		}
-		val := q.Value
-		if strings.Contains(val, "{{") {
-			val = d.Env.RenderGoTemplate(val)
-		}
-		queries[q.Name] = val
-	}
-
-	body := d.Body
-	if strings.Contains(body, "{{") {
-		body = d.Env.RenderGoTemplate(body)
-	}
-
-	client := httpc.New(ctx)
-	req := client.R().SetContext(ctx).SetHeaders(hdrs).SetQueryParams(queries)
-	if strings.TrimSpace(body) != "" {
-		if isJSON(body) {
-			req.SetHeader("Content-Type", "application/json")
-			req.SetBody([]byte(body))
-		} else {
-			req.SetBody(body)
-		}
-	}
-
-	var resp *resty.Response
-	var err error
-	switch method {
-	case http.MethodGet:
-		resp, err = req.Get(url)
-	case http.MethodPost:
-		resp, err = req.Post(url)
-	case http.MethodPut:
-		resp, err = req.Put(url)
-	case http.MethodPatch:
-		resp, err = req.Patch(url)
-	case http.MethodDelete:
-		resp, err = req.Delete(url)
-	default:
-		return nil, fmt.Errorf("unsupported method: %s", method)
-	}
+	req := buildRequest(ctx, hdrs, queries, body)
+	resp, err := execByMethod(req, method, url)
 	if err != nil {
 		return nil, err
 	}
@@ -187,4 +72,128 @@ func (d Down) Execute(ctx context.Context) (*ExecResult, error) {
 		return &ExecResult{StatusCode: status, ExtractedEnv: map[string]string{}, ResponseBody: string(bodyBytes)}, fmt.Errorf("down failed with status %d", status)
 	}
 	return &ExecResult{StatusCode: status, ExtractedEnv: map[string]string{}, ResponseBody: string(bodyBytes)}, nil
+}
+
+// runFind executes the optional preliminary Find step. On success it merges
+// extracted env into d.Env.Local and returns (nil, nil). On validation error
+// it returns an ExecResult with the status code and an error. On transport
+// errors it returns (nil, error).
+func runFind(ctx context.Context, d *Down) (*ExecResult, error) {
+	fhdrs, fqueries, fbody := d.Find.Request.Render(d.Env)
+	fmethod := strings.ToUpper(strings.TrimSpace(d.Find.Request.Method))
+	furl := strings.TrimSpace(d.Find.Request.URL)
+	if strings.Contains(furl, "{{") {
+		furl = d.Env.RenderGoTemplate(furl)
+	}
+	if fmethod == "" || furl == "" {
+		return nil, fmt.Errorf("down.find: method/url not specified")
+	}
+	freq := buildRequest(ctx, fhdrs, fqueries, fbody)
+	fresp, ferr := execByMethod(freq, fmethod, furl)
+	if ferr != nil {
+		return nil, ferr
+	}
+	if err := d.Find.Response.ValidateStatus(fresp.StatusCode(), d.Env); err != nil {
+		return &ExecResult{StatusCode: fresp.StatusCode(), ExtractedEnv: map[string]string{}}, err
+	}
+	// Extract and merge env
+	extracted := d.Find.Response.ExtractEnv(fresp.Body())
+	if len(extracted) > 0 {
+		if d.Env.Local == nil {
+			d.Env.Local = map[string]string{}
+		}
+		for k, v := range extracted {
+			d.Env.Local[k] = v
+		}
+	}
+	return nil, nil
+}
+
+func renderHeaders(e env.Env, hs []Header) map[string]string {
+	hdrs := make(map[string]string)
+	for _, h := range hs {
+		if h.Name == "" {
+			continue
+		}
+		val := h.Value
+		if strings.Contains(val, "{{") {
+			val = e.RenderGoTemplate(val)
+		}
+		hdrs[h.Name] = val
+	}
+	return hdrs
+}
+
+func renderQueries(e env.Env, qs []Query) map[string]string {
+	m := make(map[string]string)
+	for _, q := range qs {
+		if q.Name == "" {
+			continue
+		}
+		val := q.Value
+		if strings.Contains(val, "{{") {
+			val = e.RenderGoTemplate(val)
+		}
+		m[q.Name] = val
+	}
+	return m
+}
+
+func renderBody(e env.Env, b string) string {
+	if strings.Contains(b, "{{") {
+		return e.RenderGoTemplate(b)
+	}
+	return b
+}
+
+func buildRequest(ctx context.Context, headers map[string]string, queries map[string]string, body string) *resty.Request {
+	client := httpc.New(ctx)
+	req := client.R().SetContext(ctx).SetHeaders(headers).SetQueryParams(queries)
+	if strings.TrimSpace(body) != "" {
+		if isJSON(body) {
+			req.SetHeader("Content-Type", "application/json")
+			req.SetBody([]byte(body))
+		} else {
+			req.SetBody(body)
+		}
+	}
+	return req
+}
+
+func execByMethod(req *resty.Request, method, url string) (*resty.Response, error) {
+	switch method {
+	case http.MethodGet:
+		return req.Get(url)
+	case http.MethodPost:
+		return req.Post(url)
+	case http.MethodPut:
+		return req.Put(url)
+	case http.MethodPatch:
+		return req.Patch(url)
+	case http.MethodDelete:
+		return req.Delete(url)
+	default:
+		return nil, fmt.Errorf("down.find: unsupported method: %s", method)
+	}
+}
+
+// injectAuthIfConfigured injects a token-based header only when d.Auth is provided
+// and the header is not already set. It also supports a legacy fallback to an
+// upper-cased env variable name when no token is registered under auth.GetToken.
+func injectAuthIfConfigured(hdrs map[string]string, authName string, e env.Env) {
+	if strings.TrimSpace(authName) == "" {
+		return
+	}
+	if h, v, ok := auth.GetToken(authName); ok {
+		if _, exists := hdrs[h]; !exists {
+			hdrs[h] = v
+		}
+		return
+	}
+	key := strings.ToUpper(authName)
+	if v, ok := e.Lookup(key); ok {
+		if _, exists := hdrs["Authorization"]; !exists {
+			hdrs["Authorization"] = v
+		}
+	}
 }
