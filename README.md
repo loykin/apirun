@@ -20,6 +20,7 @@ A lightweight Go library and CLI for running API-driven migrations defined in YA
 - Health-check wait feature to poll an endpoint until it returns the expected status before running migrations.
 - HTTP client TLS options per config document (insecure, min/max TLS version).
 - Pluggable auth provider registry with helper APIs and typed wrappers for library users.
+- Explicit header handling: providers return only token values; the library never auto-prefixes Authorization. Set headers like `Authorization: "Basic {{._auth_token}}"` or `Authorization: "Bearer {{._auth_token}}"` in your migrations.
 
 ## Install
 
@@ -208,6 +209,7 @@ Notes:
 - Empty `result_code` means any HTTP status is allowed.
 - `env_from` uses gjson paths (e.g., `id`, `0.id`, `data.items.0.id`).
 - All values extracted via `env_from` are automatically persisted into the local store so they can be reused later (e.g., in down).
+- Authorization headers are not auto-prefixed. When using a token acquired via `auth_name` or injected `_auth_token`, set the header explicitly in your migration, e.g., `Authorization: "Basic {{._auth_token}}"` for Basic or `Authorization: "Bearer {{._auth_token}}"` for OAuth2.
 
 ### Templating in config (requests, auth, wait)
 - Only basic Go templates are supported: use `{{.var}}`.
@@ -263,21 +265,28 @@ Built-in providers:
 They can be configured via `config.yaml` (see examples) or acquired programmatically using the public API.
 
 ### Typed auth wrappers (library)
-For convenient, type-safe auth acquisition without raw maps, use the wrappers in the root package:
+For convenient, type-safe auth acquisition without raw maps, use the WithName wrappers in the root package. These return (header, value, error) and store the token under the logical name you pass.
+
+Note: Providers return only the token value. When you need Authorization, set it explicitly in your migrations using the token variable `{{._auth_token}}`.
 
 ```go
 ctx := context.Background()
-// Basic
-h, v, name, err := apimigrate.AcquireBasicAuth(ctx, apimigrate.BasicAuthConfig{
-  Name: "example_basic", Username: "admin", Password: "admin",
-})
-_ = h; _ = v; _ = name; _ = err
 
-// OAuth2 Password
-_, _, _, _ = apimigrate.AcquireOAuth2Password(ctx, apimigrate.OAuth2PasswordConfig{
-  Name: "keycloak", ClientID: "admin-cli", TokenURL: "http://localhost:8080/realms/master/protocol/openid-connect/token",
-  Username: "admin", Password: "root",
+// Basic (stores under name "example_basic")
+h, v, err := apimigrate.AcquireBasicAuthWithName(ctx, "example_basic", apimigrate.BasicAuthConfig{
+  Username: "admin",
+  Password: "admin",
 })
+_ = h; _ = v; _ = err // h is typically "Authorization"
+
+// OAuth2 Password grant (stores under name "keycloak")
+h, v, err = apimigrate.AcquireOAuth2PasswordWithName(ctx, "keycloak", apimigrate.OAuth2PasswordConfig{
+  ClientID:  "admin-cli",
+  TokenURL:  "http://localhost:8080/realms/master/protocol/openid-connect/token",
+  Username:  "admin",
+  Password:  "root",
+})
+_ = h; _ = v; _ = err
 ```
 See `examples/auth_embedded` for a runnable sample.
 
@@ -291,10 +300,11 @@ Use the re-exported API from the root package.
 apimigrate.RegisterAuthProvider("demo", func(spec map[string]interface{}) (apimigrate.AuthMethod, error) { /* ... */ })
 ```
 
-- Acquire and store token by provider spec:
+- Acquire and store token by provider spec (store under a logical name):
 
 ```go
-h, v, name, err := apimigrate.AcquireAuthByProviderSpec(ctx, "demo", map[string]interface{}{"header": "X-Demo", "value": "ok"})
+v, err := apimigrate.AcquireAuthByProviderSpecWithName(ctx, "demo", "my-demo", map[string]interface{}{"value": "ok"})
+_ = v; _ = err
 ```
 
 A complete runnable example is provided:
