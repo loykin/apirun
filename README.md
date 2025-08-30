@@ -1,6 +1,7 @@
 # apimigrate
 
 [![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/loykin/apimigrate/gh-pages/shields/coverage.json&cacheSeconds=60)](https://github.com/loykin/apimigrate/blob/gh-pages/shields/coverage.json)
+[![Go Report Card](https://goreportcard.com/badge/github.com/loykin/apimigrate)](https://goreportcard.com/report/github.com/loykin/apimigrate)
 
 A lightweight Go library and CLI for running API-driven migrations defined in YAML files. It helps you automate provisioning or configuration tasks against HTTP APIs (e.g., create users/dashboards, import resources) in a versioned, repeatable way.
 

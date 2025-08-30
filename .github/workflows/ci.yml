@@ -92,6 +92,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: shields
-          destination_dir: shields   # 👈 추가
+          destination_dir: shields
           keep_files: true
           commit_message: "chore(ci): publish coverage endpoint (Shields)"
