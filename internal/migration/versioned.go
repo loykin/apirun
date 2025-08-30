@@ -14,6 +14,79 @@ import (
 	"github.com/loykin/apimigrate/internal/task"
 )
 
+// internal helpers to reduce cyclomatic complexity of MigrateUp/Down
+func openStoreFromCtx(ctx context.Context, dir string) (*store.Store, error) {
+	var (
+		st  *store.Store
+		err error
+	)
+	if v := ctx.Value(StoreOptionsKey); v != nil {
+		if opts, ok := v.(*StoreOptions); ok && opts != nil {
+			switch opts.Backend {
+			case "postgres", "pg", "postgresql":
+				if opts.PostgresDSN == "" {
+					return nil, fmt.Errorf("store backend=postgres requires dsn")
+				}
+				if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
+					st, err = store.OpenPostgresWithNames(opts.PostgresDSN, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
+				} else {
+					st, err = store.OpenPostgres(opts.PostgresDSN)
+				}
+			default:
+				path := opts.SQLitePath
+				if path == "" {
+					path = filepath.Join(dir, store.DbFileName)
+				}
+				if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
+					st, err = store.OpenWithNames(path, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
+				} else {
+					st, err = store.Open(path)
+				}
+			}
+		} else {
+			path := filepath.Join(dir, store.DbFileName)
+			st, err = store.Open(path)
+		}
+	} else {
+		path := filepath.Join(dir, store.DbFileName)
+		st, err = store.Open(path)
+	}
+	return st, err
+}
+
+func saveResponseBodies(ctx context.Context) bool {
+	save := false
+	if v := ctx.Value(SaveResponseBodyKey); v != nil {
+		if b, ok := v.(bool); ok {
+			save = b
+		}
+	}
+	return save
+}
+
+func planUp(files []vfile, cur, target int) []vfile {
+	limit := target
+	if limit <= 0 {
+		limit = 1<<31 - 1
+	}
+	plan := make([]vfile, 0)
+	for _, f := range files {
+		if f.index > cur && f.index <= limit {
+			plan = append(plan, f)
+		}
+	}
+	sort.Slice(plan, func(i, j int) bool { return plan[i].index < plan[j].index })
+	return plan
+}
+
+func mapFilesByVersion(files []vfile) map[int]vfile {
+	m := map[int]vfile{}
+	for _, f := range files {
+		m[f.index] = f
+	}
+	return m
+}
+
 var versionFileRegex = regexp.MustCompile(`^(\d+)_.*\.(ya?ml)$`)
 
 type vfile struct {
@@ -51,45 +124,71 @@ func listMigrationFiles(dir string) ([]vfile, error) {
 // MigrateUp applies migrations greater than the current store version up to targetVersion.
 // If targetVersion <= 0, it applies all pending migrations.
 // It records each applied version in the store after successful execution.
+func runUpForFile(ctx context.Context, st *store.Store, f vfile, baseEnv env.Env, sessionStored map[string]string) (*ExecWithVersion, map[string]string, error) {
+	t, err := loadTaskFromFile(f.path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to load %s: %w", f.name, err)
+	}
+	if baseEnv.Global != nil {
+		t.Up.Env.Global = baseEnv.Global
+	} else {
+		t.Up.Env.Global = map[string]string{}
+	}
+	if t.Up.Env.Local == nil {
+		t.Up.Env.Local = map[string]string{}
+	}
+	// Merge stored env from previously applied versions
+	if applied, err := st.ListApplied(); err == nil {
+		for _, av := range applied {
+			if m, _ := st.LoadStoredEnv(av); len(m) > 0 {
+				for k, val := range m {
+					if _, exists := t.Up.Env.Local[k]; !exists {
+						t.Up.Env.Local[k] = val
+					}
+				}
+			}
+		}
+	}
+	// Merge sessionStored for this run
+	if len(sessionStored) > 0 {
+		for k, val := range sessionStored {
+			if _, exists := t.Up.Env.Local[k]; !exists {
+				t.Up.Env.Local[k] = val
+			}
+		}
+	}
+	res, err := t.UpExecute(ctx, "", "")
+	ewv := &ExecWithVersion{Version: f.index, Result: res}
+	// Record run if we have result
+	if res != nil {
+		save := saveResponseBodies(ctx)
+		var bodyPtr *string
+		if save {
+			b := res.ResponseBody
+			bodyPtr = &b
+		}
+		// persist extracted env
+		toStore := map[string]string{}
+		if res.ExtractedEnv != nil {
+			toStore = res.ExtractedEnv
+		}
+		_ = st.RecordRun(f.index, "up", res.StatusCode, bodyPtr, toStore)
+		_ = st.InsertStoredEnv(f.index, toStore)
+		return eww(ewv, toStore), toStore, err
+	}
+	return eww(ewv, nil), nil, err
+}
+
+// helper to ensure returned ExecWithVersion is passed through unchanged
+func eww(v *ExecWithVersion, _ map[string]string) *ExecWithVersion { return v }
+
 func MigrateUp(ctx context.Context, dir string, baseEnv env.Env, targetVersion int) ([]*ExecWithVersion, error) {
 	files, err := listMigrationFiles(dir)
 	if err != nil {
 		return nil, err
 	}
 	// open store according to options (default sqlite under dir)
-	var st *store.Store
-	if v := ctx.Value(StoreOptionsKey); v != nil {
-		if opts, ok := v.(*StoreOptions); ok && opts != nil {
-			if opts.Backend == "postgres" || opts.Backend == "pg" || opts.Backend == "postgresql" {
-				if opts.PostgresDSN == "" {
-					return nil, fmt.Errorf("store backend=postgres requires dsn")
-				}
-				// Use custom names if provided
-				if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
-					st, err = store.OpenPostgresWithNames(opts.PostgresDSN, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
-				} else {
-					st, err = store.OpenPostgres(opts.PostgresDSN)
-				}
-			} else {
-				path := opts.SQLitePath
-				if path == "" {
-					path = filepath.Join(dir, store.DbFileName)
-				}
-				if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
-					st, err = store.OpenWithNames(path, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
-				} else {
-					st, err = store.Open(path)
-				}
-			}
-		} else {
-			// fallback
-			path := filepath.Join(dir, store.DbFileName)
-			st, err = store.Open(path)
-		}
-	} else {
-		path := filepath.Join(dir, store.DbFileName)
-		st, err = store.Open(path)
-	}
+	st, err := openStoreFromCtx(ctx, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -99,86 +198,18 @@ func MigrateUp(ctx context.Context, dir string, baseEnv env.Env, targetVersion i
 	if err != nil {
 		return nil, err
 	}
-	limit := targetVersion
-	if limit <= 0 {
-		limit = 1<<31 - 1
-	}
-
 	// plan versions to run
-	plan := make([]vfile, 0)
-	for _, f := range files {
-		if f.index > cur && f.index <= limit {
-			plan = append(plan, f)
-		}
-	}
-	sort.Slice(plan, func(i, j int) bool { return plan[i].index < plan[j].index })
+	plan := planUp(files, cur, targetVersion)
 
 	results := make([]*ExecWithVersion, 0, len(plan))
 	// sessionStored accumulates stored env created during this run to be available to later versions
 	sessionStored := map[string]string{}
 	for _, f := range plan {
-		t, err := loadTaskFromFile(f.path)
-		if err != nil {
-			return results, fmt.Errorf("failed to load %s: %w", f.name, err)
-		}
-		// Set env layering per existing behavior
-		if baseEnv.Global != nil {
-			t.Up.Env.Global = baseEnv.Global
-		} else {
-			t.Up.Env.Global = map[string]string{}
-		}
-		if t.Up.Env.Local == nil {
-			t.Up.Env.Local = map[string]string{}
-		}
-		// Merge stored env from previously applied versions and from earlier steps in this run
-		if applied, err := st.ListApplied(); err == nil {
-			for _, av := range applied {
-				if m, _ := st.LoadStoredEnv(av); len(m) > 0 {
-					for k, val := range m {
-						if _, exists := t.Up.Env.Local[k]; !exists {
-							t.Up.Env.Local[k] = val
-						}
-					}
-				}
-			}
-		}
-		if len(sessionStored) > 0 {
-			for k, val := range sessionStored {
-				if _, exists := t.Up.Env.Local[k]; !exists {
-					t.Up.Env.Local[k] = val
-				}
-			}
-		}
-		res, err := t.UpExecute(ctx, "", "")
-		results = append(results, &ExecWithVersion{Version: f.index, Result: res})
-		// record run regardless of success if we have a result
-		if res != nil {
-			save := false
-			if v := ctx.Value(SaveResponseBodyKey); v != nil {
-				if b, ok := v.(bool); ok {
-					save = b
-				}
-			}
-			var bodyPtr *string
-			if save {
-				b := res.ResponseBody
-				bodyPtr = &b
-			}
-			// persist all extracted env (auto-store) into run record and stored_env
-			var toStore map[string]string
-			if res.ExtractedEnv != nil {
-				toStore = res.ExtractedEnv
-			} else {
-				toStore = map[string]string{}
-			}
-			_ = st.RecordRun(f.index, "up", res.StatusCode, bodyPtr, toStore)
-			// also insert into stored_env for reuse and lifecycle mgmt
-			_ = st.InsertStoredEnv(f.index, toStore)
-			// update sessionStored so subsequent versions in the same run can use these values
-			if len(toStore) > 0 {
-				for k, v := range toStore {
-					sessionStored[k] = v
-				}
+		vr, toStore, err := runUpForFile(ctx, st, f, baseEnv, sessionStored)
+		results = append(results, vr)
+		if toStore != nil {
+			for k, v := range toStore {
+				sessionStored[k] = v
 			}
 		}
 		if err != nil {
@@ -196,44 +227,61 @@ func MigrateUp(ctx context.Context, dir string, baseEnv env.Env, targetVersion i
 // MigrateDown rolls back down to targetVersion (not including target): it will
 // run downs for all applied versions > targetVersion in reverse order.
 // Each successful down removes that version from the store.
+func runDownForVersion(ctx context.Context, st *store.Store, ver int, f vfile, baseEnv env.Env) (*ExecWithVersion, error) {
+	t, err := loadTaskFromFile(f.path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load %s: %w", f.name, err)
+	}
+	if baseEnv.Global != nil {
+		t.Down.Env.Global = baseEnv.Global
+	} else {
+		t.Down.Env.Global = map[string]string{}
+	}
+	if t.Down.Env.Local == nil {
+		t.Down.Env.Local = map[string]string{}
+	}
+	// Merge stored env for this version (prefer stored_env; fallback to legacy)
+	if loaded, _ := st.LoadStoredEnv(ver); len(loaded) > 0 {
+		for k, val := range loaded {
+			if _, exists := t.Down.Env.Local[k]; !exists {
+				t.Down.Env.Local[k] = val
+			}
+		}
+	} else if loadedLegacy, _ := st.LoadEnv(ver, "up"); len(loadedLegacy) > 0 {
+		for k, val := range loadedLegacy {
+			if _, exists := t.Down.Env.Local[k]; !exists {
+				t.Down.Env.Local[k] = val
+			}
+		}
+	}
+	res, err := t.DownExecute(ctx, "", "")
+	ewv := &ExecWithVersion{Version: ver, Result: res}
+	if res != nil {
+		save := saveResponseBodies(ctx)
+		var bodyPtr *string
+		if save {
+			b := res.ResponseBody
+			bodyPtr = &b
+		}
+		_ = st.RecordRun(ver, "down", res.StatusCode, bodyPtr, nil)
+	}
+	if err != nil {
+		return eww(ewv, nil), fmt.Errorf("down %s failed: %w", f.name, err)
+	}
+	if err := st.Remove(ver); err != nil {
+		return eww(ewv, nil), fmt.Errorf("record remove %d: %w", ver, err)
+	}
+	_ = st.DeleteStoredEnv(ver)
+	return eww(ewv, nil), nil
+}
+
 func MigrateDown(ctx context.Context, dir string, baseEnv env.Env, targetVersion int) ([]*ExecWithVersion, error) {
 	files, err := listMigrationFiles(dir)
 	if err != nil {
 		return nil, err
 	}
 	// open store according to options (default sqlite under dir)
-	var st *store.Store
-	if v := ctx.Value(StoreOptionsKey); v != nil {
-		if opts, ok := v.(*StoreOptions); ok && opts != nil {
-			if opts.Backend == "postgres" || opts.Backend == "pg" || opts.Backend == "postgresql" {
-				if opts.PostgresDSN == "" {
-					return nil, fmt.Errorf("store backend=postgres requires dsn")
-				}
-				// Use custom names if provided
-				if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
-					st, err = store.OpenPostgresWithNames(opts.PostgresDSN, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
-				} else {
-					st, err = store.OpenPostgres(opts.PostgresDSN)
-				}
-			} else {
-				path := opts.SQLitePath
-				if path == "" {
-					path = filepath.Join(dir, store.DbFileName)
-				}
-				if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
-					st, err = store.OpenWithNames(path, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
-				} else {
-					st, err = store.Open(path)
-				}
-			}
-		} else {
-			path := filepath.Join(dir, store.DbFileName)
-			st, err = store.Open(path)
-		}
-	} else {
-		path := filepath.Join(dir, store.DbFileName)
-		st, err = store.Open(path)
-	}
+	st, err := openStoreFromCtx(ctx, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -251,10 +299,7 @@ func MigrateDown(ctx context.Context, dir string, baseEnv env.Env, targetVersion
 	}
 
 	// map versions to files
-	fileByVer := map[int]vfile{}
-	for _, f := range files {
-		fileByVer[f.index] = f
-	}
+	fileByVer := mapFilesByVersion(files)
 
 	// collect applied versions to rollback: (target, cur]
 	applied, err := st.ListApplied()
@@ -275,56 +320,11 @@ func MigrateDown(ctx context.Context, dir string, baseEnv env.Env, targetVersion
 		if !ok {
 			return results, fmt.Errorf("no migration file for version %d", v)
 		}
-		t, err := loadTaskFromFile(f.path)
+		vr, err := runDownForVersion(ctx, st, v, f, baseEnv)
+		results = append(results, vr)
 		if err != nil {
-			return results, fmt.Errorf("failed to load %s: %w", f.name, err)
+			return results, err
 		}
-		if baseEnv.Global != nil {
-			t.Down.Env.Global = baseEnv.Global
-		} else {
-			t.Down.Env.Global = map[string]string{}
-		}
-		if t.Down.Env.Local == nil {
-			t.Down.Env.Local = map[string]string{}
-		}
-		// Merge stored env for this version into Down's Local env (prefer stored_env table; fallback to legacy env_json)
-		if loaded, _ := st.LoadStoredEnv(v); len(loaded) > 0 {
-			for k, val := range loaded {
-				if _, exists := t.Down.Env.Local[k]; !exists {
-					t.Down.Env.Local[k] = val
-				}
-			}
-		} else if loadedLegacy, _ := st.LoadEnv(v, "up"); len(loadedLegacy) > 0 {
-			for k, val := range loadedLegacy {
-				if _, exists := t.Down.Env.Local[k]; !exists {
-					t.Down.Env.Local[k] = val
-				}
-			}
-		}
-		res, err := t.DownExecute(ctx, "", "")
-		results = append(results, &ExecWithVersion{Version: v, Result: res})
-		if res != nil {
-			save := false
-			if vflag := ctx.Value(SaveResponseBodyKey); vflag != nil {
-				if b, ok := vflag.(bool); ok {
-					save = b
-				}
-			}
-			var bodyPtr *string
-			if save {
-				b := res.ResponseBody
-				bodyPtr = &b
-			}
-			_ = st.RecordRun(v, "down", res.StatusCode, bodyPtr, nil)
-		}
-		if err != nil {
-			return results, fmt.Errorf("down %s failed: %w", f.name, err)
-		}
-		if err := st.Remove(v); err != nil {
-			return results, fmt.Errorf("record remove %d: %w", v, err)
-		}
-		// Cleanup stored env rows for this version
-		_ = st.DeleteStoredEnv(v)
 	}
 	return results, nil
 }

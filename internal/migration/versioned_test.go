@@ -239,3 +239,131 @@ func TestMigrateDown_UsesStoredEnvAndCleans(t *testing.T) {
 		t.Fatalf("expected 0 stored_env rows after down, got %d", cnt)
 	}
 }
+
+// Additional tests to cover planning and store options behavior introduced/refactored recently.
+func TestMigrateUp_TargetVersionPlanning(t *testing.T) {
+	calls := make(map[string]int)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls[r.URL.Path]++
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	m1 := "up:\n  name: v1\n  env: { }\n  request:\n    method: GET\n    url: " + srv.URL + "/v1\n  response:\n    result_code: [\"200\"]\n"
+	m2 := "up:\n  name: v2\n  env: { }\n  request:\n    method: GET\n    url: " + srv.URL + "/v2\n  response:\n    result_code: [\"200\"]\n"
+	m3 := "up:\n  name: v3\n  env: { }\n  request:\n    method: GET\n    url: " + srv.URL + "/v3\n  response:\n    result_code: [\"200\"]\n"
+	if err := os.WriteFile(filepath.Join(dir, "001_v1.yaml"), []byte(m1), 0o600); err != nil {
+		t.Fatalf("write m1: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "002_v2.yaml"), []byte(m2), 0o600); err != nil {
+		t.Fatalf("write m2: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "003_v3.yaml"), []byte(m3), 0o600); err != nil {
+		t.Fatalf("write m3: %v", err)
+	}
+
+	ctx := context.Background()
+	base := env.Env{Global: map[string]string{}}
+
+	// Apply up to version 2 only
+	if _, err := MigrateUp(ctx, dir, base, 2); err != nil {
+		t.Fatalf("migrate up to 2: %v", err)
+	}
+	// Verify only v1 and v2 were called
+	if calls["/v1"] != 1 || calls["/v2"] != 1 || calls["/v3"] != 0 {
+		t.Fatalf("expected calls v1=1 v2=1 v3=0, got: %v", calls)
+	}
+	// Verify store current version is 2
+	st, err := store.Open(filepath.Join(dir, store.DbFileName))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	cur, err := st.CurrentVersion()
+	if err != nil {
+		_ = st.Close()
+		t.Fatalf("CurrentVersion: %v", err)
+	}
+	if cur != 2 {
+		_ = st.Close()
+		t.Fatalf("expected current version 2, got %d", cur)
+	}
+	_ = st.Close()
+
+	// Now apply remaining (to=0 means all)
+	if _, err := MigrateUp(ctx, dir, base, 0); err != nil {
+		t.Fatalf("migrate up all: %v", err)
+	}
+	if calls["/v3"] != 1 {
+		t.Fatalf("expected v3 to be called once after final up, got: %v", calls)
+	}
+	st2, err := store.Open(filepath.Join(dir, store.DbFileName))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st2.Close() }()
+	cur, err = st2.CurrentVersion()
+	if err != nil {
+		t.Fatalf("CurrentVersion: %v", err)
+	}
+	if cur != 3 {
+		t.Fatalf("expected current version 3, got %d", cur)
+	}
+}
+
+func TestMigrate_StoreOptions_ExplicitSQLitePath(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	m := "up:\n  name: only\n  env: { }\n  request:\n    method: GET\n    url: " + srv.URL + "\n  response:\n    result_code: [\"200\"]\n"
+	if err := os.WriteFile(filepath.Join(dir, "001_only.yaml"), []byte(m), 0o600); err != nil {
+		t.Fatalf("write mig: %v", err)
+	}
+
+	customDir := t.TempDir()
+	customPath := filepath.Join(customDir, "custom.db")
+	ctx := context.WithValue(context.Background(), StoreOptionsKey, &StoreOptions{SQLitePath: customPath})
+	base := env.Env{Global: map[string]string{}}
+
+	if _, err := MigrateUp(ctx, dir, base, 0); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected exactly one call, got %d", calls)
+	}
+	// Verify DB exists at custom path, and default path does not exist
+	if _, err := os.Stat(customPath); err != nil {
+		t.Fatalf("expected custom sqlite DB at %s, stat err: %v", customPath, err)
+	}
+	defaultPath := filepath.Join(dir, store.DbFileName)
+	if _, err := os.Stat(defaultPath); err == nil {
+		t.Fatalf("did not expect default DB at %s when custom path is set", defaultPath)
+	}
+	// Inspect migration_runs in custom DB
+	st, err := store.Open(customPath)
+	if err != nil {
+		t.Fatalf("open custom store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	rows, err := st.DB.Query(`SELECT COUNT(1) FROM migration_runs`)
+	if err != nil {
+		t.Fatalf("query runs: %v", err)
+	}
+	var cnt int
+	if rows.Next() {
+		if err := rows.Scan(&cnt); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+	}
+	_ = rows.Close()
+	if cnt != 1 {
+		t.Fatalf("expected 1 run row, got %d", cnt)
+	}
+}
