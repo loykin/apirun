@@ -207,10 +207,8 @@ func MigrateUp(ctx context.Context, dir string, baseEnv env.Env, targetVersion i
 	for _, f := range plan {
 		vr, toStore, err := runUpForFile(ctx, st, f, baseEnv, sessionStored)
 		results = append(results, vr)
-		if toStore != nil {
-			for k, v := range toStore {
-				sessionStored[k] = v
-			}
+		for k, v := range toStore {
+			sessionStored[k] = v
 		}
 		if err != nil {
 			return results, fmt.Errorf("migration %s failed: %w", f.name, err)

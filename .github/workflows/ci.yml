@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   test:
@@ -57,21 +57,38 @@ jobs:
           name: coverage
           path: coverage.out
 
-      - name: Extract coverage percentage (push only)
-        if: github.event_name == 'push'
-        id: coverage
+  publish-coverage:
+    name: Publish Coverage (Shields)
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: .
+
+      - name: Extract coverage percentage
         shell: bash
         run: |
           set -euo pipefail
           LINE=$(go tool cover -func=coverage.out | tail -n 1)
           PCT=$(echo "$LINE" | awk '{print $3}')
           PCT_NUM=${PCT%%%}
-          if [ "${PCT_NUM%.*}" -ge 80 ]; then COLOR=brightgreen; elif [ "${PCT_NUM%.*}" -ge 60 ]; then COLOR=yellow; else COLOR=red; fi
+          if [ "${PCT_NUM%.*}" -ge 80 ]; then COLOR=brightgreen
+          elif [ "${PCT_NUM%.*}" -ge 60 ]; then COLOR=yellow
+          else COLOR=red
+          fi
           echo "COVERAGE=$PCT_NUM" >> "$GITHUB_ENV"
           echo "BADGE_COLOR=$COLOR" >> "$GITHUB_ENV"
 
-      - name: Prepare Shields endpoint JSON (push only)
-        if: github.event_name == 'push'
+      - name: Prepare Shields endpoint JSON
         shell: bash
         run: |
           set -euo pipefail
@@ -85,8 +102,7 @@ jobs:
           }
           EOF
 
-      - name: Publish coverage endpoint to gh-pages (push only)
-        if: github.event_name == 'push'
+      - name: Publish coverage endpoint to gh-pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
