@@ -73,18 +73,18 @@ func (c PocketBaseAuthConfig) ToMap() map[string]interface{} {
 
 // AcquireBasicAuthWithName acquires and stores a Basic auth token under the provided name.
 // cfg.Name is ignored; pass the desired logical name via the name parameter.
-func AcquireBasicAuthWithName(ctx context.Context, name string, cfg BasicAuthConfig) (string, error) {
+func AcquireBasicAuthWithName(ctx context.Context, cfg BasicAuthConfig) (string, error) {
 	spec := map[string]interface{}{
 		"username": cfg.Username,
 		"password": cfg.Password,
 	}
-	v, err := iauth.AcquireAndStoreWithName(ctx, "basic", name, spec)
+	v, err := iauth.AcquireAndStoreWithName(ctx, "basic", spec)
 	return v, err
 }
 
 // AcquireOAuth2PasswordWithName acquires and stores an OAuth2 password-grant token under the provided name.
 // cfg.Name is ignored; pass the desired logical name via the name parameter.
-func AcquireOAuth2PasswordWithName(ctx context.Context, name string, cfg OAuth2PasswordConfig) (string, error) {
+func AcquireOAuth2PasswordWithName(ctx context.Context, cfg OAuth2PasswordConfig) (string, error) {
 	sub := map[string]interface{}{
 		"client_id":     cfg.ClientID,
 		"client_secret": cfg.ClientSec,
@@ -100,13 +100,13 @@ func AcquireOAuth2PasswordWithName(ctx context.Context, name string, cfg OAuth2P
 		"grant_type":   "password",
 		"grant_config": sub,
 	}
-	v, err := iauth.AcquireAndStoreWithName(ctx, "oauth2", name, spec)
+	v, err := iauth.AcquireAndStoreWithName(ctx, "oauth2", spec)
 	return v, err
 }
 
 // AcquireOAuth2ClientCredentialsWithName acquires and stores a client-credentials token under the provided name.
 // cfg.Name is ignored; pass the desired logical name via the name parameter.
-func AcquireOAuth2ClientCredentialsWithName(ctx context.Context, name string, cfg OAuth2ClientCredentialsConfig) (string, error) {
+func AcquireOAuth2ClientCredentialsWithName(ctx context.Context, cfg OAuth2ClientCredentialsConfig) (string, error) {
 	sub := map[string]interface{}{
 		"client_id":     cfg.ClientID,
 		"client_secret": cfg.ClientSec,
@@ -119,13 +119,13 @@ func AcquireOAuth2ClientCredentialsWithName(ctx context.Context, name string, cf
 		"grant_type":   "client_credentials",
 		"grant_config": sub,
 	}
-	v, err := iauth.AcquireAndStoreWithName(ctx, "oauth2", name, spec)
+	v, err := iauth.AcquireAndStoreWithName(ctx, "oauth2", spec)
 	return v, err
 }
 
 // AcquireOAuth2ImplicitWithName prepares the implicit grant authorization URL value under the provided name.
 // cfg.Name is ignored; pass the desired logical name via the name parameter.
-func AcquireOAuth2ImplicitWithName(ctx context.Context, name string, cfg OAuth2ImplicitConfig) (string, error) {
+func AcquireOAuth2ImplicitWithName(ctx context.Context, cfg OAuth2ImplicitConfig) (string, error) {
 	sub := map[string]interface{}{
 		"client_id":    cfg.ClientID,
 		"redirect_url": cfg.RedirectURL,
@@ -138,18 +138,18 @@ func AcquireOAuth2ImplicitWithName(ctx context.Context, name string, cfg OAuth2I
 		"grant_type":   "implicit",
 		"grant_config": sub,
 	}
-	v, err := iauth.AcquireAndStoreWithName(ctx, "oauth2", name, spec)
+	v, err := iauth.AcquireAndStoreWithName(ctx, "oauth2", spec)
 	return v, err
 }
 
 // AcquirePocketBaseWithName acquires and stores the PocketBase admin token under the provided name.
 // cfg.Name is ignored; pass the desired logical name via the name parameter.
-func AcquirePocketBaseWithName(ctx context.Context, name string, cfg PocketBaseAuthConfig) (string, error) {
+func AcquirePocketBaseWithName(ctx context.Context, cfg PocketBaseAuthConfig) (string, error) {
 	spec := map[string]interface{}{
 		"base_url": cfg.BaseURL,
 		"email":    cfg.Email,
 		"password": cfg.Password,
 	}
-	v, err := iauth.AcquireAndStoreWithName(ctx, "pocketbase", name, spec)
+	v, err := iauth.AcquireAndStoreWithName(ctx, "pocketbase", spec)
 	return v, err
 }

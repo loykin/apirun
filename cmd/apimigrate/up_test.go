@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/loykin/apimigrate/internal/auth"
 	"github.com/spf13/viper"
 )
 
@@ -30,7 +29,6 @@ func basicVal(u, p string) string {
 // and that the correct Authorization header is sent for each request when auth is provided
 // via the new top-level auth array in config.
 func TestUpCmd_AuthChanges_WithTopLevelAuthArray(t *testing.T) {
-	auth.ClearTokens()
 	// Prepare expectations
 	exp1 := base64.StdEncoding.EncodeToString([]byte("u1:p1"))
 	exp2 := base64.StdEncoding.EncodeToString([]byte("u2:p2"))
@@ -122,7 +120,6 @@ migrate_dir: %s
 
 // Verify again with different provider names using the same top-level auth array schema.
 func TestUpCmd_AuthChanges_WithTopLevelAuthArray_Variant(t *testing.T) {
-	auth.ClearTokens()
 	exp1 := base64.StdEncoding.EncodeToString([]byte("lu1:lp1"))
 	exp2 := base64.StdEncoding.EncodeToString([]byte("lu2:lp2"))
 	calls := make(map[string]int)

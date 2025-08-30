@@ -7,52 +7,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"time"
 
 	"github.com/loykin/apimigrate/internal/env"
 	"github.com/loykin/apimigrate/internal/store"
 	"github.com/loykin/apimigrate/internal/task"
 )
-
-// internal helpers to reduce cyclomatic complexity of MigrateUp/Down
-func openStoreFromCtx(ctx context.Context, dir string) (*store.Store, error) {
-	var (
-		st  *store.Store
-		err error
-	)
-	if v := ctx.Value(StoreOptionsKey); v != nil {
-		if opts, ok := v.(*StoreOptions); ok && opts != nil {
-			switch opts.Backend {
-			case "postgres", "pg", "postgresql":
-				if opts.PostgresDSN == "" {
-					return nil, fmt.Errorf("store backend=postgres requires dsn")
-				}
-				if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
-					st, err = store.OpenPostgresWithNames(opts.PostgresDSN, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
-				} else {
-					st, err = store.OpenPostgres(opts.PostgresDSN)
-				}
-			default:
-				path := opts.SQLitePath
-				if path == "" {
-					path = filepath.Join(dir, store.DbFileName)
-				}
-				if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
-					st, err = store.OpenWithNames(path, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
-				} else {
-					st, err = store.Open(path)
-				}
-			}
-		} else {
-			path := filepath.Join(dir, store.DbFileName)
-			st, err = store.Open(path)
-		}
-	} else {
-		path := filepath.Join(dir, store.DbFileName)
-		st, err = store.Open(path)
-	}
-	return st, err
-}
 
 func saveResponseBodies(ctx context.Context) bool {
 	save := false
@@ -174,52 +133,9 @@ func runUpForFile(ctx context.Context, st *store.Store, f vfile, baseEnv env.Env
 		}
 		_ = st.RecordRun(f.index, "up", res.StatusCode, bodyPtr, toStore)
 		_ = st.InsertStoredEnv(f.index, toStore)
-		return eww(ewv, toStore), toStore, err
+		return ewv, toStore, err
 	}
-	return eww(ewv, nil), nil, err
-}
-
-// helper to ensure returned ExecWithVersion is passed through unchanged
-func eww(v *ExecWithVersion, _ map[string]string) *ExecWithVersion { return v }
-
-func MigrateUp(ctx context.Context, dir string, baseEnv env.Env, targetVersion int) ([]*ExecWithVersion, error) {
-	files, err := listMigrationFiles(dir)
-	if err != nil {
-		return nil, err
-	}
-	// open store according to options (default sqlite under dir)
-	st, err := openStoreFromCtx(ctx, dir)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = st.Close() }()
-
-	cur, err := st.CurrentVersion()
-	if err != nil {
-		return nil, err
-	}
-	// plan versions to run
-	plan := planUp(files, cur, targetVersion)
-
-	results := make([]*ExecWithVersion, 0, len(plan))
-	// sessionStored accumulates stored env created during this run to be available to later versions
-	sessionStored := map[string]string{}
-	for _, f := range plan {
-		vr, toStore, err := runUpForFile(ctx, st, f, baseEnv, sessionStored)
-		results = append(results, vr)
-		for k, v := range toStore {
-			sessionStored[k] = v
-		}
-		if err != nil {
-			return results, fmt.Errorf("migration %s failed: %w", f.name, err)
-		}
-		if err := st.Apply(f.index); err != nil {
-			return results, fmt.Errorf("record apply %d: %w", f.index, err)
-		}
-		// Small delay to allow backend consistency before next migration
-		time.Sleep(1 * time.Second)
-	}
-	return results, nil
+	return ewv, nil, err
 }
 
 // MigrateDown rolls back down to targetVersion (not including target): it will
@@ -264,67 +180,13 @@ func runDownForVersion(ctx context.Context, st *store.Store, ver int, f vfile, b
 		_ = st.RecordRun(ver, "down", res.StatusCode, bodyPtr, nil)
 	}
 	if err != nil {
-		return eww(ewv, nil), fmt.Errorf("down %s failed: %w", f.name, err)
+		return ewv, fmt.Errorf("down %s failed: %w", f.name, err)
 	}
 	if err := st.Remove(ver); err != nil {
-		return eww(ewv, nil), fmt.Errorf("record remove %d: %w", ver, err)
+		return ewv, fmt.Errorf("record remove %d: %w", ver, err)
 	}
 	_ = st.DeleteStoredEnv(ver)
-	return eww(ewv, nil), nil
-}
-
-func MigrateDown(ctx context.Context, dir string, baseEnv env.Env, targetVersion int) ([]*ExecWithVersion, error) {
-	files, err := listMigrationFiles(dir)
-	if err != nil {
-		return nil, err
-	}
-	// open store according to options (default sqlite under dir)
-	st, err := openStoreFromCtx(ctx, dir)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = st.Close() }()
-
-	cur, err := st.CurrentVersion()
-	if err != nil {
-		return nil, err
-	}
-	if targetVersion < 0 {
-		targetVersion = 0
-	}
-	if targetVersion > cur {
-		return nil, fmt.Errorf("target version %d is above current %d", targetVersion, cur)
-	}
-
-	// map versions to files
-	fileByVer := mapFilesByVersion(files)
-
-	// collect applied versions to rollback: (target, cur]
-	applied, err := st.ListApplied()
-	if err != nil {
-		return nil, err
-	}
-	toRollback := make([]int, 0)
-	for _, v := range applied {
-		if v > targetVersion {
-			toRollback = append(toRollback, v)
-		}
-	}
-	sort.Sort(sort.Reverse(sort.IntSlice(toRollback)))
-
-	results := make([]*ExecWithVersion, 0, len(toRollback))
-	for _, v := range toRollback {
-		f, ok := fileByVer[v]
-		if !ok {
-			return results, fmt.Errorf("no migration file for version %d", v)
-		}
-		vr, err := runDownForVersion(ctx, st, v, f, baseEnv)
-		results = append(results, vr)
-		if err != nil {
-			return results, err
-		}
-	}
-	return results, nil
+	return ewv, nil
 }
 
 // ExecWithVersion pairs ExecResult with version number.

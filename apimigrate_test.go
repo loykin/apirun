@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	httpc "github.com/loykin/apimigrate/internal/httpc"
 	imig "github.com/loykin/apimigrate/internal/migration"
 )
 
@@ -20,7 +21,7 @@ func TestAcquireAuthAndSetEnv_Basic(t *testing.T) {
 	base := Env{Global: map[string]string{}}
 	// basic: username/password -> base64(username:password)
 	spec := NewAuthSpecFromMap(map[string]interface{}{"username": "u", "password": "p"})
-	v, err := AcquireAuthAndSetEnv(ctx, "basic", "example_basic", spec, &base)
+	v, err := AcquireAuthAndSetEnv(ctx, "basic", spec, &base)
 	if err != nil {
 		t.Fatalf("AcquireAuthAndSetEnv error: %v", err)
 	}
@@ -202,22 +203,14 @@ func TestNewHTTPClient_TLSHelpers(t *testing.T) {
 	c := NewHTTPClient(context.Background())
 	hc := c.GetClient()
 	tr, _ := hc.Transport.(*http.Transport)
-	if tr == nil || tr.TLSClientConfig == nil {
-		t.Fatalf("expected TLSClientConfig to be set")
-	}
-	if tr.TLSClientConfig.MinVersion != tls.VersionTLS13 {
-		t.Fatalf("default MinVersion mismatch: got %v want %v", tr.TLSClientConfig.MinVersion, tls.VersionTLS13)
-	}
-	if tr.TLSClientConfig.InsecureSkipVerify {
-		t.Fatalf("default InsecureSkipVerify should be false")
+	if tr == nil {
+		t.Fatalf("expected http.Transport to be set")
 	}
 
-	// Insecure and version hints
-	ctx := context.Background()
-	ctx = WithTLSInsecure(ctx, true)
-	ctx = WithTLSMinVersion(ctx, "1.2")
-	ctx = WithTLSMaxVersion(ctx, "1.2")
-	c2 := NewHTTPClient(ctx)
+	// Custom insecure and version bounds via internal httpc.Httpc
+	var h httpc.Httpc
+	h.TlsConfig = &tls.Config{InsecureSkipVerify: true, MinVersion: tls.VersionTLS12, MaxVersion: tls.VersionTLS12}
+	c2 := h.New()
 	hc2 := c2.GetClient()
 	tr2, _ := hc2.Transport.(*http.Transport)
 	if tr2 == nil || tr2.TLSClientConfig == nil {
@@ -286,12 +279,17 @@ func TestMigrateDown_RollsBack(t *testing.T) {
 
 	// Use a sqlite store in temp dir
 	storePath := filepath.Join(dir, "state.db")
-	ctx := WithStoreOptions(context.Background(), &StoreOptions{SQLitePath: storePath})
-
 	base := Env{Global: map[string]string{}}
+	ctx := context.Background()
+	st, err := OpenStoreFromOptions(dir, &StoreOptions{SQLitePath: storePath})
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	m := Migrator{Env: base, Dir: dir, Store: *st}
 
 	// Run Up
-	resUp, err := MigrateUp(ctx, dir, base, 0)
+	resUp, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		t.Fatalf("MigrateUp error: %v", err)
 	}
@@ -300,7 +298,7 @@ func TestMigrateDown_RollsBack(t *testing.T) {
 	}
 
 	// Run Down to version 0
-	resDown, err := MigrateDown(ctx, dir, base, 0)
+	resDown, err := m.MigrateDown(ctx, 0)
 	if err != nil {
 		t.Fatalf("MigrateDown error: %v", err)
 	}

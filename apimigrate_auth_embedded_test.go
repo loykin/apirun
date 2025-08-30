@@ -19,7 +19,6 @@ func TestEmbeddedAuthAndMigrateUp(t *testing.T) {
 	// Prepare a temp sqlite store path to avoid touching repo files
 	tmpDir := t.TempDir()
 	storePath := filepath.Join(tmpDir, "apimigrate.db")
-	ctx = WithStoreOptions(ctx, &StoreOptions{SQLitePath: storePath})
 
 	// Start a local HTTP test server that validates Authorization header
 	var hits int32
@@ -47,12 +46,18 @@ func TestEmbeddedAuthAndMigrateUp(t *testing.T) {
 		"username": "admin",
 		"password": "admin",
 	})
-	if _, err := AcquireAuthAndSetEnv(ctx, AuthTypeBasic, "example_basic", spec, &base); err != nil {
+	if _, err := AcquireAuthAndSetEnv(ctx, AuthTypeBasic, spec, &base); err != nil {
 		t.Fatalf("AcquireAuthAndSetEnv failed: %v", err)
 	}
 
 	// Act: run migrations from the example directory
-	results, err := MigrateUp(ctx, "./examples/auth_embedded/migration", base, 0)
+	st, err := OpenStoreFromOptions("./examples/auth_embedded/migration", &StoreOptions{SQLitePath: storePath})
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	m := Migrator{Env: base, Dir: "./examples/auth_embedded/migration", Store: *st}
+	results, err := m.MigrateUp(ctx, 0)
 
 	// Assert
 	if err != nil {

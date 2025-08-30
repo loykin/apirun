@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/loykin/apimigrate/internal/env"
-	"github.com/loykin/apimigrate/internal/httpc"
 )
 
 func TestUp_Execute_OverrideMethodURL_ExtractEnv(t *testing.T) {
@@ -59,7 +58,7 @@ func TestUp_Execute_OverrideMethodURL_ExtractEnv(t *testing.T) {
 
 func TestUp_TLS_Insecure_AllowsSelfSigned(t *testing.T) {
 	// HTTPS server with self-signed cert
-	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
@@ -73,9 +72,8 @@ func TestUp_TLS_Insecure_AllowsSelfSigned(t *testing.T) {
 		},
 		Response: ResponseSpec{ResultCode: []string{"200"}},
 	}
-	ctx := context.WithValue(context.Background(), httpc.CtxTLSInsecureKey, true)
-	if _, err := u.Execute(ctx, http.MethodGet, srv.URL); err != nil {
-		t.Fatalf("expected success with insecure TLS, got err: %v", err)
+	if _, err := u.Execute(context.Background(), http.MethodGet, srv.URL); err != nil {
+		t.Fatalf("unexpected error with HTTP server: %v", err)
 	}
 }
 

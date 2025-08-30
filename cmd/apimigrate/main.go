@@ -29,12 +29,13 @@ var rootCmd = &cobra.Command{
 
 		ctx := context.Background()
 		baseEnv := apimigrate.Env{Global: map[string]string{}}
+		var storeOptsRet *apimigrate.StoreOptions
 
 		if strings.TrimSpace(configPath) != "" {
 			if verbose {
 				log.Printf("loading config from %s", configPath)
 			}
-			mDir, envFromCfg, saveBody, tlsInsecure, tlsMin, tlsMax, storeOpts, err := loadConfigAndAcquire(ctx, configPath, verbose)
+			mDir, envFromCfg, saveBody, _, _, _, soRet, err := loadConfigAndAcquire(ctx, configPath, verbose)
 			if err != nil {
 				return err
 			}
@@ -44,19 +45,9 @@ var rootCmd = &cobra.Command{
 			if len(envFromCfg.Global) > 0 {
 				baseEnv = envFromCfg
 			}
-			if storeOpts != nil {
-				ctx = apimigrate.WithStoreOptions(ctx, storeOpts)
-			}
+			storeOptsRet = soRet
 			ctx = apimigrate.WithSaveResponseBody(ctx, saveBody)
-			if tlsInsecure {
-				ctx = apimigrate.WithTLSInsecure(ctx, true)
-			}
-			if strings.TrimSpace(tlsMin) != "" {
-				ctx = apimigrate.WithTLSMinVersion(ctx, strings.TrimSpace(tlsMin))
-			}
-			if strings.TrimSpace(tlsMax) != "" {
-				ctx = apimigrate.WithTLSMaxVersion(ctx, strings.TrimSpace(tlsMax))
-			}
+			// TLS settings are now configured via httpc.Httpc struct at client creation time.
 		}
 
 		// If dir wasn't set by config, fall back to the conventional example path
@@ -67,7 +58,16 @@ var rootCmd = &cobra.Command{
 			log.Printf("running migrations in %s (versioned, will be recorded)", dir)
 		}
 		// Use versioned executor so applied versions are persisted to the store
-		vres, err := apimigrate.MigrateUp(ctx, dir, baseEnv, 0)
+		m := apimigrate.Migrator{Env: baseEnv, Dir: dir}
+		var st *apimigrate.Store
+		var err error
+		st, err = apimigrate.OpenStoreFromOptions(dir, storeOptsRet)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = st.Close() }()
+		m.Store = *st
+		vres, err := m.MigrateUp(ctx, 0)
 		if err != nil {
 			if len(vres) > 0 && verbose {
 				for _, vr := range vres {
@@ -202,7 +202,7 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 				// Render templated values in the auth config using the base env
 				renderedAny := apimigrate.RenderAnyTemplate(a.Config, base)
 				renderedCfg, _ := renderedAny.(map[string]interface{})
-				v, err := apimigrate.AcquireAuthAndSetEnv(ctx, pt, storedName, apimigrate.NewAuthSpecFromMap(renderedCfg), &base)
+				v, err := apimigrate.AcquireAuthAndSetEnv(ctx, pt, apimigrate.NewAuthSpecFromMap(renderedCfg), &base)
 				if err != nil {
 					return "", base, false, false, "", "", nil, fmt.Errorf("auth[%d] type=%s name=%s: acquire failed: %w", i, pt, storedName, err)
 				}

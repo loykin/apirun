@@ -45,11 +45,16 @@ func TestMigrateDown_DelegatesAndReverseOrder(t *testing.T) {
 	ctx := context.Background()
 	base := env.Env{Global: map[string]string{}}
 	// Apply both
-	if _, err := MigrateUp(ctx, dir, base, 0); err != nil {
+	st, err := store.Open(filepath.Join(dir, store.DbFileName))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 0); err != nil {
 		t.Fatalf("migrate up failed: %v", err)
 	}
 	// Rollback to 0 (all downs), expect order 2 then 1
-	res, err := MigrateDown(ctx, dir, base, 0)
+	res, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateDown(ctx, 0)
 	if err != nil {
 		t.Fatalf("migrate down failed: %v", err)
 	}
@@ -79,18 +84,23 @@ func TestMigrateUp_RecordsStatusAndBody(t *testing.T) {
 			}
 			ctx := context.WithValue(context.Background(), SaveResponseBodyKey, save)
 			base := env.Env{Global: map[string]string{}}
-			if _, err := MigrateUp(ctx, dir, base, 0); err != nil {
+			st, err := store.Open(filepath.Join(dir, store.DbFileName))
+			if err != nil {
+				t.Fatalf("open store: %v", err)
+			}
+			defer func() { _ = st.Close() }()
+			if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 0); err != nil {
 				t.Fatalf("migrate up: %v", err)
 			}
 
 			// Inspect migration_runs
 			dbPath := filepath.Join(dir, store.DbFileName)
-			st, err := store.Open(dbPath)
+			st2, err := store.Open(dbPath)
 			if err != nil {
 				t.Fatalf("open store: %v", err)
 			}
-			defer func() { _ = st.Close() }()
-			rows, err := st.DB.Query(`SELECT status_code, body FROM migration_runs ORDER BY id ASC`)
+			defer func() { _ = st2.Close() }()
+			rows, err := st2.DB.Query(`SELECT status_code, body FROM migration_runs ORDER BY id ASC`)
 			if err != nil {
 				t.Fatalf("query runs: %v", err)
 			}
@@ -149,18 +159,18 @@ func TestMigrateUp_StoresEnv_Persisted(t *testing.T) {
 	}
 	ctx := context.Background()
 	base := env.Env{Global: map[string]string{}}
-	if _, err := MigrateUp(ctx, dir, base, 0); err != nil {
+	st, err := store.Open(filepath.Join(dir, store.DbFileName))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 0); err != nil {
 		t.Fatalf("migrate up: %v", err)
 	}
 	if createCalls == 0 {
 		t.Fatalf("expected create to be called")
 	}
 	// verify stored_env contains rid
-	st, err := store.Open(filepath.Join(dir, store.DbFileName))
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	defer func() { _ = st.Close() }()
 	rows, err := st.DB.Query(`SELECT COUNT(1) FROM stored_env WHERE version=1 AND name='rid' AND value='abc'`)
 	if err != nil {
 		t.Fatalf("query stored_env: %v", err)
@@ -208,22 +218,22 @@ func TestMigrateDown_UsesStoredEnvAndCleans(t *testing.T) {
 	ctx := context.Background()
 	base := env.Env{Global: map[string]string{}}
 	// Apply up
-	if _, err := MigrateUp(ctx, dir, base, 0); err != nil {
+	st, err := store.Open(filepath.Join(dir, store.DbFileName))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 0); err != nil {
 		t.Fatalf("migrate up: %v", err)
 	}
 	// Now perform down to 0, expecting DELETE with rid from store and cleanup
-	if _, err := MigrateDown(ctx, dir, base, 0); err != nil {
+	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateDown(ctx, 0); err != nil {
 		t.Fatalf("migrate down: %v", err)
 	}
 	if delPath != "/resource/123" {
 		t.Fatalf("expected DELETE to /resource/123, got %s", delPath)
 	}
 	// ensure stored_env cleaned for version 1
-	st, err := store.Open(filepath.Join(dir, store.DbFileName))
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	defer func() { _ = st.Close() }()
 	rows, err := st.DB.Query(`SELECT COUNT(1) FROM stored_env WHERE version=1`)
 	if err != nil {
 		t.Fatalf("query stored_env: %v", err)
@@ -268,7 +278,12 @@ func TestMigrateUp_TargetVersionPlanning(t *testing.T) {
 	base := env.Env{Global: map[string]string{}}
 
 	// Apply up to version 2 only
-	if _, err := MigrateUp(ctx, dir, base, 2); err != nil {
+	st, err := store.Open(filepath.Join(dir, store.DbFileName))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 2); err != nil {
 		t.Fatalf("migrate up to 2: %v", err)
 	}
 	// Verify only v1 and v2 were called
@@ -276,34 +291,22 @@ func TestMigrateUp_TargetVersionPlanning(t *testing.T) {
 		t.Fatalf("expected calls v1=1 v2=1 v3=0, got: %v", calls)
 	}
 	// Verify store current version is 2
-	st, err := store.Open(filepath.Join(dir, store.DbFileName))
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
 	cur, err := st.CurrentVersion()
 	if err != nil {
-		_ = st.Close()
 		t.Fatalf("CurrentVersion: %v", err)
 	}
 	if cur != 2 {
-		_ = st.Close()
 		t.Fatalf("expected current version 2, got %d", cur)
 	}
-	_ = st.Close()
 
 	// Now apply remaining (to=0 means all)
-	if _, err := MigrateUp(ctx, dir, base, 0); err != nil {
+	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 0); err != nil {
 		t.Fatalf("migrate up all: %v", err)
 	}
 	if calls["/v3"] != 1 {
 		t.Fatalf("expected v3 to be called once after final up, got: %v", calls)
 	}
-	st2, err := store.Open(filepath.Join(dir, store.DbFileName))
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	defer func() { _ = st2.Close() }()
-	cur, err = st2.CurrentVersion()
+	cur, err = st.CurrentVersion()
 	if err != nil {
 		t.Fatalf("CurrentVersion: %v", err)
 	}
@@ -329,10 +332,14 @@ func TestMigrate_StoreOptions_ExplicitSQLitePath(t *testing.T) {
 
 	customDir := t.TempDir()
 	customPath := filepath.Join(customDir, "custom.db")
-	ctx := context.WithValue(context.Background(), StoreOptionsKey, &StoreOptions{SQLitePath: customPath})
 	base := env.Env{Global: map[string]string{}}
-
-	if _, err := MigrateUp(ctx, dir, base, 0); err != nil {
+	// open custom store directly and inject into migrator
+	st, err := store.Open(customPath)
+	if err != nil {
+		t.Fatalf("open store (custom sqlite): %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(context.Background(), 0); err != nil {
 		t.Fatalf("migrate up: %v", err)
 	}
 	if calls != 1 {
@@ -347,12 +354,12 @@ func TestMigrate_StoreOptions_ExplicitSQLitePath(t *testing.T) {
 		t.Fatalf("did not expect default DB at %s when custom path is set", defaultPath)
 	}
 	// Inspect migration_runs in custom DB
-	st, err := store.Open(customPath)
+	st2, err := store.Open(customPath)
 	if err != nil {
 		t.Fatalf("open custom store: %v", err)
 	}
-	defer func() { _ = st.Close() }()
-	rows, err := st.DB.Query(`SELECT COUNT(1) FROM migration_runs`)
+	defer func() { _ = st2.Close() }()
+	rows, err := st2.DB.Query(`SELECT COUNT(1) FROM migration_runs`)
 	if err != nil {
 		t.Fatalf("query runs: %v", err)
 	}
@@ -368,46 +375,28 @@ func TestMigrate_StoreOptions_ExplicitSQLitePath(t *testing.T) {
 	}
 }
 
-func TestOpenStoreFromCtx_DefaultOnNilAndWrongType(t *testing.T) {
+func TestOpenStore_DefaultOnManualPath(t *testing.T) {
 	dir := t.TempDir()
-	// nil context value -> default sqlite path
-	st, err := openStoreFromCtx(context.Background(), dir)
+	path := filepath.Join(dir, store.DbFileName)
+	st, err := store.Open(path)
 	if err != nil {
-		t.Fatalf("openStoreFromCtx (nil) err: %v", err)
+		t.Fatalf("store.Open (default path) err: %v", err)
 	}
 	_ = st.Close()
-	if _, err := os.Stat(filepath.Join(dir, store.DbFileName)); err != nil {
-		t.Fatalf("expected default sqlite db created: %v", err)
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("expected sqlite db created: %v", err)
 	}
-	// wrong type in context -> should still default to sqlite path in dir
-	ctx := context.WithValue(context.Background(), StoreOptionsKey, 123) // not *StoreOptions
-	st2, err := openStoreFromCtx(ctx, dir)
-	if err != nil {
-		t.Fatalf("openStoreFromCtx (wrong type) err: %v", err)
-	}
-	_ = st2.Close()
 }
 
-func TestOpenStoreFromCtx_SQLiteCustomPath(t *testing.T) {
-	dir := t.TempDir()
+func TestOpenStore_SQLiteCustomPath(t *testing.T) {
 	customDir := t.TempDir()
 	customPath := filepath.Join(customDir, "custom.db")
-	ctx := context.WithValue(context.Background(), StoreOptionsKey, &StoreOptions{SQLitePath: customPath})
-	st, err := openStoreFromCtx(ctx, dir)
+	st, err := store.Open(customPath)
 	if err != nil {
-		t.Fatalf("openStoreFromCtx (sqlite custom) err: %v", err)
+		t.Fatalf("store.Open (sqlite custom) err: %v", err)
 	}
 	_ = st.Close()
 	if _, err := os.Stat(customPath); err != nil {
 		t.Fatalf("expected custom sqlite db at %s: %v", customPath, err)
-	}
-}
-
-func TestOpenStoreFromCtx_Postgres_EmptyDSN_Error(t *testing.T) {
-	dir := t.TempDir()
-	ctx := context.WithValue(context.Background(), StoreOptionsKey, &StoreOptions{Backend: "postgres", PostgresDSN: ""})
-	st, err := openStoreFromCtx(ctx, dir)
-	if err == nil || st != nil {
-		t.Fatalf("expected error for empty DSN postgres, got st=%#v err=%v", st, err)
 	}
 }

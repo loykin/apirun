@@ -19,10 +19,9 @@ func parseForm(r *http.Request) url.Values {
 }
 
 func TestAcquireBasicAuth_Wrapper(t *testing.T) {
-	iauth.ClearTokens()
 	ctx := context.Background()
 	cfg := BasicAuthConfig{Username: "user", Password: "pass"}
-	v, err := AcquireBasicAuthWithName(ctx, "b1", cfg)
+	v, err := AcquireBasicAuthWithName(ctx, cfg)
 	if err != nil {
 		t.Fatalf("AcquireBasicAuthWithName error: %v", err)
 	}
@@ -30,15 +29,9 @@ func TestAcquireBasicAuth_Wrapper(t *testing.T) {
 	if strings.HasPrefix(v, "Basic ") || v == "" {
 		t.Fatalf("expected bare base64 token, got %q", v)
 	}
-	// verify token stored
-	stored, ok := iauth.GetToken("b1")
-	if !ok || stored != v {
-		t.Fatalf("stored token mismatch: ok=%v, stored=%q want=%q", ok, stored, v)
-	}
 }
 
 func TestAcquireOAuth2Password_Wrapper(t *testing.T) {
-	iauth.ClearTokens()
 	// token endpoint
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/token" {
@@ -60,7 +53,7 @@ func TestAcquireOAuth2Password_Wrapper(t *testing.T) {
 		Username: "u",
 		Password: "p",
 	}
-	v, err := AcquireOAuth2PasswordWithName(ctx, "pw1", cfg)
+	v, err := AcquireOAuth2PasswordWithName(ctx, cfg)
 	if err != nil {
 		t.Fatalf("AcquireOAuth2PasswordWithName error: %v", err)
 	}
@@ -70,7 +63,6 @@ func TestAcquireOAuth2Password_Wrapper(t *testing.T) {
 }
 
 func TestAcquireOAuth2ClientCredentials_Wrapper(t *testing.T) {
-	iauth.ClearTokens()
 	// token endpoint
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/token" {
@@ -91,7 +83,7 @@ func TestAcquireOAuth2ClientCredentials_Wrapper(t *testing.T) {
 		ClientSec: "sec",
 		TokenURL:  srv.URL + "/token",
 	}
-	v, err := AcquireOAuth2ClientCredentialsWithName(ctx, "cc1", cfg)
+	v, err := AcquireOAuth2ClientCredentialsWithName(ctx, cfg)
 	if err != nil {
 		t.Fatalf("AcquireOAuth2ClientCredentialsWithName error: %v", err)
 	}
@@ -101,7 +93,6 @@ func TestAcquireOAuth2ClientCredentials_Wrapper(t *testing.T) {
 }
 
 func TestAcquireOAuth2Implicit_Wrapper(t *testing.T) {
-	iauth.ClearTokens()
 	ctx := context.Background()
 	cfg := OAuth2ImplicitConfig{
 		ClientID:    "cid",
@@ -109,7 +100,7 @@ func TestAcquireOAuth2Implicit_Wrapper(t *testing.T) {
 		AuthURL:     "http://auth.example/authorize",
 		Scopes:      []string{"read", "write"},
 	}
-	v, err := AcquireOAuth2ImplicitWithName(ctx, "impl1", cfg)
+	v, err := AcquireOAuth2ImplicitWithName(ctx, cfg)
 	if err != nil {
 		t.Fatalf("AcquireOAuth2ImplicitWithName error: %v", err)
 	}
@@ -126,7 +117,6 @@ func TestAcquireOAuth2Implicit_Wrapper(t *testing.T) {
 }
 
 func TestAcquirePocketBase_Wrapper(t *testing.T) {
-	iauth.ClearTokens()
 	// mock pocketbase endpoint
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/admins/auth-with-password" {
@@ -143,7 +133,7 @@ func TestAcquirePocketBase_Wrapper(t *testing.T) {
 		Email:    "a@b.c",
 		Password: "secret",
 	}
-	v, err := AcquirePocketBaseWithName(ctx, "pb1", cfg)
+	v, err := AcquirePocketBaseWithName(ctx, cfg)
 	if err != nil {
 		t.Fatalf("AcquirePocketBaseWithName error: %v", err)
 	}
@@ -153,25 +143,18 @@ func TestAcquirePocketBase_Wrapper(t *testing.T) {
 }
 
 func TestRegistry_LoadsWithPublicConstants_Basic(t *testing.T) {
-	iauth.ClearTokens()
 	ctx := context.Background()
 	// Use registry directly with public constant
-	v, err := iauth.AcquireAndStoreWithName(ctx, AuthTypeBasic, "b2", map[string]interface{}{
+	v, err := iauth.AcquireAndStoreWithName(ctx, AuthTypeBasic, map[string]interface{}{
 		"username": "user",
 		"password": "pass",
 	})
 	if err != nil || v == "" {
 		t.Fatalf("AcquireAndStoreWithName basic error: v=%q err=%v", v, err)
 	}
-	// Ensure stored
-	stored, ok := iauth.GetToken("b2")
-	if !ok || stored != v {
-		t.Fatalf("stored basic token mismatch: ok=%v stored=%q want=%q", ok, stored, v)
-	}
 }
 
 func TestRegistry_LoadsWithPublicConstants_OAuth2Password(t *testing.T) {
-	iauth.ClearTokens()
 	// mock token endpoint
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/token" {
@@ -196,14 +179,13 @@ func TestRegistry_LoadsWithPublicConstants_OAuth2Password(t *testing.T) {
 			"password":  "p",
 		},
 	}
-	v, err := iauth.AcquireAndStoreWithName(ctx, AuthTypeOAuth2, "pw2", spec)
+	v, err := iauth.AcquireAndStoreWithName(ctx, AuthTypeOAuth2, spec)
 	if err != nil || v != "t-pass2" {
 		t.Fatalf("AcquireAndStoreWithName oauth2 password error: v=%q err=%v", v, err)
 	}
 }
 
 func TestRegistry_LoadsWithPublicConstants_PocketBase(t *testing.T) {
-	iauth.ClearTokens()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/admins/auth-with-password" {
 			t.Fatalf("expected pocketbase login path, got %s", r.URL.Path)
@@ -219,7 +201,7 @@ func TestRegistry_LoadsWithPublicConstants_PocketBase(t *testing.T) {
 		"email":    "a@b.c",
 		"password": "secret",
 	}
-	v, err := iauth.AcquireAndStoreWithName(ctx, AuthTypePocketBase, "pb2", spec)
+	v, err := iauth.AcquireAndStoreWithName(ctx, AuthTypePocketBase, spec)
 	if err != nil || v != "pb-token-2" {
 		t.Fatalf("AcquireAndStoreWithName pocketbase error: v=%q err=%v", v, err)
 	}

@@ -34,7 +34,7 @@ func main() {
 		TableMigrationRuns:    prefix + "_migration_runs",
 		TableStoredEnv:        prefix + "_stored_env",
 	}
-	ctx = apimigrate.WithStoreOptions(ctx, opts)
+	// store options are now configured on the Migrator struct
 
 	// Optional: whether to save response bodies into the runs table
 	ctx = apimigrate.WithSaveResponseBody(ctx, false)
@@ -43,7 +43,13 @@ func main() {
 	base := apimigrate.Env{Global: map[string]string{}}
 
 	// Apply all migrations in the directory
-	vres, err := apimigrate.MigrateUp(ctx, migrateDir, base, 0)
+	st, err := apimigrate.OpenStoreFromOptions(migrateDir, opts)
+	if err != nil {
+		log.Fatalf("open store failed: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	m := apimigrate.Migrator{Env: base, Dir: migrateDir, Store: *st}
+	vres, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		log.Fatalf("migrate up failed: %v", err)
 	}

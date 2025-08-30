@@ -38,7 +38,8 @@ func (u Up) Execute(ctx context.Context, method, url string) (*ExecResult, error
 	// Render URL (RenderGoTemplate is idempotent for non-templates)
 	urlToUse = u.Env.RenderGoTemplate(urlToUse)
 
-	client := httpc.New(ctx)
+	var h httpc.Httpc
+	client := h.New()
 	req := client.R().SetContext(ctx).SetHeaders(hdrs).SetQueryParams(queries)
 	if strings.TrimSpace(body) != "" {
 		if isJSON(body) {

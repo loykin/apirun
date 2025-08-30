@@ -9,17 +9,13 @@ type Token struct {
 	Value string
 }
 
-// tokenStore encapsulates the map and its mutex into a single structure.
-type tokenStore struct {
+// TokenStore encapsulates the map and its mutex into a single structure.
+type TokenStore struct {
 	mu     sync.RWMutex
 	byName map[string]Token
 }
 
-func newTokenStore() *tokenStore {
-	return &tokenStore{byName: make(map[string]Token)}
-}
-
-func (s *tokenStore) set(name, value string) {
+func (s *TokenStore) set(name, value string) {
 	name = strings.ToLower(strings.TrimSpace(name))
 	if name == "" || value == "" {
 		return
@@ -29,7 +25,7 @@ func (s *tokenStore) set(name, value string) {
 	s.mu.Unlock()
 }
 
-func (s *tokenStore) get(name string) (value string, ok bool) {
+func (s *TokenStore) get(name string) (value string, ok bool) {
 	name = strings.ToLower(strings.TrimSpace(name))
 	s.mu.RLock()
 	tok, exists := s.byName[name]
@@ -40,27 +36,8 @@ func (s *tokenStore) get(name string) (value string, ok bool) {
 	return tok.Value, true
 }
 
-func (s *tokenStore) clear() {
+func (s *TokenStore) clear() {
 	s.mu.Lock()
 	s.byName = make(map[string]Token)
 	s.mu.Unlock()
-}
-
-var globalTokens = newTokenStore()
-
-// SetToken stores a token under a logical name (e.g., "keycloak").
-// Header is the header name to use (e.g., Authorization or X-Api-Key),
-// Value is the header value (may include Bearer prefix if needed).
-func SetToken(name, value string) {
-	globalTokens.set(name, value)
-}
-
-// GetToken retrieves a stored token by name.
-func GetToken(name string) (value string, ok bool) {
-	return globalTokens.get(name)
-}
-
-// ClearTokens removes all stored tokens (useful for tests).
-func ClearTokens() {
-	globalTokens.clear()
 }

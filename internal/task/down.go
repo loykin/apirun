@@ -145,7 +145,8 @@ func renderBody(e env.Env, b string) string {
 }
 
 func buildRequest(ctx context.Context, headers map[string]string, queries map[string]string, body string) *resty.Request {
-	client := httpc.New(ctx)
+	var h httpc.Httpc
+	client := h.New()
 	req := client.R().SetContext(ctx).SetHeaders(headers).SetQueryParams(queries)
 	if strings.TrimSpace(body) != "" {
 		if isJSON(body) {

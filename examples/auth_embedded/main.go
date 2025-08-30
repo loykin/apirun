@@ -16,12 +16,12 @@ func main() {
 	ctx := context.Background()
 
 	// Use a temporary sqlite store, avoiding writing example DB files into the repo
+	var storePath string
 	tmpDir, err := os.MkdirTemp("", "apimigrate-example-*")
 	if err == nil {
 		// best-effort; if creation fails, fall back to default store behavior
 		defer func() { _ = os.RemoveAll(tmpDir) }()
-		storePath := filepath.Join(tmpDir, "apimigrate.db")
-		ctx = apimigrate.WithStoreOptions(ctx, &apimigrate.StoreOptions{SQLitePath: storePath})
+		storePath = filepath.Join(tmpDir, "apimigrate.db")
 	}
 
 	// Start a local HTTP test server to avoid external network dependency
@@ -43,14 +43,20 @@ func main() {
 	}
 
 	// Acquire token, store under a logical name (optional), and inject into base env as _auth_token
-	if v, err := apimigrate.AcquireAuthAndSetEnv(ctx, apimigrate.AuthTypeBasic, "example_basic", spec, &base); err != nil {
+	if v, err := apimigrate.AcquireAuthAndSetEnv(ctx, apimigrate.AuthTypeBasic, spec, &base); err != nil {
 		log.Fatalf("acquire auth failed: %v", err)
 	} else {
 		fmt.Printf("auth token acquired and injected (_auth_token): %q\n", v)
 	}
 
 	// Run migrations from the local directory
-	if _, err := apimigrate.MigrateUp(ctx, "./examples/auth_embedded/migration", base, 0); err != nil {
+	st, err := apimigrate.OpenStoreFromOptions("./examples/auth_embedded/migration", &apimigrate.StoreOptions{SQLitePath: storePath})
+	if err != nil {
+		log.Fatalf("open store failed: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	m := apimigrate.Migrator{Env: base, Dir: "./examples/auth_embedded/migration", Store: *st}
+	if _, err := m.MigrateUp(ctx, 0); err != nil {
 		log.Fatalf("migrate up failed: %v", err)
 	}
 	fmt.Println("migrations completed successfully")

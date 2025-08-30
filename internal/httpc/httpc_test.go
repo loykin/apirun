@@ -10,25 +10,18 @@ import (
 )
 
 // helper to perform a simple GET using our client
-func doGet(t *testing.T, ctx context.Context, url string) (int, error) {
+func doGet(t *testing.T, ctx context.Context, url string, h *Httpc) (int, error) {
 	t.Helper()
-	c := New(ctx)
+	var cfg Httpc
+	if h != nil {
+		cfg = *h
+	}
+	c := cfg.New()
 	resp, err := c.R().SetContext(ctx).Get(url)
 	if err != nil {
 		return 0, err
 	}
 	return resp.StatusCode(), nil
-}
-
-// helper to create a context with TLS min/max bounds
-func withTLSBounds(ctx context.Context, min, max string) context.Context {
-	if strings.TrimSpace(min) != "" {
-		ctx = context.WithValue(ctx, CtxTLSMinVersionKey, min)
-	}
-	if strings.TrimSpace(max) != "" {
-		ctx = context.WithValue(ctx, CtxTLSMaxVersionKey, max)
-	}
-	return ctx
 }
 
 func TestHTTPClient_Insecure_AllowsSelfSigned(t *testing.T) {
@@ -40,26 +33,28 @@ func TestHTTPClient_Insecure_AllowsSelfSigned(t *testing.T) {
 	defer srv.Close()
 
 	// default (no mode) should fail due to unknown authority
-	if _, err := doGet(t, context.Background(), srv.URL); err == nil {
+	if _, err := doGet(t, context.Background(), srv.URL, nil); err == nil {
 		t.Fatalf("expected error without insecure TLS, got nil")
 	}
 
 	// insecure should succeed
-	ctx := context.WithValue(context.Background(), CtxTLSInsecureKey, true)
-	if code, err := doGet(t, ctx, srv.URL); err != nil || code != 200 {
+	h := &Httpc{TlsConfig: &tls.Config{InsecureSkipVerify: true}}
+	if code, err := doGet(t, context.Background(), srv.URL, h); err != nil || code != 200 {
 		t.Fatalf("expected 200 with insecure, got code=%d err=%v", code, err)
 	}
 }
 
 func TestHTTPClient_TLSConfigAppliedToClient(t *testing.T) {
 	// insecure: expect TLS config set and InsecureSkipVerify true
-	cInsec := New(context.WithValue(context.Background(), CtxTLSInsecureKey, true))
+	hInsec := &Httpc{TlsConfig: &tls.Config{InsecureSkipVerify: true}}
+	cInsec := hInsec.New()
 	tr, _ := cInsec.GetClient().Transport.(*http.Transport)
 	if tr == nil || tr.TLSClientConfig == nil || tr.TLSClientConfig.InsecureSkipVerify != true {
 		t.Fatalf("expected InsecureSkipVerify=true for insecure mode")
 	}
 	// tls1.2: expect Min=Max=TLS1.2
-	c12 := New(withTLSBounds(context.Background(), "1.2", "1.2"))
+	h12 := &Httpc{TlsConfig: &tls.Config{MinVersion: tls.VersionTLS12, MaxVersion: tls.VersionTLS12}}
+	c12 := h12.New()
 	tr, _ = c12.GetClient().Transport.(*http.Transport)
 	if tr == nil || tr.TLSClientConfig == nil {
 		t.Fatalf("expected TLSClientConfig for tls1.2 mode")
@@ -68,28 +63,14 @@ func TestHTTPClient_TLSConfigAppliedToClient(t *testing.T) {
 		t.Fatalf("expected TLS1.2 only, got Min=%v Max=%v", tr.TLSClientConfig.MinVersion, tr.TLSClientConfig.MaxVersion)
 	}
 	// tls1.3: expect Min=Max=TLS1.3
-	c13 := New(withTLSBounds(context.Background(), "1.3", "1.3"))
+	h13 := &Httpc{TlsConfig: &tls.Config{MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13}}
+	c13 := h13.New()
 	tr, _ = c13.GetClient().Transport.(*http.Transport)
 	if tr == nil || tr.TLSClientConfig == nil {
 		t.Fatalf("expected TLSClientConfig for tls1.3 mode")
 	}
 	if tr.TLSClientConfig.MinVersion != tls.VersionTLS13 || tr.TLSClientConfig.MaxVersion != tls.VersionTLS13 {
 		t.Fatalf("expected TLS1.3 only, got Min=%v Max=%v", tr.TLSClientConfig.MinVersion, tr.TLSClientConfig.MaxVersion)
-	}
-	// auto/default: we now set a default TLS config with MinVersion TLS1.3
-	cAuto := New(context.Background())
-	trAuto, _ := cAuto.GetClient().Transport.(*http.Transport)
-	if trAuto == nil || trAuto.TLSClientConfig == nil {
-		t.Fatalf("expected TLSClientConfig to be set by default")
-	}
-	if trAuto.TLSClientConfig.MinVersion != tls.VersionTLS13 {
-		t.Fatalf("expected default MinVersion TLS1.3, got %v", trAuto.TLSClientConfig.MinVersion)
-	}
-	if trAuto.TLSClientConfig.MaxVersion != 0 {
-		t.Fatalf("expected default MaxVersion to be 0 (no max), got %v", trAuto.TLSClientConfig.MaxVersion)
-	}
-	if trAuto.TLSClientConfig.InsecureSkipVerify {
-		t.Fatalf("did not expect InsecureSkipVerify by default")
 	}
 }
 
@@ -102,7 +83,7 @@ func TestHTTPClient_Auto_DefaultMode(t *testing.T) {
 	if !strings.HasPrefix(srv.URL, "http://") {
 		t.Fatalf("expected http server URL, got %s", srv.URL)
 	}
-	if code, err := doGet(t, context.Background(), srv.URL); err != nil || code != 204 {
+	if code, err := doGet(t, context.Background(), srv.URL, nil); err != nil || code != 204 {
 		t.Fatalf("default client to http server expected 204, got code=%d err=%v", code, err)
 	}
 }

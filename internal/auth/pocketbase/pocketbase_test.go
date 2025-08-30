@@ -26,13 +26,9 @@ func TestPocketBase_Success(t *testing.T) {
 		"password": "secret",
 	}
 
-	v, err := auth.AcquireAndStoreWithName(context.Background(), "pocketbase", "pocket", spec)
+	v, err := auth.AcquireAndStoreWithName(context.Background(), "pocketbase", spec)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	vv, ok := auth.GetToken("pocket")
-	if !ok || vv != v {
-		t.Fatalf("expected stored token, got ok=%v val=%q", ok, vv)
 	}
 	if v != "pbtoken" {
 		t.Fatalf("expected token 'pbtoken', got %q", v)
@@ -52,7 +48,7 @@ func TestPocketBase_Non2xx_Error(t *testing.T) {
 		"password": "secret",
 	}
 
-	_, err := auth.AcquireAndStoreWithName(context.Background(), "pocketbase", "pocket", spec)
+	_, err := auth.AcquireAndStoreWithName(context.Background(), "pocketbase", spec)
 	if err == nil {
 		t.Fatalf("expected error for non-2xx response")
 	}

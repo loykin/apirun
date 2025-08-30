@@ -30,7 +30,8 @@ func main() {
 	base := apimigrate.Env{Global: map[string]string{}}
 
 	// Apply all migrations in the directory
-	vres, err := apimigrate.MigrateUp(ctx, migrateDir, base, 0)
+	m := apimigrate.Migrator{Env: base, Dir: migrateDir}
+	vres, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		log.Fatalf("migrate up failed: %v", err)
 	}

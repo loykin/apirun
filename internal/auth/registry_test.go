@@ -29,42 +29,31 @@ func makeFactory(_ string, _ string, value string) Factory {
 }
 
 func TestRegistry_RegisterAndAcquire_CustomProvider(t *testing.T) {
-	ClearTokens()
 	Register("UnitTestDemo", makeFactory("demo", "X-Demo", "ok"))
 
-	v, err := AcquireAndStoreWithName(context.TODO(), "unittestdemo", "demo", map[string]interface{}{"value": "val"})
+	v, err := AcquireAndStoreWithName(context.TODO(), "unittestdemo", map[string]interface{}{"value": "val"})
 	if err != nil {
 		t.Fatalf("AcquireAndStoreWithName err: %v", err)
 	}
 	if v != "val" {
 		t.Fatalf("unexpected acquire: v=%q", v)
 	}
-	// stored under provided name
-	vv, ok := GetToken("demo")
-	if !ok || vv != v {
-		t.Fatalf("expected token stored as 'demo': ok=%v v=%q want=%q", ok, vv, v)
-	}
 }
 
-func TestRegistry_AcquireAndStoreWithName_StoresToken(t *testing.T) {
-	ClearTokens()
+func TestRegistry_AcquireAndStoreWithName_ReturnsValue(t *testing.T) {
 	Register("UnitTestStore", makeFactory("store", "Authorization", "Bearer 123"))
 
-	v, err := AcquireAndStoreWithName(context.Background(), "unitteststore", "store", map[string]interface{}{})
+	v, err := AcquireAndStoreWithName(context.Background(), "unitteststore", map[string]interface{}{})
 	if err != nil {
 		t.Fatalf("AcquireAndStoreWithName err: %v", err)
 	}
 	if v == "" {
 		t.Fatalf("expected non-empty value, got %q", v)
 	}
-	vv, ok := GetToken("store")
-	if !ok || vv != v {
-		t.Fatalf("expected token stored: ok=%v v=%q; want v=%q", ok, vv, v)
-	}
 }
 
 func TestRegistry_UnsupportedType_ReturnsError(t *testing.T) {
-	if _, err := AcquireAndStoreWithName(context.Background(), "does-not-exist", "any", nil); err == nil {
+	if _, err := AcquireAndStoreWithName(context.Background(), "does-not-exist", nil); err == nil {
 		t.Fatalf("expected error for unsupported provider, got nil")
 	}
 }
@@ -72,7 +61,7 @@ func TestRegistry_UnsupportedType_ReturnsError(t *testing.T) {
 func TestRegistry_Register_IgnoresEmptyOrNil(t *testing.T) {
 	// empty type
 	Register("", nil)
-	if _, err := AcquireAndStoreWithName(context.Background(), "", "n", nil); err == nil {
+	if _, err := AcquireAndStoreWithName(context.Background(), "", nil); err == nil {
 		t.Fatalf("expected error for empty type after Register(\"\", nil)")
 	}
 }
@@ -104,36 +93,28 @@ func TestNormalizeKey_LowerTrim(t *testing.T) {
 }
 
 func TestAcquireAndStoreWithName_UnsupportedTypeError(t *testing.T) {
-	ClearTokens()
-	if _, err := AcquireAndStoreWithName(context.Background(), "__nope__", "x", map[string]interface{}{}); err == nil {
+	if _, err := AcquireAndStoreWithName(context.Background(), "__nope__", map[string]interface{}{}); err == nil {
 		t.Fatal("expected error for unsupported provider type, got nil")
 	}
 }
 
-func TestAcquireAndStoreWithName_StoresTokenAndRetrievable(t *testing.T) {
-	ClearTokens()
+func TestAcquireAndStoreWithName_ReturnsValueForCustomProvider(t *testing.T) {
 	// Register a unique temporary provider key
 	key := "dummy-registry-test"
 	Register(key, dummyFactoryOK)
-	v, err := AcquireAndStoreWithName(context.Background(), key, "logical", map[string]interface{}{"value": "tok123"})
+	v, err := AcquireAndStoreWithName(context.Background(), key, map[string]interface{}{"value": "tok123"})
 	if err != nil {
 		t.Fatalf("AcquireAndStoreWithName error: %v", err)
 	}
 	if v != "tok123" {
 		t.Fatalf("unexpected token value: got %q want %q", v, "tok123")
 	}
-	// Ensure it was stored under the provided logical name
-	vv, ok := GetToken("logical")
-	if !ok || vv != "tok123" {
-		t.Fatalf("stored token mismatch: ok=%v val=%q", ok, vv)
-	}
 }
 
 func TestAcquireAndStoreWithName_NilContextHandled(t *testing.T) {
-	ClearTokens()
 	key := "dummy-nilctx"
 	Register(key, dummyFactoryOK)
-	v, err := AcquireAndStoreWithName(context.TODO(), key, "nm", map[string]interface{}{"value": "x"})
+	v, err := AcquireAndStoreWithName(context.TODO(), key, map[string]interface{}{"value": "x"})
 	if err != nil || v != "x" {
 		t.Fatalf("nil ctx path failed: v=%q err=%v", v, err)
 	}

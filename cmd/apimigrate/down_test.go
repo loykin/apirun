@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/loykin/apimigrate"
-	"github.com/loykin/apimigrate/internal/auth"
 	"github.com/spf13/viper"
 )
 
@@ -17,7 +16,6 @@ import (
 // Build two migrations with down steps that use different auth tokens and
 // verify that running `down` to 0 triggers both downs with the correct headers.
 func TestDownCmd_FullRollback_AuthChanges(t *testing.T) {
-	auth.ClearTokens()
 	calls := make(map[string]int)
 
 	// Expect Authorization headers to use the last acquired token for both downs (reverted behavior)
@@ -132,7 +130,6 @@ migrate_dir: %s
 // Test partial rollback: after applying two versions, roll back to version 1.
 // Only the highest version (2) should be rolled back and thus only /down2 should be called.
 func TestDownCmd_PartialRollback_ToVersion(t *testing.T) {
-	auth.ClearTokens()
 	calls := make(map[string]int)
 	exp2 := basicVal("uu2", "pp2")
 

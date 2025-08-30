@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/loykin/apimigrate"
+	httpc "github.com/loykin/apimigrate/internal/httpc"
 )
 
 // doWait polls an HTTP endpoint until it returns the expected status or timeout elapses.
@@ -46,16 +48,38 @@ func doWait(ctx context.Context, env apimigrate.Env, wc WaitConfig, clientCfg Cl
 
 	urlToHit := env.RenderGoTemplate(urlRaw)
 	ctxWait := ctx
-	// Apply TLS options for the wait HTTP client
+	// Prepare TLS options for the wait HTTP client via httpc.Httpc
+	minV := uint16(0)
+	maxV := uint16(0)
+	switch strings.TrimSpace(strings.ToLower(clientCfg.MinTLSVersion)) {
+	case "1.0", "10", "tls1.0", "tls10":
+		minV = tls.VersionTLS10
+	case "1.1", "11", "tls1.1", "tls11":
+		minV = tls.VersionTLS11
+	case "1.2", "12", "tls1.2", "tls12":
+		minV = tls.VersionTLS12
+	case "1.3", "13", "tls1.3", "tls13":
+		minV = tls.VersionTLS13
+	}
+	switch strings.TrimSpace(strings.ToLower(clientCfg.MaxTLSVersion)) {
+	case "1.0", "10", "tls1.0", "tls10":
+		maxV = tls.VersionTLS10
+	case "1.1", "11", "tls1.1", "tls11":
+		maxV = tls.VersionTLS11
+	case "1.2", "12", "tls1.2", "tls12":
+		maxV = tls.VersionTLS12
+	case "1.3", "13", "tls1.3", "tls13":
+		maxV = tls.VersionTLS13
+	}
+
+	// for legacy compatibility, if no max version is set, use min version
+	// #nosec G402 -- legacy compatibility only, do not use in production
+	cfg := &tls.Config{MinVersion: minV, MaxVersion: maxV}
 	if clientCfg.Insecure {
-		ctxWait = apimigrate.WithTLSInsecure(ctxWait, true)
+		// #nosec G402 — Intentionally allow self-signed certificates for the wait probe when explicitly configured
+		cfg.InsecureSkipVerify = true
 	}
-	if s := strings.TrimSpace(clientCfg.MinTLSVersion); s != "" {
-		ctxWait = apimigrate.WithTLSMinVersion(ctxWait, s)
-	}
-	if s := strings.TrimSpace(clientCfg.MaxTLSVersion); s != "" {
-		ctxWait = apimigrate.WithTLSMaxVersion(ctxWait, s)
-	}
+	hcfg := httpc.Httpc{TlsConfig: cfg}
 
 	if verbose {
 		log.Printf("waiting for %s %s to return %d (timeout=%s, interval=%s)", method, urlToHit, expected, timeout, interval)
@@ -63,7 +87,7 @@ func doWait(ctx context.Context, env apimigrate.Env, wc WaitConfig, clientCfg Cl
 	deadline := time.Now().Add(timeout)
 	var lastStatus int
 	for {
-		client := apimigrate.NewHTTPClient(ctxWait)
+		client := hcfg.New()
 		req := client.R().SetContext(ctxWait)
 		var status int
 		var err error

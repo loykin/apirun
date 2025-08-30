@@ -25,7 +25,7 @@ var upCmd = &cobra.Command{
 			if verbose {
 				log.Printf("loading config from %s", configPath)
 			}
-			mDir, envFromCfg, saveBody, tlsInsecure, tlsMin, tlsMax, storeOpts, err := loadConfigAndAcquire(ctx, configPath, verbose)
+			mDir, envFromCfg, saveBody, _, _, _, storeOpts, err := loadConfigAndAcquire(ctx, configPath, verbose)
 			if err != nil {
 				return err
 			}
@@ -36,18 +36,9 @@ var upCmd = &cobra.Command{
 				baseEnv = envFromCfg
 			}
 			if storeOpts != nil {
-				ctx = apimigrate.WithStoreOptions(ctx, storeOpts)
+				// store options are now applied via the Migrator struct
 			}
 			ctx = apimigrate.WithSaveResponseBody(ctx, saveBody)
-			if tlsInsecure {
-				ctx = apimigrate.WithTLSInsecure(ctx, true)
-			}
-			if strings.TrimSpace(tlsMin) != "" {
-				ctx = apimigrate.WithTLSMinVersion(ctx, strings.TrimSpace(tlsMin))
-			}
-			if strings.TrimSpace(tlsMax) != "" {
-				ctx = apimigrate.WithTLSMaxVersion(ctx, strings.TrimSpace(tlsMax))
-			}
 		}
 		if strings.TrimSpace(dir) == "" {
 			dir = "./config/migration"
@@ -55,7 +46,26 @@ var upCmd = &cobra.Command{
 		if verbose {
 			log.Printf("up migrations in %s to %d", dir, to)
 		}
-		_, err := apimigrate.MigrateUp(ctx, dir, baseEnv, to)
+		m := apimigrate.Migrator{Env: baseEnv, Dir: dir}
+		// Open store: from options when provided, otherwise default sqlite under dir
+		var st *apimigrate.Store
+		if strings.TrimSpace(configPath) != "" {
+			_, _, _, _, _, _, storeOpts, _ := loadConfigAndAcquire(context.Background(), configPath, false)
+			var err error
+			st, err = apimigrate.OpenStoreFromOptions(dir, storeOpts)
+			if err != nil {
+				return err
+			}
+		} else {
+			var err error
+			st, err = apimigrate.OpenStoreFromOptions(dir, nil)
+			if err != nil {
+				return err
+			}
+		}
+		defer func() { _ = st.Close() }()
+		m.Store = *st
+		_, err := m.MigrateUp(ctx, to)
 		return err
 	},
 }

@@ -14,13 +14,9 @@ func TestAcquireToken_Basic_Success_DefaultHeader(t *testing.T) {
 		"username": "alice",
 		"password": "secret",
 	}
-	v, err := auth.AcquireAndStoreWithName(context.Background(), "basic", "basic", spec)
+	v, err := auth.AcquireAndStoreWithName(context.Background(), "basic", spec)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	vv, ok := auth.GetToken("basic")
-	if !ok || vv != v {
-		t.Fatalf("expected stored token value, got ok=%v val=%q", ok, vv)
 	}
 	expected := "YWxpY2U6c2VjcmV0" // base64("alice:secret") without scheme
 	if v != expected {
@@ -34,13 +30,9 @@ func TestAcquireToken_Basic_CustomHeader(t *testing.T) {
 		"password": "p@ss",
 		"header":   "X-Auth",
 	}
-	v, err := auth.AcquireAndStoreWithName(context.Background(), "basic", "n1", spec)
+	v, err := auth.AcquireAndStoreWithName(context.Background(), "basic", spec)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	vv, ok := auth.GetToken("n1")
-	if !ok || vv != v {
-		t.Fatalf("expected stored token value, got ok=%v val=%q", ok, vv)
 	}
 	expected := "Ym9iOnBAc3M=" // base64("bob:p@ss") without scheme
 	if v != expected {
@@ -54,7 +46,7 @@ func TestAcquireToken_Basic_MissingCredentials_Error(t *testing.T) {
 		{"username": "x", "password": ""},
 	}
 	for i, spec := range cases {
-		_, err := auth.AcquireAndStoreWithName(context.Background(), "basic", "n2", spec)
+		_, err := auth.AcquireAndStoreWithName(context.Background(), "basic", spec)
 		if err == nil {
 			t.Fatalf("case %d: expected error for missing credentials", i)
 		}

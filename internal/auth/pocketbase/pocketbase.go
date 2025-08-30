@@ -32,7 +32,8 @@ func AcquirePocketBase(ctx context.Context, pc Config) (string, error) {
 	}
 	loginURL := strings.TrimRight(pc.BaseURL, "/") + "/api/admins/auth-with-password"
 	body := map[string]string{"identity": pc.Email, "password": pc.Password}
-	client := httpc.New(ctx)
+	var h httpc.Httpc
+	client := h.New()
 	resp, err := client.R().SetContext(ctx).SetHeader("Content-Type", "application/json").SetBody(body).Post(loginURL)
 	if err != nil {
 		return "", err

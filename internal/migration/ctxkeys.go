@@ -5,6 +5,3 @@ type ctxKey string
 
 // SaveResponseBodyKey is a typed context key to toggle storing response bodies in the migration history.
 var SaveResponseBodyKey ctxKey = "apimigrate.save_response_body"
-
-// StoreOptionsKey carries StoreOptions in context to control store backend and connection.
-var StoreOptionsKey ctxKey = "apimigrate.store_options"

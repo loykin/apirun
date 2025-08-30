@@ -20,7 +20,8 @@ func main() {
 	dir := filepath.Join("examples", "embedded", "migration")
 
 	fmt.Printf("running embedded migrations in %s...\n", dir)
-	vres, err := apimigrate.MigrateUp(ctx, dir, base, 0)
+	m := apimigrate.Migrator{Env: base, Dir: dir}
+	vres, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		// Print partial results if any
 		if len(vres) > 0 {

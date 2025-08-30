@@ -43,9 +43,9 @@ func Register(typ string, f Factory) {
 	providers[key] = f
 }
 
-// AcquireAndStoreWithName builds a Method from the provider type and spec, acquires a token,
-// and stores it under the provided logical name. The provider's config does not need to contain a name.
-func AcquireAndStoreWithName(ctx context.Context, typ string, name string, spec map[string]interface{}) (string, error) {
+// AcquireAndStoreWithName builds a Method from the provider type and spec and acquires a token.
+// Note: name is no longer required and thus removed from the API since tokens are not stored globally anymore.
+func AcquireAndStoreWithName(ctx context.Context, typ string, spec map[string]interface{}) (string, error) {
 	f, ok := providers[normalizeKey(typ)]
 	if !ok {
 		return "", errors.New("auth: unsupported provider type: " + typ)
@@ -57,12 +57,7 @@ func AcquireAndStoreWithName(ctx context.Context, typ string, name string, spec 
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	v, err := m.Acquire(ctx)
-	stored := strings.TrimSpace(name)
-	if err == nil && stored != "" {
-		SetToken(stored, v)
-	}
-	return v, err
+	return m.Acquire(ctx)
 }
 
 // Built-in provider registrations
