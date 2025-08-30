@@ -57,6 +57,28 @@ jobs:
       - name: Build (all packages)
         run: go build ./...
 
+      - name: Run safe examples (self-contained, no external services)
+        run: |
+          set -e
+          echo "Running examples/auth_embedded"
+          go run ./examples/auth_embedded
+          echo "Running examples/auth_embedded_multi_registry"
+          go run ./examples/auth_embedded_multi_registry
+          echo "Running examples/auth_registry"
+          go run ./examples/auth_registry
+          echo "Running examples/embedded_sqlite"
+          go run ./examples/embedded_sqlite
+          echo "Running examples/embedded_custom_table"
+          go run ./examples/embedded_custom_table
+        env:
+          CI: true
+
+      - name: Build examples that require external services (do not run)
+        run: |
+          set -e
+          go build ./examples/embedded
+          go build ./examples/embedded_postgresql
+
       - name: Run tests with coverage (exclude examples)
         env:
           CGO_ENABLED: 1

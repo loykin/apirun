@@ -27,8 +27,15 @@ func main() {
 	// Base environment (empty is fine for this example)
 	base := apimigrate.Env{Global: map[string]string{}}
 
+	// Open the default SQLite store under the migration directory and attach it to the migrator
+	st, err := apimigrate.OpenStoreFromOptions(migrateDir, nil)
+	if err != nil {
+		log.Fatalf("open store failed: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
 	// Apply all migrations in the directory
-	m := apimigrate.Migrator{Env: base, Dir: migrateDir}
+	m := apimigrate.Migrator{Env: base, Dir: migrateDir, Store: *st}
 	vres, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		log.Fatalf("migrate up failed: %v", err)
