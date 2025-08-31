@@ -8,8 +8,7 @@ type StoreOptions struct {
 	PostgresDSN string // full DSN for PostgreSQL
 
 	// Optional custom table/index names to allow using multiple sets side-by-side.
-	TableSchemaMigrations   string // default: schema_migrations
-	TableMigrationRuns      string // default: migration_runs
-	TableStoredEnv          string // default: stored_env
-	IndexStoredEnvByVersion string // default: idx_stored_env_version
+	TableSchemaMigrations string // default: schema_migrations
+	TableMigrationRuns    string // default: migration_runs
+	TableStoredEnv        string // default: stored_env
 }

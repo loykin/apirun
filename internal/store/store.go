@@ -56,10 +56,9 @@ func (s *Store) Connect(config Config) error {
 }
 
 type TableNames struct {
-	SchemaMigrations    string
-	MigrationRuns       string
-	StoredEnv           string
-	idxStoredEnvVersion string
+	SchemaMigrations string
+	MigrationRuns    string
+	StoredEnv        string
 }
 
 var identRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
@@ -71,7 +70,7 @@ func (s *Store) safeTableNames() TableNames {
 	// Prefer externally visible TableName when any field is non-empty; else use internal tn
 	t := s.TableName
 	// if TableName has any custom non-empty values, start from it
-	if s.TableName.SchemaMigrations != "" || s.TableName.MigrationRuns != "" || s.TableName.StoredEnv != "" || s.TableName.idxStoredEnvVersion != "" {
+	if s.TableName.SchemaMigrations != "" || s.TableName.MigrationRuns != "" || s.TableName.StoredEnv != "" {
 		t = s.TableName
 	}
 	if !identRe.MatchString(t.SchemaMigrations) || t.SchemaMigrations == "" {
@@ -83,28 +82,20 @@ func (s *Store) safeTableNames() TableNames {
 	if !identRe.MatchString(t.StoredEnv) || t.StoredEnv == "" {
 		t.StoredEnv = d.StoredEnv
 	}
-	if !identRe.MatchString(t.idxStoredEnvVersion) || t.idxStoredEnvVersion == "" {
-		t.idxStoredEnvVersion = d.idxStoredEnvVersion
-	}
 	return t
 }
 
 func defaultTableNames() TableNames {
 	return TableNames{
-		SchemaMigrations:    "schema_migrations",
-		MigrationRuns:       "migration_runs",
-		StoredEnv:           "stored_env",
-		idxStoredEnvVersion: "idx_stored_env_version",
+		SchemaMigrations: "schema_migrations",
+		MigrationRuns:    "migration_runs",
+		StoredEnv:        "stored_env",
 	}
 }
 
-// SetTableNames allows overriding default table/index names (validated via safeTableNames at use time).
-// idx (optional) allows passing a custom index name for stored_env(version).
-func (s *Store) SetTableNames(schema, runs, env string, idx ...string) {
+// SetTableNames allows overriding default table names (validated via safeTableNames at use time).
+func (s *Store) SetTableNames(schema, runs, env string) {
 	t := TableNames{SchemaMigrations: schema, MigrationRuns: runs, StoredEnv: env}
-	if len(idx) > 0 {
-		t.idxStoredEnvVersion = idx[0]
-	}
 	s.TableName = t
 }
 

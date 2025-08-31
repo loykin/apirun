@@ -69,9 +69,9 @@ func TestStatusCmd_WithAppliedVersions_PrintsCurrentAndList(t *testing.T) {
 
 	// Create store and apply versions 1 and 3
 	dbPath := filepath.Join(tdir, apimigrate.StoreDBFileName)
-	st, err := apimigrate.OpenStore(dbPath)
+	st, err := apimigrate.OpenStoreFromOptions(filepath.Dir(dbPath), &apimigrate.StoreOptions{Backend: "sqlite", SQLitePath: dbPath})
 	if err != nil {
-		t.Fatalf("OpenStore: %v", err)
+		t.Fatalf("OpenStoreFromOptions: %v", err)
 	}
 	if err := st.Apply(1); err != nil {
 		t.Fatalf("Apply(1): %v", err)

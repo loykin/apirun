@@ -198,9 +198,6 @@ func NewHTTPClient(_ context.Context) *resty.Client { var h httpc.Httpc; return 
 // RenderAnyTemplate exposes template rendering used for config/auth maps in the CLI.
 func RenderAnyTemplate(v interface{}, base Env) interface{} { return util.RenderAnyTemplate(v, base) }
 
-// OpenStore opens (and initializes) the sqlite store at the given path.
-func OpenStore(path string) (*Store, error) { return store.Open(path) }
-
 // OpenStoreFromOptions opens a store based on StoreOptions.
 // If opts is nil or backend is sqlite, opens sqlite at dir/StoreDBFileName or opts.SQLitePath when provided.
 // For postgres, requires non-empty DSN.
@@ -215,7 +212,7 @@ func OpenStoreFromOptions(dir string, opts *StoreOptions) (*Store, error) {
 		if strings.TrimSpace(opts.PostgresDSN) == "" {
 			return nil, fmt.Errorf("store backend=postgres requires dsn")
 		}
-		if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
+		if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" {
 			return store.OpenPostgresWithNames(opts.PostgresDSN, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv)
 		}
 		return store.OpenPostgres(opts.PostgresDSN)
@@ -224,7 +221,7 @@ func OpenStoreFromOptions(dir string, opts *StoreOptions) (*Store, error) {
 		if path == "" {
 			path = filepath.Join(dir, StoreDBFileName)
 		}
-		if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
+		if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" {
 			return store.OpenSqliteWithNames(path, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv)
 		}
 		return store.Open(path)

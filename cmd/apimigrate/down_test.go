@@ -226,9 +226,9 @@ migrate_dir: %s
 
 	// Verify store current version is 1
 	dbPath := filepath.Join(tdir, apimigrate.StoreDBFileName)
-	st, err := apimigrate.OpenStore(dbPath)
+	st, err := apimigrate.OpenStoreFromOptions(filepath.Dir(dbPath), &apimigrate.StoreOptions{Backend: "sqlite", SQLitePath: dbPath})
 	if err != nil {
-		t.Fatalf("OpenStore error: %v", err)
+		t.Fatalf("OpenStoreFromOptions error: %v", err)
 	}
 	defer func() { _ = st.Close() }()
 	cur, err := st.CurrentVersion()

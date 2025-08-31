@@ -17,9 +17,9 @@ import (
 
 func countRuns(t *testing.T, dbPath string) (int, int) {
 	t.Helper()
-	st, err := apimigrate.OpenStore(dbPath)
+	st, err := apimigrate.OpenStoreFromOptions(filepath.Dir(dbPath), &apimigrate.StoreOptions{Backend: "sqlite", SQLitePath: dbPath})
 	if err != nil {
-		t.Fatalf("OpenStore: %v", err)
+		t.Fatalf("OpenStoreFromOptions: %v", err)
 	}
 	defer func() { _ = st.Close() }()
 	rows, err := st.DB.Query(`SELECT status_code, body FROM migration_runs ORDER BY id ASC`)
@@ -163,9 +163,9 @@ migrate_dir: %s
 	}
 	// Verify stored_env has the value after up
 	dbPath := filepath.Join(tdir, apimigrate.StoreDBFileName)
-	st, err := apimigrate.OpenStore(dbPath)
+	st, err := apimigrate.OpenStoreFromOptions(filepath.Dir(dbPath), &apimigrate.StoreOptions{Backend: "sqlite", SQLitePath: dbPath})
 	if err != nil {
-		t.Fatalf("OpenStore: %v", err)
+		t.Fatalf("OpenStoreFromOptions: %v", err)
 	}
 	defer func() { _ = st.Close() }()
 	rows, err := st.DB.Query(`SELECT COUNT(1) FROM stored_env WHERE version=1 AND name='rid' AND value='123'`)
@@ -402,32 +402,31 @@ type StoreOptionsShimSQLite struct {
 
 func TestBuildStoreOptions_TableNames_PassThrough(t *testing.T) {
 	doc := ConfigDoc{Store: StoreConfig{
-		Type:                    "sqlite",
-		SQLite:                  SQLiteStoreConfig{Path: "/tmp/x.db"},
-		TableSchemaMigrations:   "sm_custom",
-		TableMigrationRuns:      "mr_custom",
-		TableStoredEnv:          "se_custom",
-		IndexStoredEnvByVersion: "idx_se_ver",
+		Type:                  "sqlite",
+		SQLite:                SQLiteStoreConfig{Path: "/tmp/x.db"},
+		TableSchemaMigrations: "sm_custom",
+		TableMigrationRuns:    "mr_custom",
+		TableStoredEnv:        "se_custom",
 	}}
 	got := doc.Store.ToStorOptions()
 	if got == nil {
 		t.Fatalf("expected non-nil store options")
 	}
-	if got.TableSchemaMigrations != "sm_custom" || got.TableMigrationRuns != "mr_custom" || got.TableStoredEnv != "se_custom" || got.IndexStoredEnvByVersion != "idx_se_ver" {
+	if got.TableSchemaMigrations != "sm_custom" || got.TableMigrationRuns != "mr_custom" || got.TableStoredEnv != "se_custom" {
 		t.Fatalf("table names not passed through: %#v", got)
 	}
+
 }
 
 func TestOpenStoreFromOptions_SQLite_CustomTableNames(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "named.db")
 	doc := ConfigDoc{Store: StoreConfig{
-		Type:                    "sqlite",
-		SQLite:                  SQLiteStoreConfig{Path: dbPath},
-		TableSchemaMigrations:   "sm_custom",
-		TableMigrationRuns:      "mr_custom",
-		TableStoredEnv:          "se_custom",
-		IndexStoredEnvByVersion: "idx_se_ver",
+		Type:                  "sqlite",
+		SQLite:                SQLiteStoreConfig{Path: dbPath},
+		TableSchemaMigrations: "sm_custom",
+		TableMigrationRuns:    "mr_custom",
+		TableStoredEnv:        "se_custom",
 	}}
 	opts := doc.Store.ToStorOptions()
 	st, err := apimigrate.OpenStoreFromOptions(dir, opts)

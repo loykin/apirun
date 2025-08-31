@@ -208,17 +208,17 @@ func TestConv_Postgres(t *testing.T) {
 func TestSafeTableNames_FallbackOnInvalid(t *testing.T) {
 	st := &Store{}
 	// Set invalid names (contain dots/quotes)
-	st.SetTableNames("public.migs", "migration-runs", "stored env", "idx.name")
+	st.SetTableNames("public.migs", "migration-runs", "stored env")
 	// Now ask for the safe names (should fallback to defaults)
 	tn := st.safeTableNames()
 	def := defaultTableNames()
-	if tn.SchemaMigrations != def.SchemaMigrations || tn.MigrationRuns != def.MigrationRuns || tn.StoredEnv != def.StoredEnv || tn.idxStoredEnvVersion != def.idxStoredEnvVersion {
+	if tn.SchemaMigrations != def.SchemaMigrations || tn.MigrationRuns != def.MigrationRuns || tn.StoredEnv != def.StoredEnv {
 		t.Fatalf("expected defaults on invalid names, got %+v want %+v", tn, def)
 	}
 	// Valid names should be preserved
-	st.SetTableNames("app_schema", "app_runs", "app_env", "app_idx")
+	st.SetTableNames("app_schema", "app_runs", "app_env")
 	tn2 := st.safeTableNames()
-	if tn2.SchemaMigrations != "app_schema" || tn2.MigrationRuns != "app_runs" || tn2.StoredEnv != "app_env" || tn2.idxStoredEnvVersion != "app_idx" {
+	if tn2.SchemaMigrations != "app_schema" || tn2.MigrationRuns != "app_runs" || tn2.StoredEnv != "app_env" {
 		t.Fatalf("valid names not preserved: %+v", tn2)
 	}
 }

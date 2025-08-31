@@ -44,11 +44,10 @@ type StoreConfig struct {
 	SQLite           SQLiteStoreConfig   `mapstructure:"sqlite"`
 	Postgres         PostgresStoreConfig `mapstructure:"postgres"`
 	// Optional table name customization
-	TablePrefix             string `mapstructure:"table_prefix"`
-	TableSchemaMigrations   string `mapstructure:"table_schema_migrations"`
-	TableMigrationRuns      string `mapstructure:"table_migration_runs"`
-	TableStoredEnv          string `mapstructure:"table_stored_env"`
-	IndexStoredEnvByVersion string `mapstructure:"index_stored_env_by_version"`
+	TablePrefix           string `mapstructure:"table_prefix"`
+	TableSchemaMigrations string `mapstructure:"table_schema_migrations"`
+	TableMigrationRuns    string `mapstructure:"table_migration_runs"`
+	TableStoredEnv        string `mapstructure:"table_stored_env"`
 }
 
 func (c *StoreConfig) ToStorOptions() *apimigrate.StoreOptions {
@@ -92,22 +91,20 @@ func (c *StoreConfig) ToStorOptions() *apimigrate.StoreOptions {
 			)
 		}
 		return &apimigrate.StoreOptions{
-			Backend:                 apimigrate.DriverPostgres,
-			PostgresDSN:             dsn,
-			TableSchemaMigrations:   sm,
-			TableMigrationRuns:      mr,
-			TableStoredEnv:          se,
-			IndexStoredEnvByVersion: strings.TrimSpace(c.IndexStoredEnvByVersion),
+			Backend:               apimigrate.DriverPostgres,
+			PostgresDSN:           dsn,
+			TableSchemaMigrations: sm,
+			TableMigrationRuns:    mr,
+			TableStoredEnv:        se,
 		}
 	}
 	// default to sqlite
 	return &apimigrate.StoreOptions{
-		Backend:                 "sqlite",
-		SQLitePath:              strings.TrimSpace(c.SQLite.Path),
-		TableSchemaMigrations:   sm,
-		TableMigrationRuns:      mr,
-		TableStoredEnv:          se,
-		IndexStoredEnvByVersion: strings.TrimSpace(c.IndexStoredEnvByVersion),
+		Backend:               "sqlite",
+		SQLitePath:            strings.TrimSpace(c.SQLite.Path),
+		TableSchemaMigrations: sm,
+		TableMigrationRuns:    mr,
+		TableStoredEnv:        se,
 	}
 }
 

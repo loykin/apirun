@@ -51,12 +51,11 @@ func TestOpenStoreFromOptions_SQLite_DefaultAndCustomNames(t *testing.T) {
 	customDir := t.TempDir()
 	customDB := filepath.Join(customDir, "custom.db")
 	opts := &StoreOptions{
-		Backend:                 "sqlite",
-		SQLitePath:              customDB,
-		TableSchemaMigrations:   "app_schema",
-		TableMigrationRuns:      "app_runs",
-		TableStoredEnv:          "app_env",
-		IndexStoredEnvByVersion: "app_idx",
+		Backend:               "sqlite",
+		SQLitePath:            customDB,
+		TableSchemaMigrations: "app_schema",
+		TableMigrationRuns:    "app_runs",
+		TableStoredEnv:        "app_env",
 	}
 	st2, err := OpenStoreFromOptions(dir, opts)
 	if err != nil {
@@ -177,9 +176,9 @@ func TestPublicToMap_PocketBaseAuthConfig(t *testing.T) {
 func TestOpenStore_CreatesSQLiteFile(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "test.db")
-	st, err := OpenStore(p)
+	st, err := OpenStoreFromOptions(dir, &StoreOptions{Backend: "sqlite", SQLitePath: p})
 	if err != nil {
-		t.Fatalf("OpenStore error: %v", err)
+		t.Fatalf("OpenStoreFromOptions error: %v", err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
 	if _, err := os.Stat(p); err != nil {
