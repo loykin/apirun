@@ -51,23 +51,3 @@ func ensureDir(d string) error {
 	}
 	return os.MkdirAll(d, 0750)
 }
-
-// OpenPostgres opens a Postgres-backed store using pgx stdlib DSN and ensures schema.
-func OpenPostgres(dsn string) (*Store, error) {
-	if strings.TrimSpace(dsn) == "" {
-		return nil, errors.New("empty postgres dsn")
-	}
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		return nil, err
-	}
-	st := &Store{Driver: DriverPostgresql}
-	st.DB = db
-	st.connector = &PostgresStore{db: db}
-	st.TableName = defaultTableNames()
-	if err := st.EnsureSchema(); err != nil {
-		_ = st.connector.Close()
-		return nil, err
-	}
-	return st, nil
-}

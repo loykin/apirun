@@ -80,10 +80,11 @@ func TestPostgresStore_BasicCRUD(t *testing.T) {
 		t.Fatalf("postgres not ready: %v", err)
 	}
 
-	st, err := OpenPostgres(dsn)
-	if err != nil {
+	var st Store
+	cfg := Config{Driver: DriverPostgresql, DriverConfig: &PostgresConfig{DSN: dsn}}
+	if err := st.Connect(cfg); err != nil {
 		_ = pg.Terminate(ctx)
-		t.Fatalf("OpenPostgres: %v", err)
+		t.Fatalf("Connect(Postgres): %v", err)
 	}
 	defer func() { _ = st.Close() }()
 
