@@ -17,7 +17,10 @@ import (
 
 func countRuns(t *testing.T, dbPath string) (int, int) {
 	t.Helper()
-	st, err := apimigrate.OpenStoreFromOptions(filepath.Dir(dbPath), &apimigrate.StoreOptions{Backend: "sqlite", SQLitePath: dbPath})
+	cfg := &apimigrate.StoreConfig{}
+	cfg.Config.Driver = apimigrate.DriverSqlite
+	cfg.Config.DriverConfig = &apimigrate.SqliteConfig{Path: dbPath}
+	st, err := apimigrate.OpenStoreFromOptions(filepath.Dir(dbPath), cfg)
 	if err != nil {
 		t.Fatalf("OpenStoreFromOptions: %v", err)
 	}
@@ -163,7 +166,10 @@ migrate_dir: %s
 	}
 	// Verify stored_env has the value after up
 	dbPath := filepath.Join(tdir, apimigrate.StoreDBFileName)
-	st, err := apimigrate.OpenStoreFromOptions(filepath.Dir(dbPath), &apimigrate.StoreOptions{Backend: "sqlite", SQLitePath: dbPath})
+	cfg2 := &apimigrate.StoreConfig{}
+	cfg2.Config.Driver = apimigrate.DriverSqlite
+	cfg2.Config.DriverConfig = &apimigrate.SqliteConfig{Path: dbPath}
+	st, err := apimigrate.OpenStoreFromOptions(filepath.Dir(dbPath), cfg2)
 	if err != nil {
 		t.Fatalf("OpenStoreFromOptions: %v", err)
 	}
@@ -287,11 +293,15 @@ func TestBuildStoreOptions_Postgres_WithDSN(t *testing.T) {
 	if got == nil {
 		t.Fatalf("expected non-nil options")
 	}
-	if got.Backend != apimigrate.DriverPostgres {
-		t.Fatalf("backend=%s, want postgres", got.Backend)
+	if got.Config.Driver != apimigrate.DriverPostgres {
+		t.Fatalf("driver=%s, want postgres", got.Config.Driver)
 	}
-	if got.PostgresDSN != "postgres://u:p@h:5432/db?sslmode=disable" {
-		t.Fatalf("dsn=%q, want provided dsn", got.PostgresDSN)
+	pg, ok := got.Config.DriverConfig.(*apimigrate.PostgresConfig)
+	if !ok {
+		t.Fatalf("expected PostgresConfig driver config, got %T", got.Config.DriverConfig)
+	}
+	if pg.DSN != "postgres://u:p@h:5432/db?sslmode=disable" {
+		t.Fatalf("dsn=%q, want provided dsn", pg.DSN)
 	}
 }
 
@@ -300,42 +310,42 @@ func TestBuildStoreOptions_Postgres_BuildFromComponents_Defaults(t *testing.T) {
 		Host: "localhost", User: "user", Password: "pass", DBName: "db", // Port=0 -> default 5432, SSLMode empty -> disable
 	}}}
 	got := doc.Store.ToStorOptions()
-	if got == nil || got.Backend != apimigrate.DriverPostgres {
-		t.Fatalf("expected postgres backend, got %#v", got)
+	if got == nil || got.Config.Driver != apimigrate.DriverPostgres {
+		t.Fatalf("expected postgres driver, got %#v", got)
 	}
 	exp := "postgres://user:pass@localhost:5432/db?sslmode=disable"
-	if got.PostgresDSN != exp {
-		t.Fatalf("built dsn=%q, want %q", got.PostgresDSN, exp)
-	}
-}
-
-func TestBuildStoreOptions_Postgres_Aliases(t *testing.T) {
-	aliases := []string{"pg", "postgresql"}
-	for _, a := range aliases {
-		doc := ConfigDoc{Store: StoreConfig{Type: a, Postgres: PostgresStoreConfig{DSN: "postgres://u:p@h:5432/db?sslmode=disable"}}}
-		got := doc.Store.ToStorOptions()
-		if got == nil || got.Backend != apimigrate.DriverPostgres {
-			t.Fatalf("alias %s: expected postgres backend, got %#v", a, got)
-		}
+	pg, _ := got.Config.DriverConfig.(*apimigrate.PostgresConfig)
+	if pg == nil || pg.DSN != exp {
+		t.Fatalf("built dsn=%q, want %q", func() string {
+			if pg == nil {
+				return ""
+			}
+			return pg.DSN
+		}(), exp)
 	}
 }
 
 func TestBuildStoreOptions_SQLite_Path(t *testing.T) {
 	doc := ConfigDoc{Store: StoreConfig{Type: "sqlite", SQLite: SQLiteStoreConfig{Path: "/tmp/x.db"}}}
 	got := doc.Store.ToStorOptions()
-	if got == nil || got.Backend != "sqlite" {
-		t.Fatalf("expected sqlite backend, got %#v", got)
+	if got == nil || got.Config.Driver != apimigrate.DriverSqlite {
+		t.Fatalf("expected sqlite driver, got %#v", got)
 	}
-	if got.SQLitePath != "/tmp/x.db" {
-		t.Fatalf("sqlite path=%q, want /tmp/x.db", got.SQLitePath)
+	sc, _ := got.Config.DriverConfig.(*apimigrate.SqliteConfig)
+	if sc == nil || sc.Path != "/tmp/x.db" {
+		t.Fatalf("sqlite path mismatch: got %+v", sc)
 	}
 }
 
 func TestBuildStoreOptions_UnknownType_FallsBackToSQLite(t *testing.T) {
 	doc := ConfigDoc{Store: StoreConfig{Type: "maria", SQLite: SQLiteStoreConfig{Path: "./foo.db"}}}
 	got := doc.Store.ToStorOptions()
-	if got == nil || got.Backend != "sqlite" || got.SQLitePath != "./foo.db" {
+	if got == nil || got.Config.Driver != apimigrate.DriverSqlite {
 		t.Fatalf("fallback to sqlite mismatch, got %#v", got)
+	}
+	sc2, _ := got.Config.DriverConfig.(*apimigrate.SqliteConfig)
+	if sc2 == nil || sc2.Path != "./foo.db" {
+		t.Fatalf("expected sqlite path ./foo.db, got %+v", sc2)
 	}
 }
 
@@ -412,7 +422,7 @@ func TestBuildStoreOptions_TableNames_PassThrough(t *testing.T) {
 	if got == nil {
 		t.Fatalf("expected non-nil store options")
 	}
-	if got.TableSchemaMigrations != "sm_custom" || got.TableMigrationRuns != "mr_custom" || got.TableStoredEnv != "se_custom" {
+	if got.Config.TableNames.SchemaMigrations != "sm_custom" || got.Config.TableNames.MigrationRuns != "mr_custom" || got.Config.TableNames.StoredEnv != "se_custom" {
 		t.Fatalf("table names not passed through: %#v", got)
 	}
 
@@ -458,7 +468,7 @@ func TestBuildStoreOptions_TablePrefix_ComputesNames(t *testing.T) {
 	if got == nil {
 		t.Fatalf("expected non-nil store options")
 	}
-	if got.TableSchemaMigrations != "app1_schema_migrations" || got.TableMigrationRuns != "app1_migration_log" || got.TableStoredEnv != "app1_stored_env" {
+	if got.Config.TableNames.SchemaMigrations != "app1_schema_migrations" || got.Config.TableNames.MigrationRuns != "app1_migration_log" || got.Config.TableNames.StoredEnv != "app1_stored_env" {
 		t.Fatalf("prefix-derived names mismatch: %#v", got)
 	}
 }

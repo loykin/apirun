@@ -50,14 +50,11 @@ func TestOpenStoreFromOptions_SQLite_DefaultAndCustomNames(t *testing.T) {
 	// Case 2: explicit SQLitePath and custom names
 	customDir := t.TempDir()
 	customDB := filepath.Join(customDir, "custom.db")
-	opts := &StoreOptions{
-		Backend:               "sqlite",
-		SQLitePath:            customDB,
-		TableSchemaMigrations: "app_schema",
-		TableMigrationRuns:    "app_runs",
-		TableStoredEnv:        "app_env",
-	}
-	st2, err := OpenStoreFromOptions(dir, opts)
+	cfg := &StoreConfig{}
+	cfg.Config.Driver = DriverSqlite
+	cfg.Config.DriverConfig = &SqliteConfig{Path: customDB}
+	cfg.Config.TableNames = TableNames{SchemaMigrations: "app_schema", MigrationRuns: "app_runs", StoredEnv: "app_env"}
+	st2, err := OpenStoreFromOptions(dir, cfg)
 	if err != nil {
 		t.Fatalf("OpenStoreFromOptions custom: %v", err)
 	}
@@ -75,7 +72,10 @@ func TestOpenStoreFromOptions_SQLite_DefaultAndCustomNames(t *testing.T) {
 
 // Test that postgres backend with empty DSN errors out
 func TestOpenStoreFromOptions_Postgres_EmptyDSN_Err(t *testing.T) {
-	_, err := OpenStoreFromOptions(t.TempDir(), &StoreOptions{Backend: DriverPostgres, PostgresDSN: ""})
+	cfg := &StoreConfig{}
+	cfg.Config.Driver = DriverPostgres
+	cfg.Config.DriverConfig = &PostgresConfig{DSN: ""}
+	_, err := OpenStoreFromOptions(t.TempDir(), cfg)
 	if err == nil {
 		t.Fatalf("expected error for empty PostgresDSN, got nil")
 	}
@@ -176,7 +176,10 @@ func TestPublicToMap_PocketBaseAuthConfig(t *testing.T) {
 func TestOpenStore_CreatesSQLiteFile(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "test.db")
-	st, err := OpenStoreFromOptions(dir, &StoreOptions{Backend: "sqlite", SQLitePath: p})
+	cfg2 := &StoreConfig{}
+	cfg2.Config.Driver = DriverSqlite
+	cfg2.Config.DriverConfig = &SqliteConfig{Path: p}
+	st, err := OpenStoreFromOptions(dir, cfg2)
 	if err != nil {
 		t.Fatalf("OpenStoreFromOptions error: %v", err)
 	}
@@ -271,7 +274,8 @@ func TestMigrateDown_RollsBack(t *testing.T) {
 	ctx := context.Background()
 
 	storeConfig := StoreConfig{}
-	storeConfig.DriverConfig = &SqliteConfig{Path: storePath}
+	storeConfig.Config.Driver = DriverSqlite
+	storeConfig.Config.DriverConfig = &SqliteConfig{Path: storePath}
 	m := Migrator{Env: base, Dir: dir, StoreConfig: &storeConfig}
 
 	// Run Up

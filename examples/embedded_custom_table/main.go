@@ -28,27 +28,19 @@ func main() {
 	// (equivalent to config: store.table_prefix: demo).
 	ctx := context.Background()
 	prefix := "demo"
-	opts := &apimigrate.StoreOptions{
-		Backend:               "sqlite",
-		SQLitePath:            "", // empty -> defaults to <migrateDir>/apimigrate.db
-		TableSchemaMigrations: prefix + "_schema_migrations",
-		TableMigrationRuns:    prefix + "_migration_runs",
-		TableStoredEnv:        prefix + "_stored_env",
-	}
-	// store options are now configured on the Migrator struct
-
-	// Optional: whether to save response bodies can be set on Migrator.SaveResponseBody
-
 	// Base env for templating (empty here)
 	base := apimigrate.Env{Global: map[string]string{}}
 
+	// Configure store via StoreConfig: sqlite with custom table names
 	storeConfig := apimigrate.StoreConfig{}
-	storeConfig.TableNames = apimigrate.TableNames{
-		SchemaMigrations: opts.TableSchemaMigrations,
-		MigrationRuns:    opts.TableMigrationRuns,
-		StoredEnv:        opts.TableStoredEnv,
+	storeConfig.Config.Driver = apimigrate.DriverSqlite
+	storeConfig.Config.TableNames = apimigrate.TableNames{
+		SchemaMigrations: prefix + "_schema_migrations",
+		MigrationRuns:    prefix + "_migration_runs",
+		StoredEnv:        prefix + "_stored_env",
 	}
-	storeConfig.DriverConfig = &apimigrate.SqliteConfig{Path: filepath.Join(migrateDir, apimigrate.StoreDBFileName)}
+	// Let path default to <migrateDir>/apimigrate.db by leaving it empty here; Migrator's default handles it
+	storeConfig.Config.DriverConfig = &apimigrate.SqliteConfig{Path: filepath.Join(migrateDir, apimigrate.StoreDBFileName)}
 	m := apimigrate.Migrator{Env: base, Dir: migrateDir, StoreConfig: &storeConfig}
 	vres, err := m.MigrateUp(ctx, 0)
 	if err != nil {

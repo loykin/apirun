@@ -1,9 +1,9 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
+	"path/filepath"
 	"strings"
 
 	"github.com/loykin/apimigrate"
@@ -18,28 +18,34 @@ var statusCmd = &cobra.Command{
 		v := viper.GetViper()
 		configPath := v.GetString("config")
 		verbose := v.GetBool("v")
-		ctx := context.Background()
-		var storeOpts *apimigrate.StoreOptions
+
 		dir := ""
+		var storeCfg *apimigrate.StoreConfig
 		if strings.TrimSpace(configPath) != "" {
 			if verbose {
 				log.Printf("loading config from %s", configPath)
 			}
-			mDir, _, _, _, _, _, tmpStoreOpts, err := loadConfigAndAcquire(ctx, configPath, verbose)
-			storeOpts = tmpStoreOpts
-			if err != nil {
+			var doc ConfigDoc
+			if err := doc.Load(configPath); err != nil {
 				log.Printf("warning: failed to load config: %v", err)
 			} else {
+				mDir := strings.TrimSpace(doc.MigrateDir)
+				if mDir == "" {
+					// Fallback: use config file directory if migrate_dir not specified
+					mDir = filepath.Dir(configPath)
+				}
+				tmpStoreCfg := doc.Store.ToStorOptions()
 				if mDir != "" {
 					dir = mDir
 				}
+				storeCfg = tmpStoreCfg
 			}
 		}
 		if strings.TrimSpace(dir) == "" {
 			dir = "./config/migration"
 		}
 		// centralized store opening
-		st, err := apimigrate.OpenStoreFromOptions(dir, storeOpts)
+		st, err := apimigrate.OpenStoreFromOptions(dir, storeCfg)
 		if err != nil {
 			return err
 		}

@@ -2,7 +2,6 @@ package apimigrate
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -65,8 +64,16 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 				cfg.Driver = DriverSqlite
 			}
 		}
-		m.store.Driver = strings.ToLower(strings.TrimSpace(cfg.Driver))
-		m.store.TableName = m.StoreConfig.TableNames
+		// For sqlite, ensure default file path under m.Dir when missing
+		if strings.EqualFold(cfg.Driver, DriverSqlite) {
+			if sc, ok := cfg.DriverConfig.(*store.SqliteConfig); ok {
+				if strings.TrimSpace(sc.Path) == "" {
+					sc.Path = filepath.Join(m.Dir, StoreDBFileName)
+				}
+			}
+		}
+		// Apply custom table names before connecting so EnsureSchema uses them
+		m.store.TableName = cfg.TableNames
 		if err := m.store.Connect(cfg.Config); err != nil {
 			return nil, err
 		}
@@ -98,7 +105,16 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 				cfg.Driver = DriverSqlite
 			}
 		}
-		m.store.Driver = strings.ToLower(strings.TrimSpace(cfg.Driver))
+		// For sqlite, ensure default file path under m.Dir when missing
+		if strings.EqualFold(cfg.Driver, DriverSqlite) {
+			if sc, ok := cfg.DriverConfig.(*store.SqliteConfig); ok {
+				if strings.TrimSpace(sc.Path) == "" {
+					sc.Path = filepath.Join(m.Dir, StoreDBFileName)
+				}
+			}
+		}
+		// Apply custom table names before connecting so EnsureSchema uses them
+		m.store.TableName = cfg.TableNames
 		if err := m.store.Connect(cfg.Config); err != nil {
 			return nil, err
 		}
@@ -121,10 +137,6 @@ type ExecResult = task.ExecResult
 
 // ExecWithVersion pairs an execution result with its version number.
 type ExecWithVersion = imig.ExecWithVersion
-
-// StoreOptions configures the persistence backend for migrations (sqlite or postgres).
-// This is a type alias to the internal implementation for convenience in public APIs.
-type StoreOptions = imig.StoreOptions
 
 // Store is an alias to the internal store type.
 type Store = store.Store
@@ -198,32 +210,42 @@ func NewHTTPClient(_ context.Context) *resty.Client { var h httpc.Httpc; return 
 // RenderAnyTemplate exposes template rendering used for config/auth maps in the CLI.
 func RenderAnyTemplate(v interface{}, base Env) interface{} { return util.RenderAnyTemplate(v, base) }
 
-// OpenStoreFromOptions opens a store based on StoreOptions.
-// If opts is nil or backend is sqlite, opens sqlite at dir/StoreDBFileName or opts.SQLitePath when provided.
-// For postgres, requires non-empty DSN.
-func OpenStoreFromOptions(dir string, opts *StoreOptions) (*Store, error) {
-	if opts == nil {
+// OpenStoreFromOptions opens a store based on StoreConfig.
+// If storeConfig is nil, opens sqlite at dir/StoreDBFileName.
+// Otherwise, connects using the provided driver and driver config; for sqlite, missing path defaults to dir/StoreDBFileName.
+func OpenStoreFromOptions(dir string, storeConfig *StoreConfig) (*Store, error) {
+	// Default: sqlite under the provided directory
+	if storeConfig == nil {
 		path := filepath.Join(dir, StoreDBFileName)
 		return store.Open(path)
 	}
 
-	switch strings.ToLower(strings.TrimSpace(opts.Backend)) {
-	case DriverPostgres:
-		if strings.TrimSpace(opts.PostgresDSN) == "" {
-			return nil, fmt.Errorf("store backend=postgres requires dsn")
+	cfg := storeConfig.Config
+	// If driver not set, infer from driver config type (defaults to sqlite)
+	drv := strings.ToLower(strings.TrimSpace(cfg.Driver))
+	if drv == "" {
+		switch cfg.DriverConfig.(type) {
+		case *store.PostgresConfig:
+			drv = DriverPostgres
+		default:
+			drv = DriverSqlite
 		}
-		if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" {
-			return store.OpenPostgresWithNames(opts.PostgresDSN, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv)
-		}
-		return store.OpenPostgres(opts.PostgresDSN)
-	default:
-		path := strings.TrimSpace(opts.SQLitePath)
-		if path == "" {
-			path = filepath.Join(dir, StoreDBFileName)
-		}
-		if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" {
-			return store.OpenSqliteWithNames(path, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv)
-		}
-		return store.Open(path)
+		cfg.Driver = drv
 	}
+
+	// For sqlite, ensure a default path when empty
+	if cfg.Driver == DriverSqlite {
+		if sc, ok := cfg.DriverConfig.(*store.SqliteConfig); ok {
+			if strings.TrimSpace(sc.Path) == "" {
+				sc.Path = filepath.Join(dir, StoreDBFileName)
+			}
+		}
+	}
+
+	st := &store.Store{}
+	st.TableName = cfg.TableNames
+	if err := st.Connect(cfg); err != nil {
+		return nil, err
+	}
+	return st, nil
 }

@@ -2,18 +2,14 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 
-	"github.com/go-viper/mapstructure/v2"
 	"github.com/loykin/apimigrate"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v3"
 )
 
 var rootCmd = &cobra.Command{
@@ -29,23 +25,35 @@ var rootCmd = &cobra.Command{
 
 		ctx := context.Background()
 		baseEnv := apimigrate.NewEnv()
-		var storeOptsRet *apimigrate.StoreOptions
+		// store options are handled by default sqlite behavior in Migrator when not explicitly set
 		saveResp := false
 
 		if strings.TrimSpace(configPath) != "" {
 			if verbose {
 				log.Printf("loading config from %s", configPath)
 			}
-			mDir, envFromCfg, saveBody, _, _, _, soRet, err := loadConfigAndAcquire(ctx, configPath, verbose)
+			var doc ConfigDoc
+			if err := doc.Load(configPath); err != nil {
+				return err
+			}
+			mDir := strings.TrimSpace(doc.MigrateDir)
+			envFromCfg, err := doc.GetEnv(verbose)
 			if err != nil {
 				return err
 			}
+			if err := doWait(ctx, envFromCfg, doc.Wait, doc.Client, verbose); err != nil {
+				return err
+			}
+			if err := doc.DecodeAuth(ctx, &envFromCfg, verbose); err != nil {
+				return err
+			}
+			_ = doc.Store.ToStorOptions()
+			saveBody := doc.Store.SaveResponseBody
 			if mDir != "" {
 				dir = mDir
 			}
 			// Always use env from config (may carry Auth even if Global is empty)
 			baseEnv = envFromCfg
-			storeOptsRet = soRet
 			saveResp = saveBody
 			// TLS settings are now configured via httpc.Httpc struct at client creation time.
 		}
@@ -59,28 +67,7 @@ var rootCmd = &cobra.Command{
 		}
 		// Use versioned executor so applied versions are persisted to the store
 		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp}
-		// Configure store via Migrator.StoreConfig based on parsed options (wrapper)
-		var sc apimigrate.StoreConfig
-		if storeOptsRet != nil {
-			b := strings.ToLower(strings.TrimSpace(storeOptsRet.Backend))
-			if b == apimigrate.DriverPostgres {
-				pg := &apimigrate.PostgresConfig{DSN: strings.TrimSpace(storeOptsRet.PostgresDSN)}
-				sc.Config.Driver = apimigrate.DriverPostgres
-				sc.Config.DriverConfig = pg
-			} else {
-				path := ""
-				if storeOptsRet != nil {
-					path = strings.TrimSpace(storeOptsRet.SQLitePath)
-				}
-				if path == "" {
-					path = filepath.Join(dir, apimigrate.StoreDBFileName)
-				}
-				sqlite := &apimigrate.SqliteConfig{Path: path}
-				sc.Config.Driver = apimigrate.DriverSqlite
-				sc.Config.DriverConfig = sqlite
-			}
-		}
-		m.StoreConfig = &sc
+		// Use default store behavior (sqlite under dir) unless programmatic StoreConfig is provided elsewhere
 		vres, err := m.MigrateUp(ctx, 0)
 		if err != nil {
 			if len(vres) > 0 && verbose {
@@ -136,106 +123,4 @@ func main() {
 		log.Printf("error: %v", err)
 		os.Exit(1)
 	}
-}
-
-func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (string, apimigrate.Env, bool, bool, string, string, *apimigrate.StoreOptions, error) {
-	clean := filepath.Clean(path)
-	// Ensure path points to a regular file to avoid opening directories/special files
-	if info, statErr := os.Stat(clean); statErr != nil || !info.Mode().IsRegular() {
-		if statErr != nil {
-			return "", apimigrate.NewEnv(), false, false, "", "", nil, statErr
-		}
-		return "", apimigrate.NewEnv(), false, false, "", "", nil, fmt.Errorf("not a regular file: %s", clean)
-	}
-	// #nosec G304 -- config path is provided intentionally by the user/CI; cleaned and validated above
-	f, err := os.Open(clean)
-	if err != nil {
-		return "", apimigrate.NewEnv(), false, false, "", "", nil, err
-	}
-	defer func() { _ = f.Close() }()
-	dec := yaml.NewDecoder(f)
-	migrateDir := ""
-	base := apimigrate.NewEnv()
-	saveBody := false
-	tlsInsecure := false
-	tlsMin := ""
-	tlsMax := ""
-	var storeOpts *apimigrate.StoreOptions
-	for {
-		var raw map[string]interface{}
-		if err := dec.Decode(&raw); err != nil {
-			if errors.Is(err, os.ErrClosed) {
-				break
-			}
-			if err.Error() == "EOF" { // yaml v3 returns io.EOF but comparing string to avoid new import
-				break
-			}
-			return "", base, false, false, "", "", nil, err
-		}
-		// Decode with mapstructure into our strongly typed doc
-		var doc ConfigDoc
-		if err := mapstructure.Decode(raw, &doc); err != nil {
-			return "", base, false, false, "", "", nil, err
-		}
-		// read store options
-		saveBody = doc.Store.SaveResponseBody
-		// build store options using helper
-		storeOpts = doc.Store.ToStorOptions()
-
-		// env (optional) - process before auth so templating can use it
-		for _, kv := range doc.Env {
-			if kv.Name == "" {
-				continue
-			}
-			val := kv.Value
-			if val == "" && strings.TrimSpace(kv.ValueFromEnv) != "" {
-				val = os.Getenv(kv.ValueFromEnv)
-				if verbose && val == "" {
-					log.Printf("warning: env %s requested from %s but variable is empty or not set", kv.Name, kv.ValueFromEnv)
-				}
-			}
-			base.Global[kv.Name] = val
-		}
-
-		// wait (optional): delegate to dedicated function in wait.go
-		if err := doWait(ctx, base, doc.Wait, doc.Client, verbose); err != nil {
-			return "", base, false, false, "", "", nil, err
-		}
-
-		// auth: array of providers under doc.Auth (name at provider level)
-		if len(doc.Auth) > 0 {
-			for i, a := range doc.Auth {
-				pt := strings.TrimSpace(a.Type)
-				if pt == "" {
-					return "", base, false, false, "", "", nil, fmt.Errorf("auth[%d]: missing type", i)
-				}
-				storedName := strings.TrimSpace(a.Name)
-				if storedName == "" {
-					return "", base, false, false, "", "", nil, fmt.Errorf("auth[%d] type=%s: missing name (use auth[].name)", i, pt)
-				}
-				// Render templated values in the auth config using the base env
-				renderedAny := apimigrate.RenderAnyTemplate(a.Config, base)
-				renderedCfg, _ := renderedAny.(map[string]interface{})
-				v, err := apimigrate.AcquireAuthAndSetEnv(ctx, pt, storedName, apimigrate.NewAuthSpecFromMap(renderedCfg), &base)
-				if err != nil {
-					return "", base, false, false, "", "", nil, fmt.Errorf("auth[%d] type=%s name=%s: acquire failed: %w", i, pt, storedName, err)
-				}
-				if verbose {
-					_ = v
-					log.Printf("auth %s: token acquired", strings.TrimSpace(storedName))
-				}
-			}
-		}
-		// migrate_dir (optional)
-		if strings.TrimSpace(doc.MigrateDir) != "" {
-			// Use as provided: absolute paths unchanged; relative paths are relative to current working directory
-			migrateDir = strings.TrimSpace(doc.MigrateDir)
-		}
-		// read client options
-		tlsInsecure = doc.Client.Insecure
-		tlsMin = strings.TrimSpace(doc.Client.MinTLSVersion)
-		tlsMax = strings.TrimSpace(doc.Client.MaxTLSVersion)
-	}
-	// Do not treat lack of auth as an error to allow pure env/migrate_dir configs
-	return migrateDir, base, saveBody, tlsInsecure, tlsMin, tlsMax, storeOpts, nil
 }

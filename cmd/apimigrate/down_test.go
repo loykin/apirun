@@ -226,7 +226,10 @@ migrate_dir: %s
 
 	// Verify store current version is 1
 	dbPath := filepath.Join(tdir, apimigrate.StoreDBFileName)
-	st, err := apimigrate.OpenStoreFromOptions(filepath.Dir(dbPath), &apimigrate.StoreOptions{Backend: "sqlite", SQLitePath: dbPath})
+	cfg2 := &apimigrate.StoreConfig{}
+	cfg2.Config.Driver = apimigrate.DriverSqlite
+	cfg2.Config.DriverConfig = &apimigrate.SqliteConfig{Path: dbPath}
+	st, err := apimigrate.OpenStoreFromOptions(filepath.Dir(dbPath), cfg2)
 	if err != nil {
 		t.Fatalf("OpenStoreFromOptions error: %v", err)
 	}

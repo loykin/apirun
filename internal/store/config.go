@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -22,6 +23,11 @@ func Open(path string) (*Store, error) {
 	if strings.TrimSpace(path) == "" {
 		return nil, errors.New("empty sqlite path")
 	}
+	// Ensure the parent directory exists to avoid SQLITE_CANTOPEN on create
+	dir := filepath.Dir(filepath.Clean(path))
+	if err := ensureDir(dir); err != nil {
+		return nil, err
+	}
 	dsn := "file:" + filepath.Clean(path) + "?_busy_timeout=5000&_fk=1"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -38,18 +44,12 @@ func Open(path string) (*Store, error) {
 	return st, nil
 }
 
-// OpenSqliteWithNames opens a SQLite store and uses custom table/index names.
-func OpenSqliteWithNames(path, schema, runs, env string) (*Store, error) {
-	st, err := Open(path)
-	if err != nil {
-		return nil, err
+// ensureDir creates the directory if it doesn't exist (noop if it does).
+func ensureDir(d string) error {
+	if d == "." || strings.TrimSpace(d) == "" {
+		return nil
 	}
-	st.SetTableNames(schema, runs, env)
-	if err := st.EnsureSchema(); err != nil {
-		_ = st.Close()
-		return nil, err
-	}
-	return st, nil
+	return os.MkdirAll(d, 0750)
 }
 
 // OpenPostgres opens a Postgres-backed store using pgx stdlib DSN and ensures schema.
@@ -67,20 +67,6 @@ func OpenPostgres(dsn string) (*Store, error) {
 	st.TableName = defaultTableNames()
 	if err := st.EnsureSchema(); err != nil {
 		_ = st.connector.Close()
-		return nil, err
-	}
-	return st, nil
-}
-
-// OpenPostgresWithNames opens a Postgres store and uses custom table/index names.
-func OpenPostgresWithNames(dsn, schema, runs, env string) (*Store, error) {
-	st, err := OpenPostgres(dsn)
-	if err != nil {
-		return nil, err
-	}
-	st.SetTableNames(schema, runs, env)
-	if err := st.EnsureSchema(); err != nil {
-		_ = st.Close()
 		return nil, err
 	}
 	return st, nil

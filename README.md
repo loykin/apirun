@@ -207,16 +207,12 @@ Examples (YAML):
     table_stored_env: app_env
 
 Programmatic (library) equivalent:
-- Use apimigrate.WithStoreOptions with StoreOptions fields:
-  opts := &apimigrate.StoreOptions{
-    Backend: "postgres",
-    PostgresDSN: "postgres://...",
-    TableSchemaMigrations: "app_schema",
-    TableMigrationRuns: "app_runs",
-    TableStoredEnv: "app_env",
-    // IndexStoredEnvByVersion is optional
-  }
-  ctx = apimigrate.WithStoreOptions(ctx, opts)
+- Construct a Migrator and set StoreConfig with driver-specific options and optional custom table names:
+  storeCfg := &apimigrate.StoreConfig{}
+  storeCfg.Config.Driver = apimigrate.DriverPostgres
+  storeCfg.Config.DriverConfig = &apimigrate.PostgresConfig{DSN: "postgres://..."}
+  storeCfg.Config.TableNames = apimigrate.TableNames{SchemaMigrations: "app_schema", MigrationRuns: "app_runs", StoredEnv: "app_env"}
+  m := apimigrate.Migrator{Dir: "./migrations", Env: apimigrate.Env{Global: map[string]string{}}, StoreConfig: storeCfg}
 
 See also:
 - `config/config.yaml` (commented template)
@@ -294,6 +290,7 @@ client:
 ## Programmatic usage (library)
 
 ```go
+// Example: using the struct-based Migrator API
 package main
 
 import (
@@ -305,7 +302,8 @@ func main() {
   ctx := context.Background()
   base := apimigrate.Env{Global: map[string]string{"kc_base": "http://localhost:8080"}}
   // Apply all migrations in directory
-  results, err := apimigrate.MigrateUp(ctx, "examples/keycloak_migration/migration", base, 0)
+  m := apimigrate.Migrator{Dir: "examples/keycloak_migration/migration", Env: base}
+    results, err := m.MigrateUp(ctx, 0)
   if err != nil { panic(err) }
   _ = results
 }
