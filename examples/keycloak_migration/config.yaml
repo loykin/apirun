@@ -17,7 +17,7 @@ auth:
     # header: Authorization
     # optional; defaults to Authorization
 
-migrate_dir: ./migration
+migrate_dir: ./examples/keycloak_migration/migration
 
 env:
   - name: kc_base

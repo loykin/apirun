@@ -61,21 +61,24 @@ var rootCmd = &cobra.Command{
 		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp}
 		// Configure store via Migrator.StoreConfig based on parsed options (wrapper)
 		var sc apimigrate.StoreConfig
-		if storeOptsRet != nil && strings.ToLower(strings.TrimSpace(storeOptsRet.Backend)) == "postgres" {
-			pg := &apimigrate.PostgresConfig{DSN: strings.TrimSpace(storeOptsRet.PostgresDSN)}
-			sc.Config.Driver = apimigrate.DriverPostgres
-			sc.Config.DriverConfig = pg
-		} else {
-			path := ""
-			if storeOptsRet != nil {
-				path = strings.TrimSpace(storeOptsRet.SQLitePath)
+		if storeOptsRet != nil {
+			b := strings.ToLower(strings.TrimSpace(storeOptsRet.Backend))
+			if b == apimigrate.DriverPostgres {
+				pg := &apimigrate.PostgresConfig{DSN: strings.TrimSpace(storeOptsRet.PostgresDSN)}
+				sc.Config.Driver = apimigrate.DriverPostgres
+				sc.Config.DriverConfig = pg
+			} else {
+				path := ""
+				if storeOptsRet != nil {
+					path = strings.TrimSpace(storeOptsRet.SQLitePath)
+				}
+				if path == "" {
+					path = filepath.Join(dir, apimigrate.StoreDBFileName)
+				}
+				sqlite := &apimigrate.SqliteConfig{Path: path}
+				sc.Config.Driver = apimigrate.DriverSqlite
+				sc.Config.DriverConfig = sqlite
 			}
-			if path == "" {
-				path = filepath.Join(dir, apimigrate.StoreDBFileName)
-			}
-			sqlite := &apimigrate.SqliteConfig{Path: path}
-			sc.Config.Driver = apimigrate.DriverSqlite
-			sc.Config.DriverConfig = sqlite
 		}
 		m.StoreConfig = &sc
 		vres, err := m.MigrateUp(ctx, 0)
@@ -177,7 +180,7 @@ func loadConfigAndAcquire(ctx context.Context, path string, verbose bool) (strin
 		// read store options
 		saveBody = doc.Store.SaveResponseBody
 		// build store options using helper
-		storeOpts = buildStoreOptionsFromDoc(doc)
+		storeOpts = doc.Store.ToStorOptions()
 
 		// env (optional) - process before auth so templating can use it
 		for _, kv := range doc.Env {

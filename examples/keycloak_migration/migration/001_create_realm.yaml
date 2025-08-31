@@ -2,12 +2,11 @@ up:
   name: create sample realm
   env: { }
   request:
-    auth_name: keycloak
     method: POST
     url: "{{.env.kc_base}}/admin/realms"
     headers:
       - name: Authorization
-        value: "{{.auth.keycloak}}"
+        value: "Bearer {{.auth.keycloak}}"
     queries: [ ]
     body: |
       {"realm": "{{.realm}}", "enabled": true}
@@ -17,7 +16,6 @@ up:
 
 down:
   name: delete sample realm
-  auth: keycloak
   env: { }
   method: DELETE
   url: "{{.env.kc_base}}/admin/realms/{{.env.realm}}"

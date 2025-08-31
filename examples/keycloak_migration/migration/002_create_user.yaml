@@ -9,7 +9,7 @@ up:
     url: "{{.env.kc_base}}/admin/realms/{{.env.realm}}/users"
     headers:
       - name: Authorization
-        value: "{{.auth.keycloak}}"
+        value: "Bearer {{.auth.keycloak}}"
     queries: [ ]
     body: |
       {
