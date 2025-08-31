@@ -191,14 +191,14 @@ func TestStoredEnv_CRUD(t *testing.T) {
 
 // Test conv() converts '?' placeholders into $1, $2... when isPostgres is true
 func TestConv_Postgres(t *testing.T) {
-	st := &Store{isPostgres: true}
+	st := &Store{Driver: DriverPostgresql}
 	in := "INSERT INTO t(a,b,c) VALUES(?, ?, ?)"
 	exp := "INSERT INTO t(a,b,c) VALUES($1, $2, $3)"
 	if got := st.conv(in); got != exp {
 		t.Fatalf("conv mismatch: got %q want %q", got, exp)
 	}
 	// non-postgres must pass-through
-	st2 := &Store{isPostgres: false}
+	st2 := &Store{Driver: DriverSqlite}
 	if got := st2.conv(in); got != in {
 		t.Fatalf("conv (sqlite) changed input: got %q want %q", got, in)
 	}
@@ -212,13 +212,13 @@ func TestSafeTableNames_FallbackOnInvalid(t *testing.T) {
 	// Now ask for the safe names (should fallback to defaults)
 	tn := st.safeTableNames()
 	def := defaultTableNames()
-	if tn.schemaMigrations != def.schemaMigrations || tn.migrationRuns != def.migrationRuns || tn.storedEnv != def.storedEnv || tn.idxStoredEnvVersion != def.idxStoredEnvVersion {
+	if tn.SchemaMigrations != def.SchemaMigrations || tn.MigrationRuns != def.MigrationRuns || tn.StoredEnv != def.StoredEnv || tn.idxStoredEnvVersion != def.idxStoredEnvVersion {
 		t.Fatalf("expected defaults on invalid names, got %+v want %+v", tn, def)
 	}
 	// Valid names should be preserved
 	st.SetTableNames("app_schema", "app_runs", "app_env", "app_idx")
 	tn2 := st.safeTableNames()
-	if tn2.schemaMigrations != "app_schema" || tn2.migrationRuns != "app_runs" || tn2.storedEnv != "app_env" || tn2.idxStoredEnvVersion != "app_idx" {
+	if tn2.SchemaMigrations != "app_schema" || tn2.MigrationRuns != "app_runs" || tn2.StoredEnv != "app_env" || tn2.idxStoredEnvVersion != "app_idx" {
 		t.Fatalf("valid names not preserved: %+v", tn2)
 	}
 }

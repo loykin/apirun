@@ -14,7 +14,7 @@ A lightweight Go library and CLI for running API-driven migrations defined in YA
 
 - Versioned up/down migrations with persisted history (SQLite, `apimigrate.db`).
 - Request templating with simple Go templates using layered environment variables.
-- Config templating (Go templates {{.var}}) supported across requests, auth config, and wait checks.
+- DriverConfig templating (Go templates {{.var}}) supported across requests, auth config, and wait checks.
 - Response validation via allowed HTTP status codes.
 - Response JSON extraction using `tidwall/gjson` paths.
 - Optional "find" step for down migrations to discover IDs before deletion.
@@ -79,7 +79,7 @@ Customize:
 go run ./cmd/apimigrate --config examples/keycloak_migration/config.yaml -v
 ```
 
-Config YAML supports:
+DriverConfig YAML supports:
 - auth: acquire and store tokens via providers, injected by logical name in tasks (request.auth_name or down.auth). String fields support Go templates ({{.var}}) rendered against env.
 - migrate_dir: path to migrations (001_*.yaml, 002_*.yaml, ...).
 - env: global key/value variables used in templating. You can also pull from OS env with valueFromEnv.

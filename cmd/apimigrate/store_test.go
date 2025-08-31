@@ -282,12 +282,12 @@ func TestBuildStoreOptions_EmptyType_ReturnsNil(t *testing.T) {
 }
 
 func TestBuildStoreOptions_Postgres_WithDSN(t *testing.T) {
-	doc := ConfigDoc{Store: StoreConfig{Type: "postgres", Postgres: PostgresStoreConfig{DSN: "postgres://u:p@h:5432/db?sslmode=disable"}}}
+	doc := ConfigDoc{Store: StoreConfig{Type: apimigrate.DriverPostgres, Postgres: PostgresStoreConfig{DSN: "postgres://u:p@h:5432/db?sslmode=disable"}}}
 	got := buildStoreOptionsFromDoc(doc)
 	if got == nil {
 		t.Fatalf("expected non-nil options")
 	}
-	if got.Backend != "postgres" {
+	if got.Backend != apimigrate.DriverPostgres {
 		t.Fatalf("backend=%s, want postgres", got.Backend)
 	}
 	if got.PostgresDSN != "postgres://u:p@h:5432/db?sslmode=disable" {
@@ -296,11 +296,11 @@ func TestBuildStoreOptions_Postgres_WithDSN(t *testing.T) {
 }
 
 func TestBuildStoreOptions_Postgres_BuildFromComponents_Defaults(t *testing.T) {
-	doc := ConfigDoc{Store: StoreConfig{Type: "postgres", Postgres: PostgresStoreConfig{
+	doc := ConfigDoc{Store: StoreConfig{Type: apimigrate.DriverPostgres, Postgres: PostgresStoreConfig{
 		Host: "localhost", User: "user", Password: "pass", DBName: "db", // Port=0 -> default 5432, SSLMode empty -> disable
 	}}}
 	got := buildStoreOptionsFromDoc(doc)
-	if got == nil || got.Backend != "postgres" {
+	if got == nil || got.Backend != apimigrate.DriverPostgres {
 		t.Fatalf("expected postgres backend, got %#v", got)
 	}
 	exp := "postgres://user:pass@localhost:5432/db?sslmode=disable"
@@ -314,7 +314,7 @@ func TestBuildStoreOptions_Postgres_Aliases(t *testing.T) {
 	for _, a := range aliases {
 		doc := ConfigDoc{Store: StoreConfig{Type: a, Postgres: PostgresStoreConfig{DSN: "postgres://u:p@h:5432/db?sslmode=disable"}}}
 		got := buildStoreOptionsFromDoc(doc)
-		if got == nil || got.Backend != "postgres" {
+		if got == nil || got.Backend != apimigrate.DriverPostgres {
 			t.Fatalf("alias %s: expected postgres backend, got %#v", a, got)
 		}
 	}
@@ -385,7 +385,7 @@ func TestOpenStoreFromOptions_SQLitePath_UsesPath(t *testing.T) {
 
 func TestOpenStoreFromOptions_PostgresMissingDSN_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
-	doc := ConfigDoc{Store: StoreConfig{Type: "postgres", Postgres: PostgresStoreConfig{DSN: ""}}}
+	doc := ConfigDoc{Store: StoreConfig{Type: apimigrate.DriverPostgres, Postgres: PostgresStoreConfig{DSN: ""}}}
 	so := buildStoreOptionsFromDoc(doc)
 	// buildStoreOptionsFromDoc returns postgres backend with empty DSN if host also empty
 	// OpenStoreFromOptions should error
@@ -459,7 +459,7 @@ func TestBuildStoreOptions_TablePrefix_ComputesNames(t *testing.T) {
 	if got == nil {
 		t.Fatalf("expected non-nil store options")
 	}
-	if got.TableSchemaMigrations != "app1_schema_migrations" || got.TableMigrationRuns != "app1_migration_runs" || got.TableStoredEnv != "app1_stored_env" {
+	if got.TableSchemaMigrations != "app1_schema_migrations" || got.TableMigrationRuns != "app1_migration_log" || got.TableStoredEnv != "app1_stored_env" {
 		t.Fatalf("prefix-derived names mismatch: %#v", got)
 	}
 }
@@ -478,7 +478,7 @@ func TestOpenStoreFromOptions_SQLite_TablePrefix_CreatesTables(t *testing.T) {
 		t.Fatalf("OpenStoreFromOptions: %v", err)
 	}
 	defer func() { _ = st.Close() }()
-	must := []string{"pfx_schema_migrations", "pfx_migration_runs", "pfx_stored_env"}
+	must := []string{"pfx_schema_migrations", "pfx_migration_log", "pfx_stored_env"}
 	for _, tbl := range must {
 		row := st.DB.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, tbl)
 		var name string

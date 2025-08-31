@@ -16,12 +16,20 @@ import (
 	"github.com/loykin/apimigrate/internal/util"
 )
 
-type StoreConfig interface {
+const DriverSqlite = store.DriverSqlite
+const DriverPostgres = store.DriverPostgresql
+
+type DriverConfig interface {
 	ToMap() map[string]interface{}
 }
 
 type SqliteConfig = store.SqliteConfig
 type PostgresConfig = store.PostgresConfig
+
+type TableNames = store.TableNames
+type StoreConfig struct {
+	store.Config
+}
 
 // Migrator is the root struct-based API to run migrations programmatically.
 // Users can create it, set Store and Env, then call its methods.
@@ -37,51 +45,71 @@ type PostgresConfig = store.PostgresConfig
 // #nosec G101 -- field name isn't a credential
 type Migrator struct {
 	Dir              string
-	Store            Store
+	store            Store
 	Env              Env
-	StoreConfig      StoreConfig
+	StoreConfig      *StoreConfig
 	SaveResponseBody bool
 }
 
 // MigrateUp applies pending migrations up to targetVersion (0 = all) using this Migrator's Store and Env.
 func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
-	// Auto-connect store if a StoreConfig is provided and Store is not connected yet
-	if m.Store.DB == nil && m.StoreConfig != nil {
-		// infer driver from config type (use internal store types)
-		switch any(m.StoreConfig).(type) {
-		case store.SqliteConfig, *store.SqliteConfig:
-			m.Store.Driver = "sqlite"
-		case store.PostgresConfig, *store.PostgresConfig:
-			m.Store.Driver = "postgres"
-		}
-		if sc, ok := any(m.StoreConfig).(store.Config); ok {
-			if err := m.Store.Connect(sc); err != nil {
-				return nil, err
+	if m.StoreConfig != nil {
+		// Support wrapper StoreConfig, direct store.Config, and direct driver configs
+		cfg := m.StoreConfig
+		if strings.TrimSpace(cfg.Driver) == "" {
+			// Infer driver from DriverConfig type when not explicitly set
+			switch cfg.DriverConfig.(type) {
+			case *store.PostgresConfig:
+				cfg.Driver = DriverPostgres
+			default:
+				cfg.Driver = DriverSqlite
 			}
 		}
+		m.store.Driver = strings.ToLower(strings.TrimSpace(cfg.Driver))
+		m.store.TableName = m.StoreConfig.TableNames
+		if err := m.store.Connect(cfg.Config); err != nil {
+			return nil, err
+		}
+	} else {
+		// default sqlite under dir
+		wrapper := store.Config{Driver: DriverSqlite,
+			TableNames:   m.store.TableName,
+			DriverConfig: &store.SqliteConfig{Path: filepath.Join(m.Dir, StoreDBFileName)}}
+		if err := m.store.Connect(wrapper); err != nil {
+			return nil, err
+		}
 	}
-	im := imig.Migrator{Dir: m.Dir, Store: m.Store, Env: m.Env, SaveResponseBody: m.SaveResponseBody}
+
+	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, SaveResponseBody: m.SaveResponseBody}
 	return im.MigrateUp(ctx, targetVersion)
 }
 
 // MigrateDown rolls back applied migrations down to targetVersion using this Migrator's Store and Env.
 func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
-	// Auto-connect store if a StoreConfig is provided and Store is not connected yet
-	if m.Store.DB == nil && m.StoreConfig != nil {
-		// infer driver
-		switch any(m.StoreConfig).(type) {
-		case store.SqliteConfig, *store.SqliteConfig:
-			m.Store.Driver = "sqlite"
-		case store.PostgresConfig, *store.PostgresConfig:
-			m.Store.Driver = "postgres"
-		}
-		if sc, ok := any(m.StoreConfig).(store.Config); ok {
-			if err := m.Store.Connect(sc); err != nil {
-				return nil, err
+	if m.StoreConfig != nil {
+		// Support wrapper StoreConfig, direct store.Config, and direct driver configs
+		cfg := m.StoreConfig
+		if strings.TrimSpace(cfg.Driver) == "" {
+			// Infer driver from DriverConfig type when not explicitly set
+			switch cfg.DriverConfig.(type) {
+			case *store.PostgresConfig:
+				cfg.Driver = DriverPostgres
+			default:
+				cfg.Driver = DriverSqlite
 			}
 		}
+		m.store.Driver = strings.ToLower(strings.TrimSpace(cfg.Driver))
+		if err := m.store.Connect(cfg.Config); err != nil {
+			return nil, err
+		}
+	} else if m.store.DB == nil {
+		// default sqlite under dir
+		wrapper := store.Config{Driver: DriverSqlite, DriverConfig: &store.SqliteConfig{Path: filepath.Join(m.Dir, StoreDBFileName)}}
+		if err := m.store.Connect(wrapper); err != nil {
+			return nil, err
+		}
 	}
-	im := imig.Migrator{Dir: m.Dir, Store: m.Store, Env: m.Env, SaveResponseBody: m.SaveResponseBody}
+	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, SaveResponseBody: m.SaveResponseBody}
 	return im.MigrateDown(ctx, targetVersion)
 }
 
@@ -181,14 +209,14 @@ func OpenStoreFromOptions(dir string, opts *StoreOptions) (*Store, error) {
 		path := filepath.Join(dir, StoreDBFileName)
 		return store.Open(path)
 	}
+
 	switch strings.ToLower(strings.TrimSpace(opts.Backend)) {
-	case "postgres", "postgresql", "pg":
+	case DriverPostgres:
 		if strings.TrimSpace(opts.PostgresDSN) == "" {
 			return nil, fmt.Errorf("store backend=postgres requires dsn")
 		}
-		// If any custom names provided, use the WithNames constructor
 		if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
-			return store.OpenPostgresWithNames(opts.PostgresDSN, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
+			return store.OpenPostgresWithNames(opts.PostgresDSN, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv)
 		}
 		return store.OpenPostgres(opts.PostgresDSN)
 	default:
@@ -197,7 +225,7 @@ func OpenStoreFromOptions(dir string, opts *StoreOptions) (*Store, error) {
 			path = filepath.Join(dir, StoreDBFileName)
 		}
 		if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
-			return store.OpenSqliteWithNames(path, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
+			return store.OpenSqliteWithNames(path, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv)
 		}
 		return store.Open(path)
 	}

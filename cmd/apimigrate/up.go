@@ -49,12 +49,13 @@ var upCmd = &cobra.Command{
 		}
 		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp}
 		// Configure store via Migrator.StoreConfig (auto-connect inside MigrateUp)
-		var storeCfg apimigrate.StoreConfig
+		var sc apimigrate.StoreConfig
 		if strings.TrimSpace(configPath) != "" {
 			_, _, _, _, _, _, storeOpts, _ := loadConfigAndAcquire(context.Background(), configPath, false)
-			if storeOpts != nil && strings.ToLower(strings.TrimSpace(storeOpts.Backend)) == "postgres" {
-				pg := apimigrate.PostgresConfig{DSN: strings.TrimSpace(storeOpts.PostgresDSN)}
-				storeCfg = &pg
+			if storeOpts != nil && strings.ToLower(strings.TrimSpace(storeOpts.Backend)) == apimigrate.DriverPostgres {
+				pg := &apimigrate.PostgresConfig{DSN: strings.TrimSpace(storeOpts.PostgresDSN)}
+				sc.Config.Driver = apimigrate.DriverPostgres
+				sc.Config.DriverConfig = pg
 			} else {
 				// default sqlite path: <dir>/apimigrate.db when not provided
 				path := strings.TrimSpace("")
@@ -64,15 +65,17 @@ var upCmd = &cobra.Command{
 				if path == "" {
 					path = filepath.Join(dir, apimigrate.StoreDBFileName)
 				}
-				sqlite := apimigrate.SqliteConfig{Path: path}
-				storeCfg = &sqlite
+				sqlite := &apimigrate.SqliteConfig{Path: path}
+				sc.Config.Driver = apimigrate.DriverSqlite
+				sc.Config.DriverConfig = sqlite
 			}
 		} else {
 			// No config: use default sqlite under dir
-			sqlite := apimigrate.SqliteConfig{Path: filepath.Join(dir, apimigrate.StoreDBFileName)}
-			storeCfg = &sqlite
+			sqlite := &apimigrate.SqliteConfig{Path: filepath.Join(dir, apimigrate.StoreDBFileName)}
+			sc.Config.Driver = apimigrate.DriverSqlite
+			sc.Config.DriverConfig = sqlite
 		}
-		m.StoreConfig = storeCfg
+		m.StoreConfig = &sc
 		_, err := m.MigrateUp(ctx, to)
 		return err
 	},

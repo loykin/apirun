@@ -7,7 +7,13 @@ import (
 	"strings"
 )
 
-type Config interface {
+type Config struct {
+	Driver       string `mapstructure:"driver"`
+	TableNames   TableNames
+	DriverConfig DriverConfig
+}
+
+type DriverConfig interface {
 	ToMap() map[string]interface{}
 }
 
@@ -21,10 +27,10 @@ func Open(path string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	st := &Store{isPostgres: false}
+	st := &Store{Driver: DriverSqlite}
 	st.DB = db
 	st.connector = &SqliteStore{db: db}
-	st.tn = defaultTableNames()
+	st.TableName = defaultTableNames()
 	if err := st.EnsureSchema(); err != nil {
 		_ = st.connector.Close()
 		return nil, err
@@ -33,12 +39,12 @@ func Open(path string) (*Store, error) {
 }
 
 // OpenSqliteWithNames opens a SQLite store and uses custom table/index names.
-func OpenSqliteWithNames(path, schema, runs, env, idx string) (*Store, error) {
+func OpenSqliteWithNames(path, schema, runs, env string) (*Store, error) {
 	st, err := Open(path)
 	if err != nil {
 		return nil, err
 	}
-	st.SetTableNames(schema, runs, env, idx)
+	st.SetTableNames(schema, runs, env)
 	if err := st.EnsureSchema(); err != nil {
 		_ = st.Close()
 		return nil, err
@@ -55,10 +61,10 @@ func OpenPostgres(dsn string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	st := &Store{isPostgres: true}
+	st := &Store{Driver: DriverPostgresql}
 	st.DB = db
 	st.connector = &PostgresStore{db: db}
-	st.tn = defaultTableNames()
+	st.TableName = defaultTableNames()
 	if err := st.EnsureSchema(); err != nil {
 		_ = st.connector.Close()
 		return nil, err
@@ -67,12 +73,12 @@ func OpenPostgres(dsn string) (*Store, error) {
 }
 
 // OpenPostgresWithNames opens a Postgres store and uses custom table/index names.
-func OpenPostgresWithNames(dsn, schema, runs, env, idx string) (*Store, error) {
+func OpenPostgresWithNames(dsn, schema, runs, env string) (*Store, error) {
 	st, err := OpenPostgres(dsn)
 	if err != nil {
 		return nil, err
 	}
-	st.SetTableNames(schema, runs, env, idx)
+	st.SetTableNames(schema, runs, env)
 	if err := st.EnsureSchema(); err != nil {
 		_ = st.Close()
 		return nil, err

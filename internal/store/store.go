@@ -15,27 +15,29 @@ import (
 const DbFileName = "apimigrate.db"
 
 type Store struct {
-	DB         *sql.DB
-	isPostgres bool
-	tn         tableNames
-	Driver     string
-	connector  Connector
+	DB        *sql.DB
+	TableName TableNames
+	Driver    string
+	connector Connector
 }
 
 // Connect selects a connector based on Driver, loads config, connects, assigns DB/connector
 // and ensures schema. It also sets backend flags for placeholder handling.
 func (s *Store) Connect(config Config) error {
 	var connector Connector
-	switch s.Driver {
-	case "sqlite":
+	switch config.Driver {
+	case DriverSqlite:
 		connector = NewSqliteConnector()
-		_ = connector.Load(config.ToMap())
-		// mark backend
-		s.isPostgres = false
-	case "postgres":
+		if config.DriverConfig != nil {
+			_ = connector.Load(config.DriverConfig.ToMap())
+		}
+		s.Driver = DriverSqlite
+	case DriverPostgresql:
 		connector = NewPostgresConnector()
-		_ = connector.Load(config.ToMap())
-		s.isPostgres = true
+		if config.DriverConfig != nil {
+			_ = connector.Load(config.DriverConfig.ToMap())
+		}
+		s.Driver = DriverPostgresql
 	default:
 		return errors.New("unknown store driver: " + s.Driver)
 	}
@@ -53,10 +55,10 @@ func (s *Store) Connect(config Config) error {
 	return nil
 }
 
-type tableNames struct {
-	schemaMigrations    string
-	migrationRuns       string
-	storedEnv           string
+type TableNames struct {
+	SchemaMigrations    string
+	MigrationRuns       string
+	StoredEnv           string
 	idxStoredEnvVersion string
 }
 
@@ -64,36 +66,46 @@ var identRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
 // safeTableNames returns validated table/index names; if a custom name is invalid,
 // it falls back to the default for that identifier to avoid SQL injection via identifiers.
-func (s *Store) safeTableNames() tableNames {
+func (s *Store) safeTableNames() TableNames {
 	d := defaultTableNames()
-	t := s.tn
-	if !identRe.MatchString(t.schemaMigrations) {
-		t.schemaMigrations = d.schemaMigrations
+	// Prefer externally visible TableName when any field is non-empty; else use internal tn
+	t := s.TableName
+	// if TableName has any custom non-empty values, start from it
+	if s.TableName.SchemaMigrations != "" || s.TableName.MigrationRuns != "" || s.TableName.StoredEnv != "" || s.TableName.idxStoredEnvVersion != "" {
+		t = s.TableName
 	}
-	if !identRe.MatchString(t.migrationRuns) {
-		t.migrationRuns = d.migrationRuns
+	if !identRe.MatchString(t.SchemaMigrations) || t.SchemaMigrations == "" {
+		t.SchemaMigrations = d.SchemaMigrations
 	}
-	if !identRe.MatchString(t.storedEnv) {
-		t.storedEnv = d.storedEnv
+	if !identRe.MatchString(t.MigrationRuns) || t.MigrationRuns == "" {
+		t.MigrationRuns = d.MigrationRuns
 	}
-	if !identRe.MatchString(t.idxStoredEnvVersion) {
+	if !identRe.MatchString(t.StoredEnv) || t.StoredEnv == "" {
+		t.StoredEnv = d.StoredEnv
+	}
+	if !identRe.MatchString(t.idxStoredEnvVersion) || t.idxStoredEnvVersion == "" {
 		t.idxStoredEnvVersion = d.idxStoredEnvVersion
 	}
 	return t
 }
 
-func defaultTableNames() tableNames {
-	return tableNames{
-		schemaMigrations:    "schema_migrations",
-		migrationRuns:       "migration_runs",
-		storedEnv:           "stored_env",
+func defaultTableNames() TableNames {
+	return TableNames{
+		SchemaMigrations:    "schema_migrations",
+		MigrationRuns:       "migration_runs",
+		StoredEnv:           "stored_env",
 		idxStoredEnvVersion: "idx_stored_env_version",
 	}
 }
 
 // SetTableNames allows overriding default table/index names (validated via safeTableNames at use time).
-func (s *Store) SetTableNames(schema, runs, env, idx string) {
-	s.tn = tableNames{schemaMigrations: schema, migrationRuns: runs, storedEnv: env, idxStoredEnvVersion: idx}
+// idx (optional) allows passing a custom index name for stored_env(version).
+func (s *Store) SetTableNames(schema, runs, env string, idx ...string) {
+	t := TableNames{SchemaMigrations: schema, MigrationRuns: runs, StoredEnv: env}
+	if len(idx) > 0 {
+		t.idxStoredEnvVersion = idx[0]
+	}
+	s.TableName = t
 }
 
 // EnsureSchema creates required tables for migration state.
@@ -128,7 +140,7 @@ func (s *Store) Apply(v int) error {
 
 // conv replaces '?' placeholders with $1, $2... for Postgres; pass-through for SQLite.
 func (s *Store) conv(q string) string {
-	if !s.isPostgres {
+	if s.Driver != DriverPostgresql {
 		return q
 	}
 	n := 0

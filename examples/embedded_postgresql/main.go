@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/loykin/apimigrate"
-	"github.com/loykin/apimigrate/internal/store"
 )
 
 // This example runs the versioned migrator programmatically while using
@@ -42,8 +41,9 @@ func main() {
 	base := apimigrate.Env{Global: map[string]string{}}
 
 	// Configure migrator to auto-connect to Postgres using StoreConfig
-	config := store.PostgresConfig{DSN: dsn}
-	m := apimigrate.Migrator{Env: base, Dir: migrateDir, StoreConfig: &config}
+	storeConfig := apimigrate.StoreConfig{}
+	storeConfig.DriverConfig = &apimigrate.PostgresConfig{DSN: dsn}
+	m := apimigrate.Migrator{Env: base, Dir: migrateDir, StoreConfig: &storeConfig}
 	vres, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		log.Fatalf("migrate up failed: %v", err)

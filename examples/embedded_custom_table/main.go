@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"path/filepath"
 
 	"github.com/loykin/apimigrate"
 )
@@ -41,13 +42,14 @@ func main() {
 	// Base env for templating (empty here)
 	base := apimigrate.Env{Global: map[string]string{}}
 
-	// Apply all migrations in the directory
-	st, err := apimigrate.OpenStoreFromOptions(migrateDir, opts)
-	if err != nil {
-		log.Fatalf("open store failed: %v", err)
+	storeConfig := apimigrate.StoreConfig{}
+	storeConfig.TableNames = apimigrate.TableNames{
+		SchemaMigrations: opts.TableSchemaMigrations,
+		MigrationRuns:    opts.TableMigrationRuns,
+		StoredEnv:        opts.TableStoredEnv,
 	}
-	defer func() { _ = st.Close() }()
-	m := apimigrate.Migrator{Env: base, Dir: migrateDir, Store: *st}
+	storeConfig.DriverConfig = &apimigrate.SqliteConfig{Path: filepath.Join(migrateDir, apimigrate.StoreDBFileName)}
+	m := apimigrate.Migrator{Env: base, Dir: migrateDir, StoreConfig: &storeConfig}
 	vres, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		log.Fatalf("migrate up failed: %v", err)

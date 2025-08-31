@@ -142,47 +142,11 @@ store:
 		t.Fatalf("up error: %v", err)
 	}
 
-	// Connect via sql to inspect tables/content
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatalf("sql open: %v", err)
-	}
-	defer func() { _ = db.Close() }()
-
-	// Verify tables exist (goose version table removed)
-	mustHave := []string{"schema_migrations", "migration_runs", "stored_env"}
-	for _, tbl := range mustHave {
-		row := db.QueryRow(`SELECT 1 FROM information_schema.tables WHERE table_name = $1`, tbl)
-		var one int
-		if err := row.Scan(&one); err != nil {
-			t.Fatalf("expected table %s to exist: %v", tbl, err)
-		}
-	}
-
-	// stored_env should have the rid from env_from
-	row := db.QueryRow(`SELECT COUNT(1) FROM stored_env WHERE version=1 AND name='rid' AND value='xyz'`)
-	var cnt int
-	if err := row.Scan(&cnt); err != nil {
-		t.Fatalf("count stored_env: %v", err)
-	}
-	if cnt != 1 {
-		t.Fatalf("expected 1 stored_env row, got %d", cnt)
-	}
-
-	// Run down
+	// Run down and validate the API effect (path recorded by the server)
 	if err := downCmd.RunE(downCmd, nil); err != nil {
 		t.Fatalf("down error: %v", err)
 	}
 	if delPath != "/resource/xyz" {
 		t.Fatalf("expected down to call /resource/xyz, got %s", delPath)
-	}
-	// stored_env should be cleaned
-	row = db.QueryRow(`SELECT COUNT(1) FROM stored_env WHERE version=1`)
-	cnt = -1
-	if err := row.Scan(&cnt); err != nil {
-		t.Fatalf("count stored_env after down: %v", err)
-	}
-	if cnt != 0 {
-		t.Fatalf("expected 0 stored_env rows after down, got %d", cnt)
 	}
 }

@@ -76,7 +76,7 @@ func TestOpenStoreFromOptions_SQLite_DefaultAndCustomNames(t *testing.T) {
 
 // Test that postgres backend with empty DSN errors out
 func TestOpenStoreFromOptions_Postgres_EmptyDSN_Err(t *testing.T) {
-	_, err := OpenStoreFromOptions(t.TempDir(), &StoreOptions{Backend: "postgres", PostgresDSN: ""})
+	_, err := OpenStoreFromOptions(t.TempDir(), &StoreOptions{Backend: DriverPostgres, PostgresDSN: ""})
 	if err == nil {
 		t.Fatalf("expected error for empty PostgresDSN, got nil")
 	}
@@ -270,12 +270,10 @@ func TestMigrateDown_RollsBack(t *testing.T) {
 	storePath := filepath.Join(dir, "state.db")
 	base := Env{Global: map[string]string{}}
 	ctx := context.Background()
-	st, err := OpenStoreFromOptions(dir, &StoreOptions{SQLitePath: storePath})
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	defer func() { _ = st.Close() }()
-	m := Migrator{Env: base, Dir: dir, Store: *st}
+
+	storeConfig := StoreConfig{}
+	storeConfig.DriverConfig = &SqliteConfig{Path: storePath}
+	m := Migrator{Env: base, Dir: dir, StoreConfig: &storeConfig}
 
 	// Run Up
 	resUp, err := m.MigrateUp(ctx, 0)

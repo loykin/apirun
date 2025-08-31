@@ -50,13 +50,10 @@ func TestEmbeddedAuthAndMigrateUp(t *testing.T) {
 		t.Fatalf("AcquireAuthAndSetEnv failed: %v", err)
 	}
 
-	// Act: run migrations from the example directory
-	st, err := OpenStoreFromOptions("./examples/auth_embedded/migration", &StoreOptions{SQLitePath: storePath})
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	defer func() { _ = st.Close() }()
-	m := Migrator{Env: base, Dir: "./examples/auth_embedded/migration", Store: *st}
+	storeConfig := StoreConfig{}
+	storeConfig.Driver = DriverSqlite
+	storeConfig.DriverConfig = &SqliteConfig{Path: storePath}
+	m := Migrator{Env: base, Dir: "./examples/auth_embedded/migration", StoreConfig: &storeConfig}
 	results, err := m.MigrateUp(ctx, 0)
 
 	// Assert

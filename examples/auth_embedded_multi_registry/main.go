@@ -67,12 +67,10 @@ func main() {
 
 	// Run migrations from this example's migration directory
 	migDir := "./examples/auth_embedded_multi_registry/migration"
-	st, err := apimigrate.OpenStoreFromOptions(migDir, &apimigrate.StoreOptions{SQLitePath: storePath})
-	if err != nil {
-		log.Fatalf("open store failed: %v", err)
-	}
-	defer func() { _ = st.Close() }()
-	m := apimigrate.Migrator{Env: base, Dir: migDir, Store: *st}
+
+	storeConfig := apimigrate.StoreConfig{}
+	storeConfig.DriverConfig = &apimigrate.SqliteConfig{Path: storePath}
+	m := apimigrate.Migrator{Env: base, Dir: migDir, StoreConfig: &storeConfig}
 	if _, err := m.MigrateUp(ctx, 0); err != nil {
 		log.Fatalf("migrate up failed: %v", err)
 	}

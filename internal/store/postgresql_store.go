@@ -11,6 +11,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
+const DriverPostgresql = "postgresql"
+
 type PostgresConfig struct {
 	DSN      string `mapstructure:"dsn"`
 	Host     string `mapstructure:"host"`
@@ -71,12 +73,11 @@ func (p *PostgresStore) Load(config map[string]interface{}) error {
 	return nil
 }
 
-func (p *PostgresStore) Ensure(th tableNames) error {
+func (p *PostgresStore) Ensure(th TableNames) error {
 	stmts := []string{
-		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER PRIMARY KEY)", th.schemaMigrations),
-		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id SERIAL PRIMARY KEY, version INTEGER NOT NULL, direction TEXT NOT NULL, status_code INTEGER NOT NULL, body TEXT NULL, env_json TEXT NULL, ran_at TIMESTAMPTZ NOT NULL)", th.migrationRuns),
-		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(version, name))", th.storedEnv),
-		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s(version)", th.idxStoredEnvVersion, th.storedEnv),
+		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER PRIMARY KEY)", th.SchemaMigrations),
+		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id SERIAL PRIMARY KEY, version INTEGER NOT NULL, direction TEXT NOT NULL, status_code INTEGER NOT NULL, body TEXT NULL, env_json TEXT NULL, ran_at TIMESTAMPTZ NOT NULL)", th.MigrationRuns),
+		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(version, name))", th.StoredEnv),
 	}
 
 	for _, q := range stmts {
@@ -88,16 +89,16 @@ func (p *PostgresStore) Ensure(th tableNames) error {
 	return nil
 }
 
-func (p *PostgresStore) Apply(th tableNames, v int) error {
+func (p *PostgresStore) Apply(th TableNames, v int) error {
 	// #nosec G201 -- only sanitized table name is interpolated; value is a bind parameter
-	q := fmt.Sprintf("INSERT INTO %s(version) VALUES($1) ON CONFLICT (version) DO NOTHING", th.schemaMigrations)
+	q := fmt.Sprintf("INSERT INTO %s(version) VALUES($1) ON CONFLICT (version) DO NOTHING", th.SchemaMigrations)
 	_, err := p.db.Exec(q, v)
 	return err
 }
 
-func (p *PostgresStore) IsApplied(th tableNames, v int) (bool, error) {
+func (p *PostgresStore) IsApplied(th TableNames, v int) (bool, error) {
 	// #nosec G201 -- table identifier validated by safeTableNames; WHERE uses bind parameter $1
-	q := fmt.Sprintf("SELECT 1 FROM %s WHERE version = $1", th.schemaMigrations)
+	q := fmt.Sprintf("SELECT 1 FROM %s WHERE version = $1", th.SchemaMigrations)
 	row := p.db.QueryRow(q, v)
 	var one int
 	err := row.Scan(&one)
@@ -107,9 +108,9 @@ func (p *PostgresStore) IsApplied(th tableNames, v int) (bool, error) {
 	return err == nil, err
 }
 
-func (p *PostgresStore) CurrentVersion(th tableNames) (int, error) {
+func (p *PostgresStore) CurrentVersion(th TableNames) (int, error) {
 	// #nosec G201 -- sanitized table identifier only; query has no user-controlled parts
-	q := fmt.Sprintf("SELECT COALESCE(MAX(version), 0) FROM %s", th.schemaMigrations)
+	q := fmt.Sprintf("SELECT COALESCE(MAX(version), 0) FROM %s", th.SchemaMigrations)
 	row := p.db.QueryRow(q)
 	var v int
 	if err := row.Scan(&v); err != nil {
@@ -118,9 +119,9 @@ func (p *PostgresStore) CurrentVersion(th tableNames) (int, error) {
 	return v, nil
 }
 
-func (p *PostgresStore) ListApplied(th tableNames) ([]int, error) {
+func (p *PostgresStore) ListApplied(th TableNames) ([]int, error) {
 	// #nosec G201 -- table identifier sanitized prior to use; no user-supplied data in SQL
-	q := fmt.Sprintf("SELECT version FROM %s ORDER BY version ASC", th.schemaMigrations)
+	q := fmt.Sprintf("SELECT version FROM %s ORDER BY version ASC", th.SchemaMigrations)
 	rows, err := p.db.Query(q)
 	if err != nil {
 		return nil, err
@@ -137,14 +138,14 @@ func (p *PostgresStore) ListApplied(th tableNames) ([]int, error) {
 	return out, rows.Err()
 }
 
-func (p *PostgresStore) Remove(th tableNames, v int) error {
+func (p *PostgresStore) Remove(th TableNames, v int) error {
 	// #nosec G201 -- table name is a validated identifier; predicate uses bind parameter $1
-	q := fmt.Sprintf("DELETE FROM %s WHERE version = $1", th.schemaMigrations)
+	q := fmt.Sprintf("DELETE FROM %s WHERE version = $1", th.SchemaMigrations)
 	_, err := p.db.Exec(q, v)
 	return err
 }
 
-func (p *PostgresStore) SetVersion(th tableNames, target int) error {
+func (p *PostgresStore) SetVersion(th TableNames, target int) error {
 	cur, err := p.CurrentVersion(th)
 	if err != nil {
 		return err
@@ -156,12 +157,12 @@ func (p *PostgresStore) SetVersion(th tableNames, target int) error {
 		return errors.New("cannot set version up; apply migrations instead")
 	}
 	// #nosec G201 -- validated table identifier; comparison value passed as bind parameter $1
-	q := fmt.Sprintf("DELETE FROM %s WHERE version > $1", th.schemaMigrations)
+	q := fmt.Sprintf("DELETE FROM %s WHERE version > $1", th.SchemaMigrations)
 	_, err = p.db.Exec(q, target)
 	return err
 }
 
-func (p *PostgresStore) RecordRun(th tableNames, version int, direction string, status int, body *string, env map[string]string) error {
+func (p *PostgresStore) RecordRun(th TableNames, version int, direction string, status int, body *string, env map[string]string) error {
 	var envJSON *string
 	if len(env) > 0 {
 		b, _ := json.Marshal(env)
@@ -170,14 +171,14 @@ func (p *PostgresStore) RecordRun(th tableNames, version int, direction string, 
 	}
 	ranAt := time.Now().UTC()
 	// #nosec G201 -- only the table name (validated) is interpolated; all values use bind parameters
-	q := fmt.Sprintf("INSERT INTO %s(version, direction, status_code, body, env_json, ran_at) VALUES($1,$2,$3,$4,$5,$6)", th.migrationRuns)
+	q := fmt.Sprintf("INSERT INTO %s(version, direction, status_code, body, env_json, ran_at) VALUES($1,$2,$3,$4,$5,$6)", th.MigrationRuns)
 	_, err := p.db.Exec(q, version, direction, status, body, envJSON, ranAt)
 	return err
 }
 
-func (p *PostgresStore) LoadEnv(th tableNames, version int, direction string) (map[string]string, error) {
+func (p *PostgresStore) LoadEnv(th TableNames, version int, direction string) (map[string]string, error) {
 	// #nosec G201 -- validated table identifier only; predicate values parameterized ($1,$2)
-	q := fmt.Sprintf("SELECT env_json FROM %s WHERE version = $1 AND direction = $2 ORDER BY id DESC LIMIT 1", th.migrationRuns)
+	q := fmt.Sprintf("SELECT env_json FROM %s WHERE version = $1 AND direction = $2 ORDER BY id DESC LIMIT 1", th.MigrationRuns)
 	row := p.db.QueryRow(q, version, direction)
 	var envJSON sql.NullString
 	if err := row.Scan(&envJSON); err != nil {
@@ -196,12 +197,12 @@ func (p *PostgresStore) LoadEnv(th tableNames, version int, direction string) (m
 	return out, nil
 }
 
-func (p *PostgresStore) InsertStoredEnv(th tableNames, version int, kv map[string]string) error {
+func (p *PostgresStore) InsertStoredEnv(th TableNames, version int, kv map[string]string) error {
 	if len(kv) == 0 {
 		return nil
 	}
 	// #nosec G201 -- sanitized table name; UPSERT uses bind parameters exclusively
-	q := fmt.Sprintf("INSERT INTO %s(version,name,value) VALUES($1,$2,$3) ON CONFLICT(version,name) DO UPDATE SET value=EXCLUDED.value", th.storedEnv)
+	q := fmt.Sprintf("INSERT INTO %s(version,name,value) VALUES($1,$2,$3) ON CONFLICT(version,name) DO UPDATE SET value=EXCLUDED.value", th.StoredEnv)
 	for k, v := range kv {
 		if _, err := p.db.Exec(q, version, k, v); err != nil {
 			return err
@@ -210,9 +211,9 @@ func (p *PostgresStore) InsertStoredEnv(th tableNames, version int, kv map[strin
 	return nil
 }
 
-func (p *PostgresStore) LoadStoredEnv(th tableNames, version int) (map[string]string, error) {
+func (p *PostgresStore) LoadStoredEnv(th TableNames, version int) (map[string]string, error) {
 	// #nosec G201 -- only validated table name is interpolated; version is a parameter ($1)
-	q := fmt.Sprintf("SELECT name, value FROM %s WHERE version = $1", th.storedEnv)
+	q := fmt.Sprintf("SELECT name, value FROM %s WHERE version = $1", th.StoredEnv)
 	rows, err := p.db.Query(q, version)
 	if err != nil {
 		return map[string]string{}, err
@@ -229,9 +230,9 @@ func (p *PostgresStore) LoadStoredEnv(th tableNames, version int) (map[string]st
 	return out, rows.Err()
 }
 
-func (p *PostgresStore) DeleteStoredEnv(th tableNames, version int) error {
+func (p *PostgresStore) DeleteStoredEnv(th TableNames, version int) error {
 	// #nosec G201 -- table identifier from safeTableNames; DELETE predicate uses parameter $1
-	q := fmt.Sprintf("DELETE FROM %s WHERE version = $1", th.storedEnv)
+	q := fmt.Sprintf("DELETE FROM %s WHERE version = $1", th.StoredEnv)
 	_, err := p.db.Exec(q, version)
 	return err
 }

@@ -35,7 +35,7 @@ func buildStoreOptionsFromDoc(doc ConfigDoc) *apimigrate.StoreOptions {
 			sm = prefix + "_schema_migrations"
 		}
 		if mr == "" {
-			mr = prefix + "_migration_runs"
+			mr = prefix + "_migration_log"
 		}
 		if se == "" {
 			se = prefix + "_stored_env"
@@ -59,7 +59,7 @@ func buildStoreOptionsFromDoc(doc ConfigDoc) *apimigrate.StoreOptions {
 			)
 		}
 		return &apimigrate.StoreOptions{
-			Backend:                 "postgres",
+			Backend:                 apimigrate.DriverPostgres,
 			PostgresDSN:             dsn,
 			TableSchemaMigrations:   sm,
 			TableMigrationRuns:      mr,
@@ -69,7 +69,7 @@ func buildStoreOptionsFromDoc(doc ConfigDoc) *apimigrate.StoreOptions {
 	}
 	// default to sqlite if type is provided but not recognized as postgres
 	return &apimigrate.StoreOptions{
-		Backend:                 "sqlite",
+		Backend:                 apimigrate.DriverSqlite,
 		SQLitePath:              strings.TrimSpace(doc.Store.SQLite.Path),
 		TableSchemaMigrations:   sm,
 		TableMigrationRuns:      mr,

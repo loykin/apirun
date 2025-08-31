@@ -50,12 +50,9 @@ func main() {
 	}
 
 	// Run migrations from the local directory
-	st, err := apimigrate.OpenStoreFromOptions("./examples/auth_embedded/migration", &apimigrate.StoreOptions{SQLitePath: storePath})
-	if err != nil {
-		log.Fatalf("open store failed: %v", err)
-	}
-	defer func() { _ = st.Close() }()
-	m := apimigrate.Migrator{Env: base, Dir: "./examples/auth_embedded/migration", Store: *st}
+	storeConfig := apimigrate.StoreConfig{}
+	storeConfig.DriverConfig = &apimigrate.SqliteConfig{Path: storePath}
+	m := apimigrate.Migrator{Env: base, Dir: "./examples/auth_embedded/migration", StoreConfig: &storeConfig}
 	if _, err := m.MigrateUp(ctx, 0); err != nil {
 		log.Fatalf("migrate up failed: %v", err)
 	}

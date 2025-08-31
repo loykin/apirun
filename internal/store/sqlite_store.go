@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const DriverSqlite = "sqlite"
+
 type SqliteConfig struct {
 	Path string
 }
@@ -45,12 +47,11 @@ func (s *SqliteStore) Load(config map[string]interface{}) error {
 	return nil
 }
 
-func (s *SqliteStore) Ensure(th tableNames) error {
+func (s *SqliteStore) Ensure(th TableNames) error {
 	stmts := []string{
-		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER PRIMARY KEY)", th.schemaMigrations),
-		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY AUTOINCREMENT, version INTEGER NOT NULL, direction TEXT NOT NULL, status_code INTEGER NOT NULL, body TEXT NULL, env_json TEXT NULL, ran_at TEXT NOT NULL)", th.migrationRuns),
-		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(version, name))", th.storedEnv),
-		fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s(version)", th.idxStoredEnvVersion, th.storedEnv),
+		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER PRIMARY KEY)", th.SchemaMigrations),
+		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY AUTOINCREMENT, version INTEGER NOT NULL, direction TEXT NOT NULL, status_code INTEGER NOT NULL, body TEXT NULL, env_json TEXT NULL, ran_at TEXT NOT NULL)", th.MigrationRuns),
+		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(version, name))", th.StoredEnv),
 	}
 	for _, q := range stmts {
 		if _, err := s.db.Exec(q); err != nil {
@@ -60,16 +61,16 @@ func (s *SqliteStore) Ensure(th tableNames) error {
 	return nil
 }
 
-func (s *SqliteStore) Apply(th tableNames, v int) error {
+func (s *SqliteStore) Apply(th TableNames, v int) error {
 	// #nosec G201 -- table name is validated via Store.safeTableNames (regex), values use placeholders
-	q := fmt.Sprintf("INSERT OR IGNORE INTO %s(version) VALUES(?)", th.schemaMigrations)
+	q := fmt.Sprintf("INSERT OR IGNORE INTO %s(version) VALUES(?)", th.SchemaMigrations)
 	_, err := s.db.Exec(q, v)
 	return err
 }
 
-func (s *SqliteStore) IsApplied(th tableNames, v int) (bool, error) {
+func (s *SqliteStore) IsApplied(th TableNames, v int) (bool, error) {
 	// #nosec G201 -- table name is a validated identifier from safeTableNames; values are parameterized
-	q := fmt.Sprintf("SELECT 1 FROM %s WHERE version = ?", th.schemaMigrations)
+	q := fmt.Sprintf("SELECT 1 FROM %s WHERE version = ?", th.SchemaMigrations)
 	row := s.db.QueryRow(q, v)
 	var one int
 	err := row.Scan(&one)
@@ -79,9 +80,9 @@ func (s *SqliteStore) IsApplied(th tableNames, v int) (bool, error) {
 	return err == nil, err
 }
 
-func (s *SqliteStore) CurrentVersion(th tableNames) (int, error) {
+func (s *SqliteStore) CurrentVersion(th TableNames) (int, error) {
 	// #nosec G201 -- only injecting validated table name; no user input; values are parameterized elsewhere
-	q := fmt.Sprintf("SELECT COALESCE(MAX(version), 0) FROM %s", th.schemaMigrations)
+	q := fmt.Sprintf("SELECT COALESCE(MAX(version), 0) FROM %s", th.SchemaMigrations)
 	row := s.db.QueryRow(q)
 	var v int
 	if err := row.Scan(&v); err != nil {
@@ -90,9 +91,9 @@ func (s *SqliteStore) CurrentVersion(th tableNames) (int, error) {
 	return v, nil
 }
 
-func (s *SqliteStore) ListApplied(th tableNames) ([]int, error) {
+func (s *SqliteStore) ListApplied(th TableNames) ([]int, error) {
 	// #nosec G201 -- table identifier sanitized via safeTableNames; the query has no dynamic user data
-	q := fmt.Sprintf("SELECT version FROM %s ORDER BY version ASC", th.schemaMigrations)
+	q := fmt.Sprintf("SELECT version FROM %s ORDER BY version ASC", th.SchemaMigrations)
 	rows, err := s.db.Query(q)
 	if err != nil {
 		return nil, err
@@ -109,14 +110,14 @@ func (s *SqliteStore) ListApplied(th tableNames) ([]int, error) {
 	return out, rows.Err()
 }
 
-func (s *SqliteStore) Remove(th tableNames, v int) error {
+func (s *SqliteStore) Remove(th TableNames, v int) error {
 	// #nosec G201 -- validated table name; deletion predicate uses parameter placeholder
-	q := fmt.Sprintf("DELETE FROM %s WHERE version = ?", th.schemaMigrations)
+	q := fmt.Sprintf("DELETE FROM %s WHERE version = ?", th.SchemaMigrations)
 	_, err := s.db.Exec(q, v)
 	return err
 }
 
-func (s *SqliteStore) SetVersion(th tableNames, target int) error {
+func (s *SqliteStore) SetVersion(th TableNames, target int) error {
 	cur, err := s.CurrentVersion(th)
 	if err != nil {
 		return err
@@ -128,12 +129,12 @@ func (s *SqliteStore) SetVersion(th tableNames, target int) error {
 		return errors.New("cannot set version up; apply migrations instead")
 	}
 	// #nosec G201 -- table identifier validated via safeTableNames; comparison value is a bind parameter
-	q := fmt.Sprintf("DELETE FROM %s WHERE version > ?", th.schemaMigrations)
+	q := fmt.Sprintf("DELETE FROM %s WHERE version > ?", th.SchemaMigrations)
 	_, err = s.db.Exec(q, target)
 	return err
 }
 
-func (s *SqliteStore) RecordRun(th tableNames, version int, direction string, status int, body *string, env map[string]string) error {
+func (s *SqliteStore) RecordRun(th TableNames, version int, direction string, status int, body *string, env map[string]string) error {
 	var envJSON *string
 	if len(env) > 0 {
 		b, _ := json.Marshal(env)
@@ -142,14 +143,14 @@ func (s *SqliteStore) RecordRun(th tableNames, version int, direction string, st
 	}
 	ranAt := time.Now().UTC().Format(time.RFC3339Nano)
 	// #nosec G201 -- table name is validated; values are fully parameterized with placeholders
-	q := fmt.Sprintf("INSERT INTO %s(version, direction, status_code, body, env_json, ran_at) VALUES(?,?,?,?,?,?)", th.migrationRuns)
+	q := fmt.Sprintf("INSERT INTO %s(version, direction, status_code, body, env_json, ran_at) VALUES(?,?,?,?,?,?)", th.MigrationRuns)
 	_, err := s.db.Exec(q, version, direction, status, body, envJSON, ranAt)
 	return err
 }
 
-func (s *SqliteStore) LoadEnv(th tableNames, version int, direction string) (map[string]string, error) {
+func (s *SqliteStore) LoadEnv(th TableNames, version int, direction string) (map[string]string, error) {
 	// #nosec G201 -- only validated table name is interpolated; WHERE values are bound parameters
-	q := fmt.Sprintf("SELECT env_json FROM %s WHERE version = ? AND direction = ? ORDER BY id DESC LIMIT 1", th.migrationRuns)
+	q := fmt.Sprintf("SELECT env_json FROM %s WHERE version = ? AND direction = ? ORDER BY id DESC LIMIT 1", th.MigrationRuns)
 	row := s.db.QueryRow(q, version, direction)
 	var envJSON sql.NullString
 	if err := row.Scan(&envJSON); err != nil {
@@ -168,12 +169,12 @@ func (s *SqliteStore) LoadEnv(th tableNames, version int, direction string) (map
 	return out, nil
 }
 
-func (s *SqliteStore) InsertStoredEnv(th tableNames, version int, kv map[string]string) error {
+func (s *SqliteStore) InsertStoredEnv(th TableNames, version int, kv map[string]string) error {
 	if len(kv) == 0 {
 		return nil
 	}
 	// #nosec G201 -- validated table identifier; UPSERT values provided only via placeholders
-	q := fmt.Sprintf("INSERT INTO %s(version,name,value) VALUES(?,?,?) ON CONFLICT(version,name) DO UPDATE SET value=excluded.value", th.storedEnv)
+	q := fmt.Sprintf("INSERT INTO %s(version,name,value) VALUES(?,?,?) ON CONFLICT(version,name) DO UPDATE SET value=excluded.value", th.StoredEnv)
 	for k, v := range kv {
 		if _, err := s.db.Exec(q, version, k, v); err != nil {
 			return err
@@ -182,9 +183,9 @@ func (s *SqliteStore) InsertStoredEnv(th tableNames, version int, kv map[string]
 	return nil
 }
 
-func (s *SqliteStore) LoadStoredEnv(th tableNames, version int) (map[string]string, error) {
+func (s *SqliteStore) LoadStoredEnv(th TableNames, version int) (map[string]string, error) {
 	// #nosec G201 -- table name is sanitized; SELECT uses bound parameter for version
-	q := fmt.Sprintf("SELECT name, value FROM %s WHERE version = ?", th.storedEnv)
+	q := fmt.Sprintf("SELECT name, value FROM %s WHERE version = ?", th.StoredEnv)
 	rows, err := s.db.Query(q, version)
 	if err != nil {
 		return map[string]string{}, err
@@ -201,9 +202,9 @@ func (s *SqliteStore) LoadStoredEnv(th tableNames, version int) (map[string]stri
 	return out, rows.Err()
 }
 
-func (s *SqliteStore) DeleteStoredEnv(th tableNames, version int) error {
+func (s *SqliteStore) DeleteStoredEnv(th TableNames, version int) error {
 	// #nosec G201 -- validated table identifier; predicate value is parameterized
-	q := fmt.Sprintf("DELETE FROM %s WHERE version = ?", th.storedEnv)
+	q := fmt.Sprintf("DELETE FROM %s WHERE version = ?", th.StoredEnv)
 	_, err := s.db.Exec(q, version)
 	return err
 }

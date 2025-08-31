@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"path/filepath"
 
 	"github.com/loykin/apimigrate"
 )
@@ -34,8 +35,11 @@ func main() {
 	}
 	defer func() { _ = st.Close() }()
 
+	storeConfig := apimigrate.StoreConfig{}
+	storeConfig.DriverConfig = &apimigrate.SqliteConfig{Path: filepath.Join(migrateDir, apimigrate.StoreDBFileName)}
+
 	// Apply all migrations in the directory
-	m := apimigrate.Migrator{Env: base, Dir: migrateDir, Store: *st}
+	m := apimigrate.Migrator{Env: base, Dir: migrateDir, StoreConfig: &storeConfig}
 	vres, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		log.Fatalf("migrate up failed: %v", err)
