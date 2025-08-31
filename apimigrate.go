@@ -16,6 +16,13 @@ import (
 	"github.com/loykin/apimigrate/internal/util"
 )
 
+type StoreConfig interface {
+	ToMap() map[string]interface{}
+}
+
+type SqliteConfig = store.SqliteConfig
+type PostgresConfig = store.PostgresConfig
+
 // Migrator is the root struct-based API to run migrations programmatically.
 // Users can create it, set Store and Env, then call its methods.
 //
@@ -32,19 +39,48 @@ type Migrator struct {
 	Dir              string
 	Store            Store
 	Env              Env
+	StoreConfig      StoreConfig
 	SaveResponseBody bool
-	//tokenStore auth.TokenStore
 }
 
 // MigrateUp applies pending migrations up to targetVersion (0 = all) using this Migrator's Store and Env.
 func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
-	// Store options are taken from the struct (no context propagation)
+	// Auto-connect store if a StoreConfig is provided and Store is not connected yet
+	if m.Store.DB == nil && m.StoreConfig != nil {
+		// infer driver from config type (use internal store types)
+		switch any(m.StoreConfig).(type) {
+		case store.SqliteConfig, *store.SqliteConfig:
+			m.Store.Driver = "sqlite"
+		case store.PostgresConfig, *store.PostgresConfig:
+			m.Store.Driver = "postgres"
+		}
+		if sc, ok := any(m.StoreConfig).(store.Config); ok {
+			if err := m.Store.Connect(sc); err != nil {
+				return nil, err
+			}
+		}
+	}
 	im := imig.Migrator{Dir: m.Dir, Store: m.Store, Env: m.Env, SaveResponseBody: m.SaveResponseBody}
 	return im.MigrateUp(ctx, targetVersion)
 }
 
 // MigrateDown rolls back applied migrations down to targetVersion using this Migrator's Store and Env.
 func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
+	// Auto-connect store if a StoreConfig is provided and Store is not connected yet
+	if m.Store.DB == nil && m.StoreConfig != nil {
+		// infer driver
+		switch any(m.StoreConfig).(type) {
+		case store.SqliteConfig, *store.SqliteConfig:
+			m.Store.Driver = "sqlite"
+		case store.PostgresConfig, *store.PostgresConfig:
+			m.Store.Driver = "postgres"
+		}
+		if sc, ok := any(m.StoreConfig).(store.Config); ok {
+			if err := m.Store.Connect(sc); err != nil {
+				return nil, err
+			}
+		}
+	}
 	im := imig.Migrator{Dir: m.Dir, Store: m.Store, Env: m.Env, SaveResponseBody: m.SaveResponseBody}
 	return im.MigrateDown(ctx, targetVersion)
 }
@@ -127,6 +163,13 @@ func AcquireAuthAndSetEnv(ctx context.Context, typ string, name string, spec Aut
 	return v, nil
 }
 
+// NewHTTPClient returns a resty.Client using default TLS settings (Min TLS 1.3).
+// For custom TLS behavior, construct httpc.Httpc and call its New(ctx) method.
+func NewHTTPClient(_ context.Context) *resty.Client { var h httpc.Httpc; return h.New() }
+
+// RenderAnyTemplate exposes template rendering used for config/auth maps in the CLI.
+func RenderAnyTemplate(v interface{}, base Env) interface{} { return util.RenderAnyTemplate(v, base) }
+
 // OpenStore opens (and initializes) the sqlite store at the given path.
 func OpenStore(path string) (*Store, error) { return store.Open(path) }
 
@@ -154,15 +197,8 @@ func OpenStoreFromOptions(dir string, opts *StoreOptions) (*Store, error) {
 			path = filepath.Join(dir, StoreDBFileName)
 		}
 		if opts.TableSchemaMigrations != "" || opts.TableMigrationRuns != "" || opts.TableStoredEnv != "" || opts.IndexStoredEnvByVersion != "" {
-			return store.OpenWithNames(path, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
+			return store.OpenSqliteWithNames(path, opts.TableSchemaMigrations, opts.TableMigrationRuns, opts.TableStoredEnv, opts.IndexStoredEnvByVersion)
 		}
 		return store.Open(path)
 	}
 }
-
-// NewHTTPClient returns a resty.Client using default TLS settings (Min TLS 1.3).
-// For custom TLS behavior, construct httpc.Httpc and call its New(ctx) method.
-func NewHTTPClient(_ context.Context) *resty.Client { var h httpc.Httpc; return h.New() }
-
-// RenderAnyTemplate exposes template rendering used for config/auth maps in the CLI.
-func RenderAnyTemplate(v interface{}, base Env) interface{} { return util.RenderAnyTemplate(v, base) }

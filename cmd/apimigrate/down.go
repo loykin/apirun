@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"path/filepath"
 	"strings"
 
 	"github.com/loykin/apimigrate"
@@ -47,24 +48,29 @@ var downCmd = &cobra.Command{
 			log.Printf("down migrations in %s to %d", dir, to)
 		}
 		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp}
-		// Open store: from options when provided, otherwise default sqlite under dir
-		var st *apimigrate.Store
+		// Configure store via Migrator.StoreConfig (auto-connect inside MigrateDown)
+		var storeCfg apimigrate.StoreConfig
 		if strings.TrimSpace(configPath) != "" {
 			_, _, _, _, _, _, storeOpts, _ := loadConfigAndAcquire(context.Background(), configPath, false)
-			var err error
-			st, err = apimigrate.OpenStoreFromOptions(dir, storeOpts)
-			if err != nil {
-				return err
+			if storeOpts != nil && strings.ToLower(strings.TrimSpace(storeOpts.Backend)) == "postgres" {
+				pg := apimigrate.PostgresConfig{DSN: strings.TrimSpace(storeOpts.PostgresDSN)}
+				storeCfg = &pg
+			} else {
+				path := ""
+				if storeOpts != nil {
+					path = strings.TrimSpace(storeOpts.SQLitePath)
+				}
+				if path == "" {
+					path = filepath.Join(dir, apimigrate.StoreDBFileName)
+				}
+				sqlite := apimigrate.SqliteConfig{Path: path}
+				storeCfg = &sqlite
 			}
 		} else {
-			var err error
-			st, err = apimigrate.OpenStoreFromOptions(dir, nil)
-			if err != nil {
-				return err
-			}
+			sqlite := apimigrate.SqliteConfig{Path: filepath.Join(dir, apimigrate.StoreDBFileName)}
+			storeCfg = &sqlite
 		}
-		defer func() { _ = st.Close() }()
-		m.Store = *st
+		m.StoreConfig = storeCfg
 		_, err := m.MigrateDown(ctx, to)
 		return err
 	},

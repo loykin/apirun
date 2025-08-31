@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/loykin/apimigrate"
+	"github.com/loykin/apimigrate/internal/store"
 )
 
 // This example runs the versioned migrator programmatically while using
@@ -32,22 +33,17 @@ func main() {
 		log.Printf("PG_DSN not set, using default: %s", dsn)
 	}
 
-	// Prepare context with Postgres store options
+	// Prepare context
 	ctx := context.Background()
-	storeOpts := &apimigrate.StoreOptions{Backend: "postgres", PostgresDSN: dsn}
 
 	// Optional: saving response bodies can be toggled via Migrator.SaveResponseBody
 
 	// Base environment (empty is fine for this example)
 	base := apimigrate.Env{Global: map[string]string{}}
 
-	// Run all migrations in the directory
-	st, err := apimigrate.OpenStoreFromOptions(migrateDir, storeOpts)
-	if err != nil {
-		log.Fatalf("open postgres store failed: %v", err)
-	}
-	defer func() { _ = st.Close() }()
-	m := apimigrate.Migrator{Env: base, Dir: migrateDir, Store: *st}
+	// Configure migrator to auto-connect to Postgres using StoreConfig
+	config := store.PostgresConfig{DSN: dsn}
+	m := apimigrate.Migrator{Env: base, Dir: migrateDir, StoreConfig: &config}
 	vres, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		log.Fatalf("migrate up failed: %v", err)

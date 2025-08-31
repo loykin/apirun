@@ -59,14 +59,23 @@ var rootCmd = &cobra.Command{
 		}
 		// Use versioned executor so applied versions are persisted to the store
 		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp}
-		var st *apimigrate.Store
-		var err error
-		st, err = apimigrate.OpenStoreFromOptions(dir, storeOptsRet)
-		if err != nil {
-			return err
+		// Configure store via Migrator.StoreConfig based on parsed options
+		var storeCfg apimigrate.StoreConfig
+		if storeOptsRet != nil && strings.ToLower(strings.TrimSpace(storeOptsRet.Backend)) == "postgres" {
+			pg := apimigrate.PostgresConfig{DSN: strings.TrimSpace(storeOptsRet.PostgresDSN)}
+			storeCfg = &pg
+		} else {
+			path := ""
+			if storeOptsRet != nil {
+				path = strings.TrimSpace(storeOptsRet.SQLitePath)
+			}
+			if path == "" {
+				path = filepath.Join(dir, apimigrate.StoreDBFileName)
+			}
+			sqlite := apimigrate.SqliteConfig{Path: path}
+			storeCfg = &sqlite
 		}
-		defer func() { _ = st.Close() }()
-		m.Store = *st
+		m.StoreConfig = storeCfg
 		vres, err := m.MigrateUp(ctx, 0)
 		if err != nil {
 			if len(vres) > 0 && verbose {

@@ -1,5 +1,19 @@
 package main
 
+type SQLiteStoreConfig struct {
+	Path string `mapstructure:"path"`
+}
+
+type PostgresStoreConfig struct {
+	DSN      string `mapstructure:"dsn"`
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	DBName   string `mapstructure:"dbname"`
+	SSLMode  string `mapstructure:"sslmode"`
+}
+
 type AuthConfig struct {
 	// Provider type key (e.g., "basic", "oauth2", "pocketbase")
 	Type string `mapstructure:"type"`
@@ -15,20 +29,6 @@ type EnvConfig struct {
 	Name         string `mapstructure:"name"`
 	Value        string `mapstructure:"value"`
 	ValueFromEnv string `mapstructure:"valueFromEnv"`
-}
-
-type SQLiteStoreConfig struct {
-	Path string `mapstructure:"path"`
-}
-
-type PostgresStoreConfig struct {
-	DSN      string `mapstructure:"dsn"`
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	User     string `mapstructure:"user"`
-	Password string `mapstructure:"password"`
-	DBName   string `mapstructure:"dbname"`
-	SSLMode  string `mapstructure:"sslmode"`
 }
 
 type StoreConfig struct {

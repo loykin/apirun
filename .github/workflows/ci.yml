@@ -15,6 +15,18 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CGO_ENABLED: 0
+    services:
+      postgres:
+        image: postgres:16
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres" \
+          --health-interval 10s \
+          --health-timeout 5s \
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -72,6 +84,17 @@ jobs:
           go run ./examples/embedded_custom_table
         env:
           CI: true
+
+      - name: Run embedded_postgresql example (with Postgres service)
+        run: |
+          set -e
+          echo "Waiting for Postgres service to be ready..."
+          for i in {1..60}; do
+            (echo > /dev/tcp/127.0.0.1/5432) >/dev/null 2>&1 && break
+            sleep 1
+          done
+          echo "Running examples/embedded_postgresql"
+          PG_DSN="postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable" go run ./examples/embedded_postgresql
 
       - name: Build examples that require external services (do not run)
         run: |
