@@ -14,6 +14,16 @@ import (
 	"github.com/loykin/apimigrate/internal/store"
 )
 
+func openTestStore(t *testing.T, dbPath string) *store.Store {
+	t.Helper()
+	cfg := store.Config{Driver: store.DriverSqlite, DriverConfig: &store.SqliteConfig{Path: dbPath}}
+	st := &store.Store{}
+	if err := st.Connect(cfg); err != nil {
+		t.Fatalf("connect store: %v", err)
+	}
+	return st
+}
+
 // Ensures that MigrateDown calls Task.DownExecute (delegation) and rolls back in reverse order.
 func TestMigrateDown_DelegatesAndReverseOrder(t *testing.T) {
 	var received []string
@@ -45,10 +55,7 @@ func TestMigrateDown_DelegatesAndReverseOrder(t *testing.T) {
 	ctx := context.Background()
 	base := env.Env{Global: map[string]string{}}
 	// Apply both
-	st, err := store.Open(filepath.Join(dir, store.DbFileName))
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
+	st := openTestStore(t, filepath.Join(dir, store.DbFileName))
 	defer func() { _ = st.Close() }()
 	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 0); err != nil {
 		t.Fatalf("migrate up failed: %v", err)
@@ -84,10 +91,7 @@ func TestMigrateUp_RecordsStatusAndBody(t *testing.T) {
 			}
 			ctx := context.Background()
 			base := env.Env{Global: map[string]string{}}
-			st, err := store.Open(filepath.Join(dir, store.DbFileName))
-			if err != nil {
-				t.Fatalf("open store: %v", err)
-			}
+			st := openTestStore(t, filepath.Join(dir, store.DbFileName))
 			defer func() { _ = st.Close() }()
 			if _, err := (&Migrator{Dir: dir, Env: base, Store: *st, SaveResponseBody: save}).MigrateUp(ctx, 0); err != nil {
 				t.Fatalf("migrate up: %v", err)
@@ -95,10 +99,7 @@ func TestMigrateUp_RecordsStatusAndBody(t *testing.T) {
 
 			// Inspect migration_runs
 			dbPath := filepath.Join(dir, store.DbFileName)
-			st2, err := store.Open(dbPath)
-			if err != nil {
-				t.Fatalf("open store: %v", err)
-			}
+			st2 := openTestStore(t, dbPath)
 			defer func() { _ = st2.Close() }()
 			rows, err := st2.DB.Query(`SELECT status_code, body FROM migration_runs ORDER BY id ASC`)
 			if err != nil {
@@ -159,10 +160,7 @@ func TestMigrateUp_StoresEnv_Persisted(t *testing.T) {
 	}
 	ctx := context.Background()
 	base := env.Env{Global: map[string]string{}}
-	st, err := store.Open(filepath.Join(dir, store.DbFileName))
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
+	st := openTestStore(t, filepath.Join(dir, store.DbFileName))
 	defer func() { _ = st.Close() }()
 	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 0); err != nil {
 		t.Fatalf("migrate up: %v", err)
@@ -218,10 +216,7 @@ func TestMigrateDown_UsesStoredEnvAndCleans(t *testing.T) {
 	ctx := context.Background()
 	base := env.Env{Global: map[string]string{}}
 	// Apply up
-	st, err := store.Open(filepath.Join(dir, store.DbFileName))
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
+	st := openTestStore(t, filepath.Join(dir, store.DbFileName))
 	defer func() { _ = st.Close() }()
 	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 0); err != nil {
 		t.Fatalf("migrate up: %v", err)
@@ -278,10 +273,7 @@ func TestMigrateUp_TargetVersionPlanning(t *testing.T) {
 	base := env.Env{Global: map[string]string{}}
 
 	// Apply up to version 2 only
-	st, err := store.Open(filepath.Join(dir, store.DbFileName))
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
+	st := openTestStore(t, filepath.Join(dir, store.DbFileName))
 	defer func() { _ = st.Close() }()
 	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 2); err != nil {
 		t.Fatalf("migrate up to 2: %v", err)
@@ -334,10 +326,7 @@ func TestMigrate_StoreOptions_ExplicitSQLitePath(t *testing.T) {
 	customPath := filepath.Join(customDir, "custom.db")
 	base := env.Env{Global: map[string]string{}}
 	// open custom store directly and inject into migrator
-	st, err := store.Open(customPath)
-	if err != nil {
-		t.Fatalf("open store (custom sqlite): %v", err)
-	}
+	st := openTestStore(t, customPath)
 	defer func() { _ = st.Close() }()
 	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(context.Background(), 0); err != nil {
 		t.Fatalf("migrate up: %v", err)
@@ -354,10 +343,7 @@ func TestMigrate_StoreOptions_ExplicitSQLitePath(t *testing.T) {
 		t.Fatalf("did not expect default DB at %s when custom path is set", defaultPath)
 	}
 	// Inspect migration_runs in custom DB
-	st2, err := store.Open(customPath)
-	if err != nil {
-		t.Fatalf("open custom store: %v", err)
-	}
+	st2 := openTestStore(t, customPath)
 	defer func() { _ = st2.Close() }()
 	rows, err := st2.DB.Query(`SELECT COUNT(1) FROM migration_runs`)
 	if err != nil {
@@ -378,10 +364,7 @@ func TestMigrate_StoreOptions_ExplicitSQLitePath(t *testing.T) {
 func TestOpenStore_DefaultOnManualPath(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, store.DbFileName)
-	st, err := store.Open(path)
-	if err != nil {
-		t.Fatalf("store.Open (default path) err: %v", err)
-	}
+	st := openTestStore(t, path)
 	_ = st.Close()
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("expected sqlite db created: %v", err)
@@ -391,10 +374,7 @@ func TestOpenStore_DefaultOnManualPath(t *testing.T) {
 func TestOpenStore_SQLiteCustomPath(t *testing.T) {
 	customDir := t.TempDir()
 	customPath := filepath.Join(customDir, "custom.db")
-	st, err := store.Open(customPath)
-	if err != nil {
-		t.Fatalf("store.Open (sqlite custom) err: %v", err)
-	}
+	st := openTestStore(t, customPath)
 	_ = st.Close()
 	if _, err := os.Stat(customPath); err != nil {
 		t.Fatalf("expected custom sqlite db at %s: %v", customPath, err)

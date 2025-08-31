@@ -2,6 +2,8 @@ package apimigrate
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -216,8 +218,9 @@ func RenderAnyTemplate(v interface{}, base Env) interface{} { return util.Render
 func OpenStoreFromOptions(dir string, storeConfig *StoreConfig) (*Store, error) {
 	// Default: sqlite under the provided directory
 	if storeConfig == nil {
-		path := filepath.Join(dir, StoreDBFileName)
-		return store.Open(path)
+		storeConfig = &StoreConfig{}
+		storeConfig.Config.Driver = DriverSqlite
+		storeConfig.Config.DriverConfig = &SqliteConfig{Path: filepath.Join(dir, StoreDBFileName)}
 	}
 
 	cfg := storeConfig.Config
@@ -238,6 +241,10 @@ func OpenStoreFromOptions(dir string, storeConfig *StoreConfig) (*Store, error) 
 		if sc, ok := cfg.DriverConfig.(*store.SqliteConfig); ok {
 			if strings.TrimSpace(sc.Path) == "" {
 				sc.Path = filepath.Join(dir, StoreDBFileName)
+			}
+
+			if err := os.MkdirAll(filepath.Dir(sc.Path), 0o750); err != nil {
+				return nil, fmt.Errorf("failed to create sqlite dir: %w", err)
 			}
 		}
 	}

@@ -1,7 +1,6 @@
 package store
 
 import (
-	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,8 +11,9 @@ func openTempStore(t *testing.T) *Store {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, DbFileName)
-	st, err := Open(path)
-	if err != nil {
+	st := &Store{}
+	cfg := Config{Driver: DriverSqlite, DriverConfig: &SqliteConfig{Path: path}}
+	if err := st.Connect(cfg); err != nil {
 		t.Fatalf("failed to open store: %v", err)
 	}
 	t.Cleanup(func() { _ = st.Close(); _ = os.Remove(path) })
@@ -257,6 +257,3 @@ func TestRecordRunAndLoadEnv(t *testing.T) {
 		t.Fatalf("expected empty for malformed env_json, got %+v", m3)
 	}
 }
-
-// Ensure helper openTempStore is available in this package (from store_test.go), but add a guard here for IDEs.
-var _ *sql.DB
