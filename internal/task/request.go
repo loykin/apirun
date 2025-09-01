@@ -20,7 +20,8 @@ type RequestSpec struct {
 
 // Render builds headers, query params and body applying Go template rendering using Env.
 // It also injects Authorization header from AuthName if present in env and not already set.
-func (r RequestSpec) Render(env env.Env) (map[string]string, map[string]string, string) {
+// Returns an error if the body template fails to parse/execute.
+func (r RequestSpec) Render(env env.Env) (map[string]string, map[string]string, string, error) {
 	hdrs := make(map[string]string)
 	for _, h := range r.Headers {
 		if h.Name == "" {
@@ -55,6 +56,15 @@ func (r RequestSpec) Render(env env.Env) (map[string]string, map[string]string, 
 		body = r.Body
 	}
 
-	body = env.RenderGoTemplate(body)
-	return hdrs, queries, body
+	if strings.Contains(body, "{{") {
+		if rendered, err := env.RenderGoTemplateErr(body); err != nil {
+			return hdrs, queries, "", err
+		} else {
+			body = rendered
+		}
+	} else {
+		// No template delimiters – passthrough
+		// Keep behavior consistent
+	}
+	return hdrs, queries, body, nil
 }

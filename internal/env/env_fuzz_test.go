@@ -8,7 +8,7 @@ func FuzzRenderGoTemplate(f *testing.F) {
 	// Seed with a few common patterns
 	f.Add("")
 	f.Add("plain text")
-	f.Add("hello {{.name}}")
+	f.Add("hello {{.env.name}}")
 	f.Add("{{.MISSING}") // malformed template
 	f.Add("{{.a}}{{.b}}{{.c}}")
 

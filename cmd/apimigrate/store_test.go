@@ -143,7 +143,7 @@ up:
 down:
   name: delete resource
   method: DELETE
-  url: %s/resource/{{.rid}}
+  url: %s/resource/{{.env.rid}}
 `, srv.URL, srv.URL)
 	_ = writeFile(t, tdir, "001_create.yaml", up)
 
@@ -253,7 +253,7 @@ up:
   name: use
   request:
     method: GET
-    url: %s/use/{{.rid}}
+    url: %s/use/{{.env.rid}}
   response:
     result_code: ["200"]
 `, srv.URL)

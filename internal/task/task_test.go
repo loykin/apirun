@@ -32,7 +32,7 @@ func TestTask_UpExecute_Success(t *testing.T) {
 			Env:  env.Env{Local: map[string]string{"AUTH": "token-123"}},
 			Request: RequestSpec{
 				AuthName: "auth", // will set Authorization only if specified, but we keep a custom header too
-				Headers:  []Header{{Name: "X-Auth", Value: "{{.AUTH}}"}},
+				Headers:  []Header{{Name: "X-Auth", Value: "{{.env.AUTH}}"}},
 				Queries:  []Query{{Name: "q", Value: "v"}},
 				Body:     `{"ok":true}`,
 			},
@@ -68,7 +68,7 @@ func TestTask_DownExecute_Success(t *testing.T) {
 		Method: http.MethodDelete,
 		URL:    srv.URL,
 		Headers: []Header{
-			{Name: "X-Del", Value: "{{.flag}}"},
+			{Name: "X-Del", Value: "{{.env.flag}}"},
 		},
 	}}
 

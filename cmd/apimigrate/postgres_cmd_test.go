@@ -118,7 +118,7 @@ up:
 down:
   name: delete
   method: DELETE
-  url: %s/resource/{{.rid}}
+  url: %s/resource/{{.env.rid}}
 `, srv.URL, srv.URL)
 	_ = writeFile(t, tdir, "001_create.yaml", mig)
 	cfg := fmt.Sprintf(`---

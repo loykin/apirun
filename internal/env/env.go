@@ -63,12 +63,9 @@ func (e *Env) merged() map[string]string {
 // grouped lookups ({{.env.kc_base}}, {{.auth.keycloak}}).
 func (e *Env) dataForTemplate() map[string]interface{} {
 	data := map[string]interface{}{}
-	// Expose merged env flat for backward compatibility
+	// Build merged env for grouped access only (no flat exposure)
 	merged := e.merged()
-	for k, v := range merged {
-		data[k] = v
-	}
-	// Grouped access under .env
+	// Grouped access under .env only
 	data["env"] = merged
 	// Grouped access under .auth (may be nil)
 	if e != nil && e.Auth != nil {
@@ -115,4 +112,22 @@ func (e *Env) RenderGoTemplate(s string) string {
 		return s
 	}
 	return buf.String()
+}
+
+// RenderGoTemplateErr behaves like RenderGoTemplate but returns an error when
+// the template cannot be parsed or executed (including missing keys due to missingkey=error).
+// This is useful for critical contexts like HTTP body rendering where silent fallback would hide issues.
+func (e *Env) RenderGoTemplateErr(s string) (string, error) {
+	if len(s) == 0 {
+		return s, nil
+	}
+	t, err := template.New("gotmpl").Option("missingkey=error").Parse(s)
+	if err != nil {
+		return "", err
+	}
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, e.dataForTemplate()); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }

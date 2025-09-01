@@ -154,7 +154,7 @@ env:
   - name: base
     value: %s
 wait:
-  url: "{{.base}}/health"
+  url: "{{.env.base}}/health"
   timeout: 1s
   interval: 50ms
 migrate_dir: %s

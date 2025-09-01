@@ -33,10 +33,10 @@ func TestUp_Execute_OverrideMethodURL_ExtractEnv(t *testing.T) {
 		Name: "create",
 		Env:  env.Env{Local: map[string]string{"name": "alice", "q": "ok"}},
 		Request: RequestSpec{
-			Method:  http.MethodPost,              // should override provided method
-			URL:     srv.URL + "/create?q={{.q}}", // should override provided URL
-			Headers: []Header{{Name: "X-Name", Value: "{{.name}}"}},
-			Body:    `{"x":"{{.name}}"}`,
+			Method:  http.MethodPost,                  // should override provided method
+			URL:     srv.URL + "/create?q={{.env.q}}", // should override provided URL
+			Headers: []Header{{Name: "X-Name", Value: "{{.env.name}}"}},
+			Body:    `{"x":"{{.env.name}}"}`,
 		},
 		Response: ResponseSpec{
 			ResultCode: []string{"201"},

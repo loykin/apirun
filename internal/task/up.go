@@ -24,7 +24,10 @@ type Up struct {
 // passed as parameters. This allows a single migration directory to hit different endpoints.
 func (u Up) Execute(ctx context.Context, method, url string) (*ExecResult, error) {
 	// Build request components via RequestSpec method
-	hdrs, queries, body := u.Request.Render(u.Env)
+	hdrs, queries, body, rerr := u.Request.Render(u.Env)
+	if rerr != nil {
+		return nil, fmt.Errorf("up request body template error: %v", rerr)
+	}
 
 	// Determine method and url to use (allow per-request overrides)
 	methodToUse := method

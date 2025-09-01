@@ -15,11 +15,11 @@ func TestRenderAnyTemplate_BasicGoTemplateOnly(t *testing.T) {
 
 	in := map[string]interface{}{
 		"plain":            "no templating here",
-		"go_template":      "Hello, {{.name}}!",
+		"go_template":      "Hello, {{.env.name}}!",
 		"alt_dollar_brace": "${.name}",
-		"alt_dollar_curly": "${{.name}}",
+		"alt_dollar_curly": "${{.env.name}}",
 		"slice": []interface{}{
-			"Item: {{.nested}}",
+			"Item: {{.env.nested}}",
 			"${.nested}",
 		},
 	}

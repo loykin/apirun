@@ -221,7 +221,7 @@ func TestNewHTTPClient_TLSHelpers(t *testing.T) {
 func TestRenderAnyTemplate_Basic(t *testing.T) {
 	base := Env{Global: map[string]string{"name": "world"}}
 	in := map[string]interface{}{
-		"greet": "hello {{.name}}",
+		"greet": "hello {{.env.name}}",
 	}
 	out := RenderAnyTemplate(in, base).(map[string]interface{})
 	if s, _ := out["greet"].(string); !strings.Contains(s, "hello world") {

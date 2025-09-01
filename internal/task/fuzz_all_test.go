@@ -11,7 +11,7 @@ import (
 // ResponseSpec.ExtractEnv to prevent ambiguity when running `go test -fuzz`.
 func FuzzTask(f *testing.F) {
 	// Seed inputs for request rendering
-	f.Add("auth", "X-Name", "{{.who}}", "q", "{{.qv}}", "Hello, {{.who}}!",
+	f.Add("auth", "X-Name", "{{.env.who}}", "q", "{{.env.qv}}", "Hello, {{.env.who}}!",
 		"200", "", string([]byte("{\"a\":1}")), "id", "a")
 	f.Add("", "Authorization", "Bearer {{.auth.k}}", "x", "1", "{\"a\":1}",
 		"${{.x}}", "201", string([]byte(`{"a":{"b":[{"id":"1"}]}}`)), "rid", "a.b.0.id")
@@ -28,7 +28,7 @@ func FuzzTask(f *testing.F) {
 			Body:     body,
 		}
 		e := ienv.Env{Global: ienv.Map{"who": "world", "qv": "ok", "x": val}, Local: ienv.Map{"who": "bob"}, Auth: ienv.Map{"k": "tok"}}
-		_, _, _ = r.Render(e)
+		_, _, _, _ = r.Render(e)
 
 		// 2) ResponseSpec.AllowedStatus
 		r2 := ResponseSpec{ResultCode: []string{pat}}

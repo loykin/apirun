@@ -10,7 +10,7 @@ import (
 func TestEnv_RenderGoTemplate_BasicAndMissingAndEmpty(t *testing.T) {
 	// basic render
 	env := env2.Env{Local: map[string]string{"USER": "alice", "city": "Seoul"}}
-	got := env.RenderGoTemplate("hello {{.USER}} from {{.city}}")
+	got := env.RenderGoTemplate("hello {{.env.USER}} from {{.env.city}}")
 	if got != "hello alice from Seoul" {
 		t.Fatalf("unexpected render result: %q", got)
 	}
@@ -28,7 +28,7 @@ func TestEnv_RenderGoTemplate_BasicAndMissingAndEmpty(t *testing.T) {
 
 	// nil env map returns input as-is
 	nilEnv := env2.Env{}
-	in := "{{.FOO}}"
+	in := "{{.env.FOO}}"
 	if nilEnv.RenderGoTemplate(in) != in {
 		t.Fatalf("nil env should keep input unchanged")
 	}
@@ -43,18 +43,21 @@ func TestRequest_Render_TemplatingAndAuthInjection(t *testing.T) {
 
 	req := RequestSpec{
 		Headers: []Header{
-			{Name: "X-Name", Value: "{{.name}}"},
-			{Name: "Forwarded-Data", Value: "{{.forwarded_data}}"},
+			{Name: "X-Name", Value: "{{.env.name}}"},
+			{Name: "Forwarded-Data", Value: "{{.env.forwarded_data}}"},
 			{Name: "Authorization", Value: "{{.auth.kc}}"},
 		},
 		Queries: []Query{
-			{Name: "city", Value: "{{.CITY}}"},
+			{Name: "city", Value: "{{.env.CITY}}"},
 			{Name: "static", Value: "value"},
 		},
-		Body: `{"hello": "{{.name}}"}`,
+		Body: `{"hello": "{{.env.name}}"}`,
 	}
 
-	hdrs, queries, body := req.Render(env)
+	hdrs, queries, body, err := req.Render(env)
+	if err != nil {
+		t.Fatalf("unexpected render error: %v", err)
+	}
 
 	// Headers templated
 	if hdrs["X-Name"] != "bob" {
@@ -88,7 +91,10 @@ func TestRequest_Render_DoesNotOverrideAuthorization(t *testing.T) {
 		Headers: []Header{{Name: "Authorization", Value: "Bearer preset"}},
 	}
 
-	hdrs, _, _ := req.Render(env)
+	hdrs, _, _, err := req.Render(env)
+	if err != nil {
+		t.Fatalf("unexpected render error: %v", err)
+	}
 	if hdrs["Authorization"] != "Bearer preset" {
 		t.Fatalf("Authorization should not be overridden, got %q", hdrs["Authorization"])
 	}
@@ -101,7 +107,10 @@ func TestRequest_Render_PassThroughNoTemplates(t *testing.T) {
 		Queries: []Query{{Name: "q", Value: "y"}},
 		Body:    "plain",
 	}
-	hdrs, queries, body := req.Render(env)
+	hdrs, queries, body, err := req.Render(env)
+	if err != nil {
+		t.Fatalf("unexpected render error: %v", err)
+	}
 	if hdrs["A"] != "x" || queries["q"] != "y" || body != "plain" {
 		t.Fatalf("passthrough failed: hdr=%v queries=%v body=%q", hdrs, queries, body)
 	}
@@ -113,7 +122,7 @@ func TestRequest_Render_BodyFile(t *testing.T) {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
 	defer func() { _ = os.Remove(tmpFile.Name()) }()
-	content := `{"a": "{{.X}}"}`
+	content := `{"a": "{{.env.X}}"}`
 	if _, err := tmpFile.WriteString(content); err != nil {
 		t.Fatalf("failed to write temp file: %v", err)
 	}
@@ -121,7 +130,10 @@ func TestRequest_Render_BodyFile(t *testing.T) {
 
 	env := env2.Env{Local: map[string]string{"X": "y"}}
 	req := RequestSpec{BodyFile: tmpFile.Name()}
-	_, _, body := req.Render(env)
+	_, _, body, err := req.Render(env)
+	if err != nil {
+		t.Fatalf("unexpected render error: %v", err)
+	}
 	if body != `{"a": "y"}` {
 		t.Fatalf("expected body rendered from file, got %q", body)
 	}

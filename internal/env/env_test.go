@@ -37,7 +37,7 @@ func TestEnv_Lookup_PrecedenceAndNil(t *testing.T) {
 
 func TestEnv_RenderGoTemplate_BasicAndMissingKey(t *testing.T) {
 	e := Env{Global: map[string]string{"username": "alice", "CITY": "seoul"}}
-	in := "user={{.username}}, city={{.CITY}}"
+	in := "user={{.env.username}}, city={{.env.CITY}}"
 	out := e.RenderGoTemplate(in)
 	expected := "user=alice, city=seoul"
 	if out != expected {
@@ -66,7 +66,7 @@ func TestEnv_RenderGoTemplate_EmptyAndNonTemplateAndParseError(t *testing.T) {
 
 func TestEnv_RenderGoTemplate_LocalOverridesGlobal(t *testing.T) {
 	e := Env{Global: map[string]string{"name": "global"}, Local: map[string]string{"name": "local"}}
-	if got := e.RenderGoTemplate("hi {{.name}}"); got != "hi local" {
+	if got := e.RenderGoTemplate("hi {{.env.name}}"); got != "hi local" {
 		t.Fatalf("expected local override, got %q", got)
 	}
 }
@@ -89,7 +89,7 @@ func TestEnv_RenderGoTemplate_GroupedEnvAndAuth(t *testing.T) {
 func TestEnv_RenderGoTemplate_HtmlEscaping(t *testing.T) {
 	// html/template should escape by default
 	e := Env{Global: map[string]string{"danger": "<script>alert('x')</script>"}}
-	got := e.RenderGoTemplate("X={{.danger}}")
+	got := e.RenderGoTemplate("X={{.env.danger}}")
 	// Expect escaped characters
 	if !strings.Contains(got, "&lt;script&gt;") || !strings.Contains(got, "&lt;/script&gt;") {
 		t.Fatalf("expected HTML-escaped output, got %q", got)

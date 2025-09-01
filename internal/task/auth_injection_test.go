@@ -37,7 +37,10 @@ func TestRequest_Render_DoesNotOverrideExistingHeader(t *testing.T) {
 		Headers: []Header{{Name: "Authorization", Value: "Bearer preset"}},
 	}
 
-	hdrs, _, _ := req.Render(env.Env{})
+	hdrs, _, _, err := req.Render(env.Env{})
+	if err != nil {
+		t.Fatalf("unexpected render error: %v", err)
+	}
 	if got := hdrs["Authorization"]; got != "Bearer preset" {
 		t.Fatalf("expected header preserved, got %q", got)
 	}

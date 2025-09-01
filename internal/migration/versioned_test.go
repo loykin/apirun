@@ -209,7 +209,7 @@ func TestMigrateDown_UsesStoredEnvAndCleans(t *testing.T) {
 
 	dir := t.TempDir()
 	mig := "up:\n  name: create resource\n  env: { }\n  request:\n    method: POST\n    url: " + srv.URL + "/create\n  response:\n    result_code: [\"200\"]\n    env_from:\n      rid: id\n\n" +
-		"down:\n  name: delete resource\n  env: { }\n  method: DELETE\n  url: \"" + srv.URL + "/resource/{{.rid}}\"\n"
+		"down:\n  name: delete resource\n  env: { }\n  method: DELETE\n  url: \"" + srv.URL + "/resource/{{.env.rid}}\"\n"
 	if err := os.WriteFile(filepath.Join(dir, "001_create_and_delete.yaml"), []byte(mig), 0o600); err != nil {
 		t.Fatalf("write mig: %v", err)
 	}

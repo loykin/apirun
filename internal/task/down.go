@@ -57,7 +57,10 @@ func (d Down) Execute(ctx context.Context) (*ExecResult, error) {
 
 	hdrs := renderHeaders(d.Env, d.Headers)
 	queries := renderQueries(d.Env, d.Queries)
-	body := renderBody(d.Env, d.Body)
+	body, berr := renderBody(d.Env, d.Body)
+	if berr != nil {
+		return nil, fmt.Errorf("down body template error: %v", berr)
+	}
 
 	req := buildRequest(ctx, hdrs, queries, body)
 	resp, err := execByMethod(req, method, url)
@@ -77,7 +80,10 @@ func (d Down) Execute(ctx context.Context) (*ExecResult, error) {
 // it returns an ExecResult with the status code and an error. On transport
 // errors it returns (nil, error).
 func runFind(ctx context.Context, d *Down) (*ExecResult, error) {
-	fhdrs, fqueries, fbody := d.Find.Request.Render(d.Env)
+	fhdrs, fqueries, fbody, ferr := d.Find.Request.Render(d.Env)
+	if ferr != nil {
+		return nil, fmt.Errorf("down.find body template error: %v", ferr)
+	}
 	fmethod := strings.ToUpper(strings.TrimSpace(d.Find.Request.Method))
 	furl := strings.TrimSpace(d.Find.Request.URL)
 	if strings.Contains(furl, "{{") {
@@ -140,11 +146,11 @@ func renderQueries(e env.Env, qs []Query) map[string]string {
 	return m
 }
 
-func renderBody(e env.Env, b string) string {
+func renderBody(e env.Env, b string) (string, error) {
 	if strings.Contains(b, "{{") {
-		return e.RenderGoTemplate(b)
+		return e.RenderGoTemplateErr(b)
 	}
-	return b
+	return b, nil
 }
 
 func buildRequest(ctx context.Context, headers map[string]string, queries map[string]string, body string) *resty.Request {

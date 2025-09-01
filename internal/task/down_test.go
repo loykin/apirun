@@ -50,7 +50,7 @@ func TestDown_Execute_WithFindAndTemplatingAndAuthFromEnv(t *testing.T) {
 		Find: &FindSpec{
 			Request: RequestSpec{
 				Method: http.MethodGet,
-				URL:    srv.URL + "/items?name={{.name}}",
+				URL:    srv.URL + "/items?name={{.env.name}}",
 			},
 			Response: ResponseSpec{
 				ResultCode: []string{"200"},
@@ -58,12 +58,12 @@ func TestDown_Execute_WithFindAndTemplatingAndAuthFromEnv(t *testing.T) {
 			},
 		},
 		Method: http.MethodDelete,
-		URL:    srv.URL + "/items/{{.user_id}}",
+		URL:    srv.URL + "/items/{{.env.user_id}}",
 		Headers: []Header{
-			{Name: "X-Del", Value: "{{.flag}}"},
+			{Name: "X-Del", Value: "{{.env.flag}}"},
 			{Name: "Authorization", Value: "{{.auth.kc}}"},
 		},
-		Queries: []Query{{Name: "reason", Value: "{{.reason}}"}},
+		Queries: []Query{{Name: "reason", Value: "{{.env.reason}}"}},
 		Body:    "{}",
 	}
 
@@ -203,7 +203,7 @@ func TestDown_Execute_JSONBodySetsContentType(t *testing.T) {
 		Env:    env.Env{Local: map[string]string{"x": "1"}},
 		Method: http.MethodDelete,
 		URL:    srv.URL + "/json",
-		Body:   `{"a":{{.x}}}`,
+		Body:   `{"a":{{.env.x}}}`,
 	}
 	res, err := d.Execute(context.Background())
 	if err != nil {
@@ -270,7 +270,7 @@ func TestDown_Find_EnvMissingPolicy(t *testing.T) {
 			d := Down{
 				Env:    env.Env{Local: map[string]string{}},
 				Method: http.MethodDelete,
-				URL:    srv.URL + "/do?id={{.rid}}",
+				URL:    srv.URL + "/do?id={{.env.rid}}",
 				Find: &FindSpec{
 					Request: RequestSpec{Method: http.MethodGet, URL: srv.URL + "/search"},
 					Response: ResponseSpec{
