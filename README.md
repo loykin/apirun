@@ -302,8 +302,8 @@ client:
 
 ## Programmatic usage (library)
 
-```go
-// NOTE: This is illustrative code, not compiled within README.
+```
+# NOTE: This is illustrative code, not compiled within README.
 // Example: using the struct-based Migrator API
 package main
 
@@ -337,7 +337,8 @@ For convenient, type-safe auth acquisition without raw maps, use the WithName wr
 
 Note: Providers return only the token value. When you need Authorization, set it explicitly in your migrations using the token variable `{{._auth_token}}`.
 
-```go
+```
+# illustrative snippet
 ctx := context.Background()
 
 // Basic (stores under name "example_basic")
@@ -396,6 +397,18 @@ go run ./examples/auth_registry
 - `examples/auth_embedded`: Embed apimigrate and acquire auth via typed wrappers; uses a local test server.
 
 Each example directory contains its own README or config and migration files.
+
+## Run history and failure flag
+
+- Each Up/Down execution is recorded in the migration_runs table with:
+  - version, direction (up|down), status_code, ran_at, and optionally the response body (when configured).
+  - env_json: JSON of variables extracted by env_from.
+  - failed: boolean indicating whether the operation returned an error (e.g., disallowed status or env_missing=fail).
+- You can query this table directly (SQLite or Postgres) for auditing or troubleshooting. The CLI currently provides a high-level status command:
+
+```bash
+apimigrate status --config <path/to/config.yaml>
+```
 
 ## Development
 
