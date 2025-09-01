@@ -50,7 +50,7 @@ func (s *SqliteStore) Load(config map[string]interface{}) error {
 func (s *SqliteStore) Ensure(th TableNames) error {
 	stmts := []string{
 		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER PRIMARY KEY)", th.SchemaMigrations),
-		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY AUTOINCREMENT, version INTEGER NOT NULL, direction TEXT NOT NULL, status_code INTEGER NOT NULL, body TEXT NULL, env_json TEXT NULL, ran_at TEXT NOT NULL)", th.MigrationRuns),
+		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY AUTOINCREMENT, version INTEGER NOT NULL, direction TEXT NOT NULL, status_code INTEGER NOT NULL, body TEXT NULL, env_json TEXT NULL, failed INTEGER NOT NULL DEFAULT 0, ran_at TEXT NOT NULL)", th.MigrationRuns),
 		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(version, name))", th.StoredEnv),
 	}
 	for _, q := range stmts {
@@ -134,7 +134,7 @@ func (s *SqliteStore) SetVersion(th TableNames, target int) error {
 	return err
 }
 
-func (s *SqliteStore) RecordRun(th TableNames, version int, direction string, status int, body *string, env map[string]string) error {
+func (s *SqliteStore) RecordRun(th TableNames, version int, direction string, status int, body *string, env map[string]string, failed bool) error {
 	var envJSON *string
 	if len(env) > 0 {
 		b, _ := json.Marshal(env)
@@ -143,8 +143,12 @@ func (s *SqliteStore) RecordRun(th TableNames, version int, direction string, st
 	}
 	ranAt := time.Now().UTC().Format(time.RFC3339Nano)
 	// #nosec G201 -- table name is validated; values are fully parameterized with placeholders
-	q := fmt.Sprintf("INSERT INTO %s(version, direction, status_code, body, env_json, ran_at) VALUES(?,?,?,?,?,?)", th.MigrationRuns)
-	_, err := s.db.Exec(q, version, direction, status, body, envJSON, ranAt)
+	q := fmt.Sprintf("INSERT INTO %s(version, direction, status_code, body, env_json, failed, ran_at) VALUES(?,?,?,?,?,?,?)", th.MigrationRuns)
+	failedInt := 0
+	if failed {
+		failedInt = 1
+	}
+	_, err := s.db.Exec(q, version, direction, status, body, envJSON, failedInt, ranAt)
 	return err
 }
 

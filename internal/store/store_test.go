@@ -228,7 +228,7 @@ func TestRecordRunAndLoadEnv(t *testing.T) {
 	st := openTempStore(t)
 	// Record a run with an env map
 	body := ""
-	if err := st.RecordRun(1, "up", 200, &body, map[string]string{"a": "1", "b": "2"}); err != nil {
+	if err := st.RecordRun(1, "up", 200, &body, map[string]string{"a": "1", "b": "2"}, false); err != nil {
 		t.Fatalf("RecordRun: %v", err)
 	}
 	m, err := st.LoadEnv(1, "up")
@@ -247,7 +247,7 @@ func TestRecordRunAndLoadEnv(t *testing.T) {
 		t.Fatalf("expected empty map for missing env_json, got %+v", m2)
 	}
 	// Insert a malformed env_json row to ensure graceful fallback
-	_, _ = st.DB.Exec("INSERT INTO migration_runs(version, direction, status_code, env_json, ran_at) VALUES(?, ?, ?, ?, ?)", 3, "up", 200, "not-json", "2020-01-01T00:00:00Z")
+	_, _ = st.DB.Exec("INSERT INTO migration_runs(version, direction, status_code, env_json, failed, ran_at) VALUES(?, ?, ?, ?, ?, ?)", 3, "up", 200, "not-json", 0, "2020-01-01T00:00:00Z")
 	m3, err := st.LoadEnv(3, "up")
 	if err != nil {
 		t.Fatalf("LoadEnv (malformed): %v", err)

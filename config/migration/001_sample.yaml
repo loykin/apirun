@@ -16,6 +16,10 @@ up:
   response:
     # Accept HTTP 200 as success
     result_code: [ "200" ]
+    # Control behavior when variables in env_from are missing from response JSON:
+    #   - skip (default): ignore missing variables and continue
+    #   - fail: treat missing variables as an error (migration run will be recorded as failed)
+    # env_missing: skip
     # You can extract values from JSON bodies using EnvFrom, e.g.:
     # env_from:
     #   example: path.to.value

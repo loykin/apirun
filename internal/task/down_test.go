@@ -244,3 +244,64 @@ func TestExecByMethod_SupportedAndUnsupported(t *testing.T) {
 		t.Fatalf("HEAD: expected error for unsupported method")
 	}
 }
+
+// Ensure Down.Find respects env_missing policy: fail should stop before main call; skip should proceed and merge extracted.
+func TestDown_Find_EnvMissingPolicy(t *testing.T) {
+	calls := struct{ find, del int }{}
+	// Server: GET /search returns only present id; DELETE /do runs only if find succeeded
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			calls.find++
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"id":"123"}`))
+			return
+		}
+		if r.Method == http.MethodDelete {
+			calls.del++
+			w.WriteHeader(200)
+			return
+		}
+		w.WriteHeader(404)
+	}))
+	defer srv.Close()
+
+	tRun := func(name, policy string, wantErr bool, wantDelCalls int) {
+		t.Run(name, func(t *testing.T) {
+			d := Down{
+				Env:    env.Env{Local: map[string]string{}},
+				Method: http.MethodDelete,
+				URL:    srv.URL + "/do?id={{.rid}}",
+				Find: &FindSpec{
+					Request: RequestSpec{Method: http.MethodGet, URL: srv.URL + "/search"},
+					Response: ResponseSpec{
+						ResultCode: []string{"200"},
+						EnvFrom:    map[string]string{"rid": "id", "missing": "nope"},
+						EnvMissing: policy,
+					},
+				},
+			}
+			res, err := d.Execute(context.Background())
+			if wantErr {
+				if err == nil {
+					t.Fatalf("expected error due to missing env in find, got nil")
+				}
+				if res == nil || res.StatusCode != 200 {
+					t.Fatalf("expected ExecResult with find status 200, got %+v", res)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error with skip policy: %v", err)
+				}
+			}
+			if calls.del != wantDelCalls {
+				t.Fatalf("unexpected DELETE calls: got %d want %d", calls.del, wantDelCalls)
+			}
+			// reset for next subtest
+			calls.del = 0
+			calls.find = 0
+		})
+	}
+
+	tRun("fail-policy", "fail", true, 0)
+	tRun("skip-default", "", false, 1)
+}

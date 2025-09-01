@@ -76,7 +76,7 @@ func (p *PostgresStore) Load(config map[string]interface{}) error {
 func (p *PostgresStore) Ensure(th TableNames) error {
 	stmts := []string{
 		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER PRIMARY KEY)", th.SchemaMigrations),
-		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id SERIAL PRIMARY KEY, version INTEGER NOT NULL, direction TEXT NOT NULL, status_code INTEGER NOT NULL, body TEXT NULL, env_json TEXT NULL, ran_at TIMESTAMPTZ NOT NULL)", th.MigrationRuns),
+		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id SERIAL PRIMARY KEY, version INTEGER NOT NULL, direction TEXT NOT NULL, status_code INTEGER NOT NULL, body TEXT NULL, env_json TEXT NULL, failed BOOLEAN NOT NULL DEFAULT FALSE, ran_at TIMESTAMPTZ NOT NULL)", th.MigrationRuns),
 		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(version, name))", th.StoredEnv),
 	}
 
@@ -162,7 +162,7 @@ func (p *PostgresStore) SetVersion(th TableNames, target int) error {
 	return err
 }
 
-func (p *PostgresStore) RecordRun(th TableNames, version int, direction string, status int, body *string, env map[string]string) error {
+func (p *PostgresStore) RecordRun(th TableNames, version int, direction string, status int, body *string, env map[string]string, failed bool) error {
 	var envJSON *string
 	if len(env) > 0 {
 		b, _ := json.Marshal(env)
@@ -171,8 +171,8 @@ func (p *PostgresStore) RecordRun(th TableNames, version int, direction string, 
 	}
 	ranAt := time.Now().UTC()
 	// #nosec G201 -- only the table name (validated) is interpolated; all values use bind parameters
-	q := fmt.Sprintf("INSERT INTO %s(version, direction, status_code, body, env_json, ran_at) VALUES($1,$2,$3,$4,$5,$6)", th.MigrationRuns)
-	_, err := p.db.Exec(q, version, direction, status, body, envJSON, ranAt)
+	q := fmt.Sprintf("INSERT INTO %s(version, direction, status_code, body, env_json, failed, ran_at) VALUES($1,$2,$3,$4,$5,$6,$7)", th.MigrationRuns)
+	_, err := p.db.Exec(q, version, direction, status, body, envJSON, failed, ranAt)
 	return err
 }
 

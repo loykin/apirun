@@ -39,6 +39,6 @@ func FuzzTask(f *testing.F) {
 			bodyJSON = bodyJSON[:1<<16]
 		}
 		r3 := ResponseSpec{EnvFrom: map[string]string{envKey: gjsonPath}}
-		_ = r3.ExtractEnv([]byte(bodyJSON))
+		_, _ = r3.ExtractEnv([]byte(bodyJSON))
 	})
 }

@@ -14,6 +14,9 @@ type ResponseSpec struct {
 	// We load them as strings to allow templating at execution time.
 	ResultCode []string          `yaml:"result_code"`
 	EnvFrom    map[string]string `yaml:"env_from"`
+	// EnvMissing controls behavior when a configured EnvFrom mapping cannot be extracted from response body.
+	// Allowed values: "skip" (default) – ignore missing variables; "fail" – treat as error.
+	EnvMissing string `yaml:"env_missing"`
 }
 
 // AllowedStatus renders ResultCode against provided env vars and returns a set of allowed codes.
@@ -52,10 +55,16 @@ func (r ResponseSpec) ValidateStatus(status int, env env.Env) error {
 
 // ExtractEnv extracts variables from a JSON response body using EnvFrom mappings.
 // Paths are evaluated with tidwall/gjson and are expected to be valid gjson paths.
-func (r ResponseSpec) ExtractEnv(body []byte) map[string]string {
+// It respects EnvMissing policy: "skip" (default) ignores missing variables; "fail" returns an error.
+func (r ResponseSpec) ExtractEnv(body []byte) (map[string]string, error) {
 	extracted := map[string]string{}
 	if len(r.EnvFrom) == 0 || len(body) == 0 {
-		return extracted
+		return extracted, nil
+	}
+
+	policy := strings.ToLower(strings.TrimSpace(r.EnvMissing))
+	if policy == "" {
+		policy = "skip"
 	}
 
 	parsed := gjson.ParseBytes(body)
@@ -67,7 +76,11 @@ func (r ResponseSpec) ExtractEnv(body []byte) map[string]string {
 		res := parsed.Get(p)
 		if res.Exists() {
 			extracted[key] = anyToString(res.Value())
+			continue
+		}
+		if policy == "fail" {
+			return extracted, fmt.Errorf("missing env_from for key '%s' at path '%s'", key, p)
 		}
 	}
-	return extracted
+	return extracted, nil
 }

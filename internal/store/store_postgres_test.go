@@ -143,7 +143,7 @@ func TestPostgresStore_BasicCRUD(t *testing.T) {
 	}
 
 	// Record a run (with minimal fields) and then delete stored env
-	if err := st.RecordRun(2, "up", 200, nil, map[string]string{"saved": "yes"}); err != nil {
+	if err := st.RecordRun(2, "up", 200, nil, map[string]string{"saved": "yes"}, false); err != nil {
 		t.Fatalf("RecordRun: %v", err)
 	}
 	if err := st.DeleteStoredEnv(2); err != nil {

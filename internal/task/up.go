@@ -77,7 +77,10 @@ func (u Up) Execute(ctx context.Context, method, url string) (*ExecResult, error
 		return &ExecResult{StatusCode: status, ExtractedEnv: map[string]string{}, ResponseBody: string(bodyBytes)}, err
 	}
 
-	// Extract env from response body via ResponseSpec method
-	extracted := u.Response.ExtractEnv(bodyBytes)
+	// Extract env from response body via ResponseSpec method (may error if env_missing=fail)
+	extracted, eerr := u.Response.ExtractEnv(bodyBytes)
+	if eerr != nil {
+		return &ExecResult{StatusCode: status, ExtractedEnv: extracted, ResponseBody: string(bodyBytes)}, eerr
+	}
 	return &ExecResult{StatusCode: status, ExtractedEnv: extracted, ResponseBody: string(bodyBytes)}, nil
 }

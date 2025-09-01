@@ -79,7 +79,7 @@ func (m *Migrator) runUpForFile(ctx context.Context, f vfile, sessionStored map[
 		if res.ExtractedEnv != nil {
 			toStore = res.ExtractedEnv
 		}
-		_ = m.Store.RecordRun(f.index, "up", res.StatusCode, bodyPtr, toStore)
+		_ = m.Store.RecordRun(f.index, "up", res.StatusCode, bodyPtr, toStore, err != nil)
 		_ = m.Store.InsertStoredEnv(f.index, toStore)
 		return ewv, toStore, err
 	}
@@ -131,7 +131,7 @@ func (m *Migrator) runDownForVersion(ctx context.Context, ver int, f vfile) (*Ex
 			b := res.ResponseBody
 			bodyPtr = &b
 		}
-		_ = m.Store.RecordRun(ver, "down", res.StatusCode, bodyPtr, nil)
+		_ = m.Store.RecordRun(ver, "down", res.StatusCode, bodyPtr, nil, err != nil)
 	}
 	if err != nil {
 		return ewv, fmt.Errorf("down %s failed: %w", f.name, err)

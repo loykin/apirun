@@ -94,8 +94,11 @@ func runFind(ctx context.Context, d *Down) (*ExecResult, error) {
 	if err := d.Find.Response.ValidateStatus(fresp.StatusCode(), d.Env); err != nil {
 		return &ExecResult{StatusCode: fresp.StatusCode(), ExtractedEnv: map[string]string{}}, err
 	}
-	// Extract and merge env
-	extracted := d.Find.Response.ExtractEnv(fresp.Body())
+	// Extract and merge env (may error if env_missing=fail)
+	extracted, eerr := d.Find.Response.ExtractEnv(fresp.Body())
+	if eerr != nil {
+		return &ExecResult{StatusCode: fresp.StatusCode(), ExtractedEnv: extracted}, eerr
+	}
 	if len(extracted) > 0 {
 		if d.Env.Local == nil {
 			d.Env.Local = map[string]string{}

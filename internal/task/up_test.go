@@ -101,3 +101,54 @@ func TestUp_Execute_StatusNotAllowed_ReturnsError(t *testing.T) {
 		t.Fatalf("expected ExecResult with status 500, got %+v", res)
 	}
 }
+
+// Verify env_missing=fail returns error when a mapped key is absent, while default skip does not.
+func TestUp_Execute_EnvMissingPolicy(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"present":"ok"}`))
+	}))
+	defer srv.Close()
+
+	tRun := func(name string, envMissing string, wantErr bool) {
+		t.Run(name, func(t *testing.T) {
+			u := Up{
+				Env:     env.Env{},
+				Request: RequestSpec{Method: http.MethodGet, URL: srv.URL},
+				Response: ResponseSpec{
+					ResultCode: []string{"200"},
+					EnvFrom:    map[string]string{"a": "present", "b": "missing"},
+					EnvMissing: envMissing,
+				},
+			}
+			res, err := u.Execute(context.Background(), http.MethodGet, srv.URL)
+			if wantErr {
+				if err == nil {
+					t.Fatalf("expected error due to missing env var, got nil")
+				}
+				if res == nil || res.StatusCode != 200 {
+					t.Fatalf("expected ExecResult with status 200, got %+v", res)
+				}
+				if res.ExtractedEnv["a"] != "ok" {
+					t.Fatalf("expected extracted a=ok, got %+v", res.ExtractedEnv)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error with skip policy: %v", err)
+				}
+				if res == nil || res.StatusCode != 200 {
+					t.Fatalf("expected 200, got %+v", res)
+				}
+				if res.ExtractedEnv["a"] != "ok" {
+					t.Fatalf("expected extracted a=ok, got %+v", res.ExtractedEnv)
+				}
+				if _, ok := res.ExtractedEnv["b"]; ok {
+					t.Fatalf("did not expect b to be present in extracted env")
+				}
+			}
+		})
+	}
+
+	tRun("fail-policy", "fail", true)
+	tRun("skip-default", "", false)
+}

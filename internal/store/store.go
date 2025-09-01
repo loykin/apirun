@@ -168,8 +168,8 @@ func (s *Store) SetVersion(target int) error {
 	return s.connector.SetVersion(s.safeTableNames(), target)
 }
 
-func (s *Store) RecordRun(version int, direction string, status int, body *string, env map[string]string) error {
-	return s.connector.RecordRun(s.safeTableNames(), version, direction, status, body, env)
+func (s *Store) RecordRun(version int, direction string, status int, body *string, env map[string]string, failed bool) error {
+	return s.connector.RecordRun(s.safeTableNames(), version, direction, status, body, env, failed)
 }
 
 func (s *Store) LoadEnv(version int, direction string) (map[string]string, error) {

@@ -13,7 +13,7 @@ type Connector interface {
 	ListApplied(th TableNames) ([]int, error)
 	Remove(th TableNames, v int) error
 	SetVersion(th TableNames, target int) error
-	RecordRun(th TableNames, version int, direction string, status int, body *string, env map[string]string) error
+	RecordRun(th TableNames, version int, direction string, status int, body *string, env map[string]string, failed bool) error
 	LoadEnv(th TableNames, version int, direction string) (map[string]string, error)
 	InsertStoredEnv(th TableNames, version int, kv map[string]string) error
 	LoadStoredEnv(th TableNames, version int) (map[string]string, error)
