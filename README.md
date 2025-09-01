@@ -17,6 +17,7 @@ A lightweight Go library and CLI for running API-driven migrations defined in YA
 - DriverConfig templating (Go templates {{.var}}) supported across requests, auth config, and wait checks.
 - Response validation via allowed HTTP status codes.
 - Response JSON extraction using `tidwall/gjson` paths.
+- Configurable handling when extracted variables are missing (env_missing: skip | fail).
 - Optional "find" step for down migrations to discover IDs before deletion.
 - Health-check wait feature to poll an endpoint until it returns the expected status before running migrations.
 - HTTP client TLS options per config document (insecure, min/max TLS version). Default minimum TLS version is 1.3 unless overridden.
@@ -261,6 +262,18 @@ Notes:
 - Empty `result_code` means any HTTP status is allowed.
 - `env_from` uses gjson paths (e.g., `id`, `0.id`, `data.items.0.id`).
 - All values extracted via `env_from` are automatically persisted into the local store so they can be reused later (e.g., in down).
+- Control behavior for missing extractions with `env_missing` under `response`:
+  - `skip` (default): ignore missing keys in `env_from` and continue.
+  - `fail`: treat missing keys as an error; the migration run will be recorded with failed=true.
+  Example:
+  ```yaml
+  response:
+    result_code: ["200"]
+    env_missing: fail
+    env_from:
+      rid: id           # required; if absent -> error
+      optional: maybe   # if missing, execution fails in 'fail' mode
+  ```
 - Authorization headers are not auto-prefixed. When using a token acquired via `auth_name` or injected `_auth_token`, set the header explicitly in your migration, e.g., `Authorization: "Basic {{._auth_token}}"` for Basic or `Authorization: "Bearer {{._auth_token}}"` for OAuth2.
 
 ### Templating in config (requests, auth, wait)
@@ -290,6 +303,7 @@ client:
 ## Programmatic usage (library)
 
 ```go
+// NOTE: This is illustrative code, not compiled within README.
 // Example: using the struct-based Migrator API
 package main
 
