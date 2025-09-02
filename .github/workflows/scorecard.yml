@@ -15,7 +15,10 @@ on:
     branches: [ "main" ]
 
 # Declare default permissions as read only.
-permissions: read-all
+permissions:
+  contents: read # Read-only permission to checkout code
+  id-token: write # Required for `publish_results`
+  security-events: write # Required to upload results to Code Scanning
 
 jobs:
   analysis:
