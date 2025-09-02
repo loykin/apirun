@@ -58,7 +58,7 @@ jobs:
           $(go env GOPATH)/bin/gosec -no-fail -fmt=json -out=gosec-report.json ./...
 
       - name: Upload gosec report artifact
-        uses: actions/upload-artifact@vea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: gosec-report
           path: gosec-report.json
