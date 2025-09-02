@@ -58,7 +58,7 @@ jobs:
           $(go env GOPATH)/bin/gosec -no-fail -fmt=json -out=gosec-report.json ./...
 
       - name: Upload gosec report artifact
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@vea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: gosec-report
           path: gosec-report.json
@@ -108,7 +108,7 @@ jobs:
         run: go tool cover -func=coverage.out | tail -n 1
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: coverage
           path: coverage.out
@@ -125,7 +125,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
 
       - name: Download coverage artifact
-        uses: actions/download-artifact@v5.0.0
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
         with:
           name: coverage
           path: .
