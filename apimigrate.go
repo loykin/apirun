@@ -7,10 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-resty/resty/v2"
 	"github.com/loykin/apimigrate/internal/auth"
 	"github.com/loykin/apimigrate/internal/env"
-	"github.com/loykin/apimigrate/internal/httpc"
 	imig "github.com/loykin/apimigrate/internal/migration"
 	"github.com/loykin/apimigrate/internal/store"
 	"github.com/loykin/apimigrate/internal/task"
@@ -204,10 +202,6 @@ func AcquireAuthAndSetEnv(ctx context.Context, typ string, name string, spec Aut
 	}
 	return v, nil
 }
-
-// NewHTTPClient returns a resty.Client using default TLS settings (Min TLS 1.3).
-// For custom TLS behavior, construct httpc.Httpc and call its New(ctx) method.
-func NewHTTPClient(_ context.Context) *resty.Client { var h httpc.Httpc; return h.New() }
 
 // RenderAnyTemplate exposes template rendering used for config/auth maps in the CLI.
 func RenderAnyTemplate(v interface{}, base Env) interface{} { return util.RenderAnyTemplate(v, base) }

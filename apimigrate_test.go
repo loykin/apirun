@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-resty/resty/v2"
 	httpc "github.com/loykin/apimigrate/internal/httpc"
 )
 
@@ -191,7 +192,7 @@ func TestOpenStore_CreatesSQLiteFile(t *testing.T) {
 
 func TestNewHTTPClient_TLSHelpers(t *testing.T) {
 	// Default settings
-	c := NewHTTPClient(context.Background())
+	c := resty.New()
 	hc := c.GetClient()
 	tr, _ := hc.Transport.(*http.Transport)
 	if tr == nil {
