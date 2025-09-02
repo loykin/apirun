@@ -2,6 +2,7 @@ package task
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	env2 "github.com/loykin/apimigrate/internal/env"
@@ -136,5 +137,59 @@ func TestRequest_Render_BodyFile(t *testing.T) {
 	}
 	if body != `{"a": "y"}` {
 		t.Fatalf("expected body rendered from file, got %q", body)
+	}
+}
+
+func TestRequest_Render_BodyFilePathTemplate(t *testing.T) {
+	dir := t.TempDir()
+	// Create data file with templated content
+	data := []byte(`{"v":"{{.env.V}}"}`)
+	name := "body.json"
+	p := filepath.Join(dir, name)
+	if err := os.WriteFile(p, data, 0o600); err != nil {
+		t.Fatalf("write data file: %v", err)
+	}
+	// Build a templated path that resolves to the file above
+	req := RequestSpec{BodyFile: filepath.Join(dir, "{{.env.N}}")}
+	env := env2.Env{Local: map[string]string{"N": name, "V": "ok"}}
+	_, _, body, err := req.Render(env)
+	if err != nil {
+		t.Fatalf("render error: %v", err)
+	}
+	if body != `{"v":"ok"}` {
+		t.Fatalf("unexpected body: %q", body)
+	}
+}
+
+func TestRequest_Render_BodyFileWhitespaceFallbackToBody(t *testing.T) {
+	env := env2.Env{Local: map[string]string{"Y": "z"}}
+	req := RequestSpec{BodyFile: "   \t\n  ", Body: "x{{.env.Y}}"}
+	_, _, body, err := req.Render(env)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if body != "xz" {
+		t.Fatalf("expected body fallback with templating, got %q", body)
+	}
+}
+
+func TestRequest_Render_EmptyBoth_NoError(t *testing.T) {
+	env := env2.Env{}
+	req := RequestSpec{}
+	_, _, body, err := req.Render(env)
+	if err != nil {
+		t.Fatalf("unexpected error for empty body fields: %v", err)
+	}
+	if body != "" {
+		t.Fatalf("expected empty body, got %q", body)
+	}
+}
+
+func TestRequest_Render_BodyFileNotFound_Error(t *testing.T) {
+	env := env2.Env{Local: map[string]string{"X": "missing.json"}}
+	req := RequestSpec{BodyFile: filepath.Join(t.TempDir(), "{{.env.X}}")}
+	_, _, _, err := req.Render(env)
+	if err == nil {
+		t.Fatalf("expected error for missing BodyFile, got nil")
 	}
 }

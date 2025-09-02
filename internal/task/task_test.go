@@ -40,7 +40,7 @@ func TestTask_UpExecute_Success(t *testing.T) {
 		},
 	}
 
-	res, err := tsk.UpExecute(context.Background(), http.MethodPost, srv.URL)
+	res, err := tsk.Up.Execute(context.Background(), http.MethodPost, srv.URL)
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestTask_DownExecute_Success(t *testing.T) {
 		},
 	}}
 
-	res, err := tsk.DownExecute(context.Background(), "", "")
+	res, err := tsk.Down.Execute(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}

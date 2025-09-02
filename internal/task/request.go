@@ -22,22 +22,11 @@ type RequestSpec struct {
 // It also injects Authorization header from AuthName if present in env and not already set.
 // Returns an error if the body template fails to parse/execute.
 func (r RequestSpec) Render(env env.Env) (map[string]string, map[string]string, string, error) {
-	hdrs := make(map[string]string)
-	for _, h := range r.Headers {
-		if h.Name == "" {
-			continue
-		}
-		val := h.Value
-		hdrs[h.Name] = env.RenderGoTemplate(val)
-	}
+	hdrs := renderHeaders(env, r.Headers)
+	queries := renderQueries(env, r.Queries)
 
-	queries := make(map[string]string)
-	for _, q := range r.Queries {
-		if q.Name == "" {
-			continue
-		}
-		val := q.Value
-		queries[q.Name] = env.RenderGoTemplate(val)
+	if r.BodyFile == "" && r.Body == "" {
+		return hdrs, queries, "", nil
 	}
 
 	// Determine body source: BodyFile if provided, otherwise Body
@@ -49,22 +38,16 @@ func (r RequestSpec) Render(env env.Env) (map[string]string, map[string]string, 
 		if data, err := os.ReadFile(path); err == nil {
 			body = string(data)
 		} else {
-			// If file read fails, keep body empty to let caller handle error statuses
-			body = ""
+			return hdrs, queries, "", err
 		}
 	} else {
 		body = r.Body
 	}
 
-	if strings.Contains(body, "{{") {
-		if rendered, err := env.RenderGoTemplateErr(body); err != nil {
-			return hdrs, queries, "", err
-		} else {
-			body = rendered
-		}
-	} else {
-		// No template delimiters – passthrough
-		// Keep behavior consistent
+	body, err := renderBody(env, body)
+	if err != nil {
+		return hdrs, queries, "", err
 	}
+
 	return hdrs, queries, body, nil
 }

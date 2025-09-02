@@ -3,6 +3,8 @@ package migration
 import (
 	"bytes"
 	"testing"
+
+	"github.com/loykin/apimigrate/internal/task"
 )
 
 // FuzzDecodeTaskYAML ensures the YAML decoder for Task never panics on arbitrary input.
@@ -16,6 +18,7 @@ func FuzzDecodeTaskYAML(f *testing.F) {
 		if len(b) > 1<<16 {
 			b = b[:1<<16]
 		}
-		_, _ = decodeTaskYAML(bytes.NewReader(b))
+		var tk task.Task
+		_ = tk.DecodeYAML(bytes.NewReader(b))
 	})
 }

@@ -2,9 +2,15 @@ package task
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
+
+	"github.com/go-resty/resty/v2"
+	"github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/internal/httpc"
 )
 
 func isJSON(s string) bool {
@@ -50,5 +56,74 @@ func anyToString(v interface{}) string {
 			return string(b[1 : len(b)-1])
 		}
 		return string(b)
+	}
+}
+
+func renderHeaders(e env.Env, hs []Header) map[string]string {
+	hdrs := make(map[string]string)
+	for _, h := range hs {
+		if h.Name == "" {
+			continue
+		}
+		val := h.Value
+		if strings.Contains(val, "{{") {
+			val = e.RenderGoTemplate(val)
+		}
+		hdrs[h.Name] = val
+	}
+	return hdrs
+}
+
+func renderQueries(e env.Env, qs []Query) map[string]string {
+	m := make(map[string]string)
+	for _, q := range qs {
+		if q.Name == "" {
+			continue
+		}
+		val := q.Value
+		if strings.Contains(val, "{{") {
+			val = e.RenderGoTemplate(val)
+		}
+		m[q.Name] = val
+	}
+	return m
+}
+
+func renderBody(e env.Env, b string) (string, error) {
+	if strings.Contains(b, "{{") {
+		return e.RenderGoTemplateErr(b)
+	}
+	return b, nil
+}
+
+func buildRequest(ctx context.Context, headers map[string]string, queries map[string]string, body string) *resty.Request {
+	var h httpc.Httpc
+	client := h.New()
+	req := client.R().SetContext(ctx).SetHeaders(headers).SetQueryParams(queries)
+	if strings.TrimSpace(body) != "" {
+		if isJSON(body) {
+			req.SetHeader("Content-Type", "application/json")
+			req.SetBody([]byte(body))
+		} else {
+			req.SetBody(body)
+		}
+	}
+	return req
+}
+
+func execByMethod(req *resty.Request, method, url string) (*resty.Response, error) {
+	switch method {
+	case http.MethodGet:
+		return req.Get(url)
+	case http.MethodPost:
+		return req.Post(url)
+	case http.MethodPut:
+		return req.Put(url)
+	case http.MethodPatch:
+		return req.Patch(url)
+	case http.MethodDelete:
+		return req.Delete(url)
+	default:
+		return nil, fmt.Errorf("down.find: unsupported method: %s", method)
 	}
 }

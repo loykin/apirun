@@ -1,7 +1,11 @@
 package task
 
 import (
-	"context"
+	"io"
+	"os"
+	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Task struct {
@@ -9,15 +13,31 @@ type Task struct {
 	Down Down `yaml:"down"`
 }
 
-// UpExecute delegates to the Up spec executor.
-func (t Task) UpExecute(ctx context.Context, method, url string) (*ExecResult, error) {
-	return t.Up.Execute(ctx, method, url)
+// decodeYAMLTo is an internal helper to unmarshal YAML into the provided Task.
+func (t *Task) decodeYAMLTo(r io.Reader) error {
+	dec := yaml.NewDecoder(r)
+	var tmp Task
+	if err := dec.Decode(&tmp); err != nil {
+		return err
+	}
+	*t = tmp
+	return nil
 }
 
-// DownExecute delegates to the Down spec executor.
-// The method and url parameters are currently unused because Down includes
-// its own Method and URL fields; they are kept for symmetry with UpExecute
-// and potential future overrides.
-func (t Task) DownExecute(ctx context.Context, _ string, _ string) (*ExecResult, error) {
-	return t.Down.Execute(ctx)
+// LoadFromFile loads a Task from a YAML file path into the receiver.
+func (t *Task) LoadFromFile(path string) error {
+	clean := filepath.Clean(path)
+	// #nosec G304 -- path is provided by controlled migration listing
+	f, err := os.Open(clean)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	return t.decodeYAMLTo(f)
+}
+
+// DecodeYAML decodes a Task from the provided reader into the receiver.
+// Exposed for tests in other packages if needed.
+func (t *Task) DecodeYAML(r io.Reader) error { //nolint:unused // may be used by external tests
+	return t.decodeYAMLTo(r)
 }

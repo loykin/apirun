@@ -3,16 +3,12 @@ package migration
 import (
 	"context"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
 	"sort"
 	"time"
 
 	"github.com/loykin/apimigrate/internal/env"
 	"github.com/loykin/apimigrate/internal/store"
 	"github.com/loykin/apimigrate/internal/task"
-	"gopkg.in/yaml.v3"
 )
 
 type Migrator struct {
@@ -26,8 +22,8 @@ type Migrator struct {
 // If targetVersion <= 0, it applies all pending migrations.
 // It records each applied version in the store after successful execution.
 func (m *Migrator) runUpForFile(ctx context.Context, f vfile, sessionStored map[string]string) (*ExecWithVersion, map[string]string, error) {
-	t, err := loadTaskFromFile(f.path)
-	if err != nil {
+	var t task.Task
+	if err := t.LoadFromFile(f.path); err != nil {
 		return nil, nil, fmt.Errorf("failed to load %s: %w", f.name, err)
 	}
 	if m.Env.Global != nil {
@@ -64,7 +60,7 @@ func (m *Migrator) runUpForFile(ctx context.Context, f vfile, sessionStored map[
 			}
 		}
 	}
-	res, err := t.UpExecute(ctx, "", "")
+	res, err := t.Up.Execute(ctx, "", "")
 	ewv := &ExecWithVersion{Version: f.index, Result: res}
 	// Record run if we have result
 	if res != nil {
@@ -90,8 +86,8 @@ func (m *Migrator) runUpForFile(ctx context.Context, f vfile, sessionStored map[
 // run downs for all applied versions > targetVersion in reverse order.
 // Each successful down removes that version from the store.
 func (m *Migrator) runDownForVersion(ctx context.Context, ver int, f vfile) (*ExecWithVersion, error) {
-	t, err := loadTaskFromFile(f.path)
-	if err != nil {
+	var t task.Task
+	if err := t.LoadFromFile(f.path); err != nil {
 		return nil, fmt.Errorf("failed to load %s: %w", f.name, err)
 	}
 	if m.Env.Global != nil {
@@ -122,7 +118,7 @@ func (m *Migrator) runDownForVersion(ctx context.Context, ver int, f vfile) (*Ex
 			}
 		}
 	}
-	res, err := t.DownExecute(ctx, "", "")
+	res, err := t.Down.Execute(ctx)
 	ewv := &ExecWithVersion{Version: ver, Result: res}
 	if res != nil {
 		save := m.SaveResponseBody
@@ -223,24 +219,4 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 		}
 	}
 	return results, nil
-}
-
-func loadTaskFromFile(path string) (task.Task, error) {
-	clean := filepath.Clean(path)
-	// #nosec G304 -- path comes from controlled directory listing of migration files
-	f, err := os.Open(clean)
-	if err != nil {
-		return task.Task{}, err
-	}
-	defer func() { _ = f.Close() }()
-	return decodeTaskYAML(f)
-}
-
-func decodeTaskYAML(r io.Reader) (task.Task, error) {
-	dec := yaml.NewDecoder(r)
-	var t task.Task
-	if err := dec.Decode(&t); err != nil {
-		return task.Task{}, err
-	}
-	return t, nil
 }

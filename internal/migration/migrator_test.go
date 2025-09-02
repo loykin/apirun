@@ -2,8 +2,11 @@ package migration
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +14,7 @@ import (
 
 	"github.com/loykin/apimigrate/internal/env"
 	"github.com/loykin/apimigrate/internal/store"
+	"github.com/loykin/apimigrate/internal/task"
 )
 
 func TestDecodeTaskYAML_Valid(t *testing.T) {
@@ -20,8 +24,8 @@ func TestDecodeTaskYAML_Valid(t *testing.T) {
 			"down:\n  name: test-down\n  env: {}\n  method: DELETE\n  url: http://example.com\n",
 	)
 
-	tk, err := decodeTaskYAML(yaml)
-	if err != nil {
+	var tk task.Task
+	if err := tk.DecodeYAML(yaml); err != nil {
 		t.Fatalf("unexpected error decoding: %v", err)
 	}
 	// Basic assertions
@@ -41,7 +45,8 @@ func TestDecodeTaskYAML_Valid(t *testing.T) {
 
 func TestDecodeTaskYAML_Invalid(t *testing.T) {
 	bad := strings.NewReader(":: not yaml ::")
-	_, err := decodeTaskYAML(bad)
+	var tk task.Task
+	err := tk.DecodeYAML(bad)
 	if err == nil {
 		t.Fatalf("expected error for invalid yaml, got nil")
 	}
@@ -55,8 +60,8 @@ func TestLoadTaskFromFile_Success(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 
-	tk, err := loadTaskFromFile(p)
-	if err != nil {
+	var tk task.Task
+	if err := tk.LoadFromFile(p); err != nil {
 		t.Fatalf("unexpected error loading from file: %v", err)
 	}
 	if strings.ToUpper(tk.Up.Request.Method) != http.MethodPost {
@@ -65,7 +70,8 @@ func TestLoadTaskFromFile_Success(t *testing.T) {
 }
 
 func TestLoadTaskFromFile_NotFound(t *testing.T) {
-	_, err := loadTaskFromFile(filepath.Join(t.TempDir(), "missing.yaml"))
+	var tk task.Task
+	err := tk.LoadFromFile(filepath.Join(t.TempDir(), "missing.yaml"))
 	if err == nil {
 		t.Fatalf("expected error for missing file, got nil")
 	}
@@ -135,5 +141,193 @@ func TestMigrator_RecordsFailedFlag_OnEnvMissingFail(t *testing.T) {
 	}
 	if direction != "down" || f2 {
 		t.Fatalf("expected last run to be down with failed=false, got dir=%s failed=%v", direction, f2)
+	}
+}
+
+// Test multiple up and down runs and verify headers, queries, body, and env propagation/cleanup.
+func TestMigrator_MultipleUpDown_RequestAndEnvFlow(t *testing.T) {
+	// Record last request details for endpoints
+	type rec struct {
+		method  string
+		path    string
+		headers http.Header
+		query   url.Values
+		body    string
+	}
+	var create rec
+	var use rec
+	var del rec
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bodyBytes, _ := io.ReadAll(r.Body)
+		b := string(bodyBytes)
+		switch r.URL.Path {
+		case "/create":
+			create = rec{method: r.Method, path: r.URL.Path, headers: r.Header.Clone(), query: r.URL.Query(), body: b}
+			w.WriteHeader(200)
+			// Return an id to be extracted and stored
+			_, _ = w.Write([]byte(`{"id":"abc123","info":"ok"}`))
+			return
+		case "/use/abc123":
+			use = rec{method: r.Method, path: r.URL.Path, headers: r.Header.Clone(), query: r.URL.Query(), body: b}
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"ok":true}`))
+			return
+		case "/delete/abc123":
+			del = rec{method: r.Method, path: r.URL.Path, headers: r.Header.Clone(), query: r.URL.Query(), body: b}
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"deleted":true}`))
+			return
+		case "/noop":
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"noop":true}`))
+			return
+		default:
+			w.WriteHeader(404)
+			_, _ = w.Write([]byte(`{"err":"unknown"}`))
+		}
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	// Migration 001: create resource, extract id into rid; also store a value via env_from
+	mig1 := fmt.Sprintf(`up:
+  name: create
+  env: { }
+  request:
+    method: POST
+    url: %s/create
+    headers:
+      - { name: X-Fixed, value: 'v1' }
+    queries:
+      - { name: q, value: from-up }
+    body: '{"note":"hello"}'
+  response:
+    result_code: ["200"]
+    env_missing: fail
+    env_from:
+      rid: id
+
+down:
+  name: delete
+  env: { }
+  method: DELETE
+  url: %s/delete/{{.env.rid}}
+  headers:
+    - { name: X-Del, value: 'yes' }
+`, srv.URL, srv.URL)
+	if err := os.WriteFile(filepath.Join(dir, "001_create.yaml"), []byte(mig1), 0o600); err != nil {
+		t.Fatalf("write mig1: %v", err)
+	}
+	// Migration 002: use the rid discovered in 001 in URL path, header, query and body
+	bf := filepath.Join(dir, "use_body.txt")
+	if err := os.WriteFile(bf, []byte("using {{.env.rid}}"), 0o600); err != nil {
+		t.Fatalf("write body file: %v", err)
+	}
+	mig2 := fmt.Sprintf(`up:
+  name: use
+  env: { }
+  request:
+    method: POST
+    url: %s/use/{{.env.rid}}
+    headers:
+      - { name: X-Use, value: 'id={{.env.rid}}' }
+    queries:
+      - { name: rid, value: '{{.env.rid}}' }
+    body_file: %s
+  response:
+    result_code: ["200"]
+
+down:
+  name: noop
+  env: { }
+  method: GET
+  url: %s/noop
+`, srv.URL, bf, srv.URL)
+	if err := os.WriteFile(filepath.Join(dir, "002_use.yaml"), []byte(mig2), 0o600); err != nil {
+		t.Fatalf("write mig2: %v", err)
+	}
+
+	ctx := context.Background()
+	base := env.Env{Global: map[string]string{"GLOBAL": "g"}}
+	st := openTestStore(t, filepath.Join(dir, store.DbFileName))
+	defer func() { _ = st.Close() }()
+
+	m := &Migrator{Dir: dir, Env: base, Store: *st}
+	// First up: should apply both 001 and 002
+	resUp1, err := m.MigrateUp(ctx, 0)
+	if err != nil {
+		t.Fatalf("first MigrateUp error: %v", err)
+	}
+	if len(resUp1) != 2 {
+		t.Fatalf("expected 2 up results, got %d", len(resUp1))
+	}
+	// Validate server received expected details
+	if create.method != http.MethodPost || create.path != "/create" {
+		t.Fatalf("unexpected create request: method=%s path=%s", create.method, create.path)
+	}
+	if create.headers.Get("X-Fixed") != "v1" {
+		t.Fatalf("expected X-Fixed header on create")
+	}
+	if create.query.Get("q") != "from-up" {
+		t.Fatalf("expected query q=from-up, got %s", create.query.Get("q"))
+	}
+	if !strings.Contains(create.body, "hello") {
+		t.Fatalf("expected body to contain 'hello', got %q", create.body)
+	}
+	// Use step must reflect rid in URL, header, query and body
+	if use.method != http.MethodPost || use.path != "/use/abc123" {
+		t.Fatalf("unexpected use request: method=%s path=%s", use.method, use.path)
+	}
+	if use.headers.Get("X-Use") != "id=abc123" {
+		t.Fatalf("expected X-Use header with rid, got %q", use.headers.Get("X-Use"))
+	}
+	if use.query.Get("rid") != "abc123" {
+		t.Fatalf("expected query rid=abc123, got %s", use.query.Get("rid"))
+	}
+	if !strings.Contains(use.body, "abc123") {
+		t.Fatalf("expected body containing rid, got %q", use.body)
+	}
+
+	// Second up: should be a no-op (no new results)
+	resUp2, err := m.MigrateUp(ctx, 0)
+	if err != nil {
+		t.Fatalf("second MigrateUp error: %v", err)
+	}
+	if len(resUp2) != 0 {
+		t.Fatalf("expected no results on second MigrateUp, got %d", len(resUp2))
+	}
+
+	// Now down to 0: should perform two downs (v2 noop then v1 delete)
+	resDown1, err := m.MigrateDown(ctx, 0)
+	if err != nil {
+		t.Fatalf("first MigrateDown error: %v", err)
+	}
+	if len(resDown1) != 2 {
+		t.Fatalf("expected 2 down results, got %d", len(resDown1))
+	}
+	if del.method != http.MethodDelete || del.path != "/delete/abc123" {
+		t.Fatalf("unexpected delete request: method=%s path=%s", del.method, del.path)
+	}
+	if del.headers.Get("X-Del") != "yes" {
+		t.Fatalf("expected X-Del=yes on delete")
+	}
+
+	// Second down to 0: should be a no-op
+	resDown2, err := m.MigrateDown(ctx, 0)
+	if err != nil {
+		t.Fatalf("second MigrateDown error: %v", err)
+	}
+	if len(resDown2) != 0 {
+		t.Fatalf("expected no results on second MigrateDown, got %d", len(resDown2))
+	}
+
+	// Ensure stored env is cleaned after down
+	if _, err := st.LoadStoredEnv(1); err == nil {
+		// LoadStoredEnv returns (map, error). We need to verify it's empty map
+	}
+	m1, _ := st.LoadStoredEnv(1)
+	if len(m1) != 0 {
+		t.Fatalf("expected stored env for v1 to be deleted, still have: %v", m1)
 	}
 }

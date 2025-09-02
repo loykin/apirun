@@ -3,12 +3,9 @@ package task
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 
-	"github.com/go-resty/resty/v2"
-	env "github.com/loykin/apimigrate/internal/env"
-	"github.com/loykin/apimigrate/internal/httpc"
+	"github.com/loykin/apimigrate/internal/env"
 )
 
 type Up struct {
@@ -41,34 +38,8 @@ func (u Up) Execute(ctx context.Context, method, url string) (*ExecResult, error
 	// Render URL (RenderGoTemplate is idempotent for non-templates)
 	urlToUse = u.Env.RenderGoTemplate(urlToUse)
 
-	var h httpc.Httpc
-	client := h.New()
-	req := client.R().SetContext(ctx).SetHeaders(hdrs).SetQueryParams(queries)
-	if strings.TrimSpace(body) != "" {
-		if isJSON(body) {
-			req.SetHeader("Content-Type", "application/json")
-			req.SetBody([]byte(body))
-		} else {
-			req.SetBody(body)
-		}
-	}
-
-	var resp *resty.Response
-	var err error
-	switch strings.ToUpper(methodToUse) {
-	case http.MethodGet:
-		resp, err = req.Get(urlToUse)
-	case http.MethodPost:
-		resp, err = req.Post(urlToUse)
-	case http.MethodPut:
-		resp, err = req.Put(urlToUse)
-	case http.MethodPatch:
-		resp, err = req.Patch(urlToUse)
-	case http.MethodDelete:
-		resp, err = req.Delete(urlToUse)
-	default:
-		return nil, fmt.Errorf("unsupported method: %s", methodToUse)
-	}
+	req := buildRequest(ctx, hdrs, queries, body)
+	resp, err := execByMethod(req, methodToUse, urlToUse)
 	if err != nil {
 		return nil, err
 	}
