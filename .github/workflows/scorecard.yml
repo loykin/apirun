@@ -30,6 +30,7 @@ jobs:
       id-token: write
       # Uncomment the permissions below if installing in a private repository.
       contents: read
+      pull-requests: read
       # actions: read
 
     steps:
