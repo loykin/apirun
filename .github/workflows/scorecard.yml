@@ -15,7 +15,14 @@ on:
     branches: [ "main" ]
 
 # Declare default permissions as read only.
-permissions: read-all
+permissions:
+  # Needed to upload the results to code-scanning dashboard.
+  security-events: write
+  # Used to receive a badge.
+  id-token: write
+  # Needs for private repositories.
+  contents: read
+  actions: read
 
 jobs:
   analysis:
