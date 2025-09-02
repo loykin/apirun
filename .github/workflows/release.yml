@@ -107,11 +107,15 @@ jobs:
       - name: Generate provenance
         run: |
           for f in *.tar.gz *.zip; do
-            cosign attest-blob --yes $f \
-              --predicate <(echo '{"buildType":"https://slsa.dev/container/v1"}') \
-              --type slsaprovenance \
-              --output-attestation $f.intoto.jsonl \
-              --output-certificate $f.pem
+          cosign attest-blob --yes $f \
+            --type slsaprovenance \
+            --predicate <(echo '{
+              "buildType": "https://slsa.dev/container/v1",
+              "builder": { "id": "https://github.com/loykin/apimigrate" },
+              "invocation": { "configSource": { "uri": "git+https://github.com/loykin/apimigrate@${GITHUB_REF_NAME}" } }
+            }') \
+            --output-attestation $f.intoto.jsonl \
+            --output-certificate $f.pem
           done
         env:
           COSIGN_EXPERIMENTAL: "true"
