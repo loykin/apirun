@@ -15,10 +15,7 @@ on:
     branches: [ "main" ]
 
 # Declare default permissions as read only.
-permissions:
-  contents: read # Read-only permission to checkout code
-  id-token: write # Required for `publish_results`
-  security-events: write # Required to upload results to Code Scanning
+permissions: read-all
 
 jobs:
   analysis:
@@ -32,7 +29,7 @@ jobs:
       # Needed to publish results and get a badge (see publish_results below).
       id-token: write
       # Uncomment the permissions below if installing in a private repository.
-      # contents: read
+      contents: read
       # actions: read
 
     steps:
