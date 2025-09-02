@@ -194,11 +194,14 @@ Validation and constraints:
 
 Examples (YAML):
 - Using a single prefix:
+  ```yaml
   store:
     type: sqlite
     table_prefix: app1
+  ```
 
 - Overriding specific names:
+  ```yaml
   store:
     type: postgres
     postgres:
@@ -206,14 +209,17 @@ Examples (YAML):
     table_schema_migrations: app_schema
     table_migration_runs: app_runs
     table_stored_env: app_env
+  ```
 
 Programmatic (library) equivalent:
 - Construct a Migrator and set StoreConfig with driver-specific options and optional custom table names:
+  ```go
   storeCfg := &apimigrate.StoreConfig{}
   storeCfg.Config.Driver = apimigrate.DriverPostgres
   storeCfg.Config.DriverConfig = &apimigrate.PostgresConfig{DSN: "postgres://..."}
   storeCfg.Config.TableNames = apimigrate.TableNames{SchemaMigrations: "app_schema", MigrationRuns: "app_runs", StoredEnv: "app_env"}
   m := apimigrate.Migrator{Dir: "./migrations", Env: apimigrate.Env{Global: map[string]string{}}, StoreConfig: storeCfg}
+  ```
 
 See also:
 - `config/config.yaml` (commented template)
