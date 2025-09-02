@@ -97,7 +97,9 @@ jobs:
       - name: Sign artifacts with cosign
         run: |
           for f in *.tar.gz *.zip checksums.txt; do
-            cosign sign-blob --yes $f > $f.sig
+          cosign sign-blob --yes $f \
+            --output-signature $f.sig \
+            --output-certificate $f.pem
           done
         env:
           COSIGN_EXPERIMENTAL: "true"
@@ -105,10 +107,11 @@ jobs:
       - name: Generate provenance
         run: |
           for f in *.tar.gz *.zip; do
-            cosign attest --yes \
+            cosign attest-blob --yes $f \
+              --predicate <(echo '{"buildType":"https://slsa.dev/container/v1"}') \
               --type slsaprovenance \
-              --predicate <(echo '{}') \
-              $f > $f.intoto.jsonl
+              --output-attestation $f.intoto.jsonl \
+              --output-certificate $f.pem
           done
         env:
           COSIGN_EXPERIMENTAL: "true"
