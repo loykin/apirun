@@ -5,9 +5,6 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  contents: read
-
 jobs:
   build:
     name: Build binaries
@@ -47,8 +44,8 @@ jobs:
 
           mkdir -p "$OUT_DIR/bin"
           cp "$BIN_FILE" "$OUT_DIR/bin/"
-          if [ -f README.md ]; then cp README.md "$OUT_DIR/"; fi
-          if [ -f LICENSE ]; then cp LICENSE "$OUT_DIR/"; fi
+          [ -f README.md ] && cp README.md "$OUT_DIR/"
+          [ -f LICENSE ] && cp LICENSE "$OUT_DIR/"
           if [ -d config ]; then
             cp -R config "$OUT_DIR/"
             find "$OUT_DIR/config" -name '*.db' -type f -delete || true
@@ -77,6 +74,7 @@ jobs:
 
     permissions:
       contents: write
+      id-token: write   # 🔑 cosign keyless signing / provenance requires this
 
     steps:
       - name: Download all artifacts
@@ -93,30 +91,37 @@ jobs:
           sha256sum *.tar.gz *.zip > checksums.txt
           cat checksums.txt
 
-      - name: Sign artifacts with GPG (optional)
-        env:
-          GPG_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign artifacts with cosign
         run: |
-          if [ -z "${GPG_KEY}" ]; then
-            echo "No GPG key provided; skipping signing."
-            exit 0
-          fi
-          echo "$GPG_KEY" | gpg --batch --yes --import
           for f in *.tar.gz *.zip checksums.txt; do
-            gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" --armor --detach-sign "$f"
+            cosign sign-blob --yes $f > $f.sig
           done
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+
+      - name: Generate provenance
+        run: |
+          for f in *.tar.gz *.zip; do
+            cosign attest --yes \
+              --type slsaprovenance \
+              --predicate <(echo '{}') \
+              $f > $f.intoto.jsonl
+          done
+        env:
+          COSIGN_EXPERIMENTAL: "true"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             *.tar.gz
-            *.tar.gz.asc
             *.zip
-            *.zip.asc
             checksums.txt
-            checksums.txt.asc
+            *.sig
+            *.intoto.jsonl
           generate_release_notes: true
           fail_on_unmatched_files: false
         env:
