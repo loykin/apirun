@@ -57,6 +57,7 @@ func (r ResponseSpec) ValidateStatus(status int, env env.Env) error {
 // Paths are evaluated with tidwall/gjson and are expected to be valid gjson paths.
 // It respects EnvMissing policy: "skip" (default) ignores missing variables; "fail" returns an error.
 func (r ResponseSpec) ExtractEnv(body []byte) (map[string]string, error) {
+	// Ensure deterministic behavior regardless of Go's random map iteration order.
 	extracted := map[string]string{}
 	if len(r.EnvFrom) == 0 || len(body) == 0 {
 		return extracted, nil
@@ -68,6 +69,8 @@ func (r ResponseSpec) ExtractEnv(body []byte) (map[string]string, error) {
 	}
 
 	parsed := gjson.ParseBytes(body)
+
+	// First pass: extract all keys that exist.
 	for key, path := range r.EnvFrom {
 		p := strings.TrimSpace(path)
 		if p == "" {
@@ -76,11 +79,23 @@ func (r ResponseSpec) ExtractEnv(body []byte) (map[string]string, error) {
 		res := parsed.Get(p)
 		if res.Exists() {
 			extracted[key] = anyToString(res.Value())
-			continue
-		}
-		if policy == "fail" {
-			return extracted, fmt.Errorf("missing env_from for key '%s' at path '%s'", key, p)
 		}
 	}
+
+	// Second pass: if policy is fail, check for any missing keys and return error
+	// while preserving the already extracted values from the first pass.
+	if policy == "fail" {
+		for key, path := range r.EnvFrom {
+			p := strings.TrimSpace(path)
+			if p == "" {
+				continue
+			}
+			res := parsed.Get(p)
+			if !res.Exists() {
+				return extracted, fmt.Errorf("missing env_from for key '%s' at path '%s'", key, p)
+			}
+		}
+	}
+
 	return extracted, nil
 }
