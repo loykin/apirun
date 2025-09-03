@@ -71,7 +71,7 @@ jobs:
           output: trivy-report.json
 
       - name: Upload Trivy report artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: trivy-report
           path: trivy-report.json
