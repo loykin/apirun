@@ -13,6 +13,17 @@ A lightweight Go library and CLI for running API-driven migrations defined in YA
 
 ## Features
 
+> Recent changes (2025-09)
+> - New struct-based authentication API: type Auth { Type, Name, Methods } with method Acquire(ctx, env *env.Env).
+> - Migrator now supports multiple auth entries: Migrator.Auth []auth.Auth. It auto-acquires tokens once at the start of MigrateUp/Down and injects them into templates under {{.auth.<name>}}.
+> - Legacy helpers removed from public API: AcquireAuthAndSetEnv, AcquireAuthByProviderSpecWithName, and AuthSpec. Use the Auth struct and MethodConfig instead (e.g., BasicAuthConfig, OAuth2* configs, or NewAuthSpecFromMap).
+> - Template variables are grouped: use {{.env.key}} for your variables and {{.auth.name}} for acquired tokens.
+> - YAML headers must be a list of name/value objects (not a map). Example: headers: [ { name: Authorization, value: "Basic {{.auth.basic}}" } ].
+> - Added examples demonstrating both embedded multi-auth and decoupled flows:
+>   - examples/auth_embedded: single embedded auth.
+>   - examples/auth_embedded_multi_registry: multiple embedded auths.
+>   - examples/auth_embedded_multi_registry_type2: decoupled (acquire first, then migrate).
+
 - Versioned up/down migrations with persisted history (SQLite, `apimigrate.db`).
 - Request templating with simple Go templates using layered environment variables.
 - DriverConfig templating (Go templates {{.var}}) supported across requests, auth config, and wait checks.
@@ -213,14 +224,10 @@ Examples (YAML):
   ```
 
 Programmatic (library) equivalent:
-- Construct a Migrator and set StoreConfig with driver-specific options and optional custom table names:
-  ```go
-  storeCfg := &apimigrate.StoreConfig{}
-  storeCfg.Config.Driver = apimigrate.DriverPostgres
-  storeCfg.Config.DriverConfig = &apimigrate.PostgresConfig{DSN: "postgres://..."}
-  storeCfg.Config.TableNames = apimigrate.TableNames{SchemaMigrations: "app_schema", MigrationRuns: "app_runs", StoredEnv: "app_env"}
-  m := apimigrate.Migrator{Dir: "./migrations", Env: apimigrate.Env{Global: map[string]string{}}, StoreConfig: storeCfg}
-  ```
+- Construct a Migrator and set StoreConfig with driver-specific options and optional custom table names (pseudo-code):
+  - Set Driver to postgres or sqlite
+  - Provide DSN or sqlite path
+  - Optionally customize table names
 
 See also:
 - `config/config.yaml` (commented template)
@@ -309,7 +316,7 @@ client:
 
 ## Programmatic usage (library)
 
-```
+```go
 # NOTE: This is illustrative code, not compiled within README.
 // Example: using the struct-based Migrator API
 package main
@@ -339,32 +346,50 @@ Built-in providers:
 
 They can be configured via `config.yaml` (see examples) or acquired programmatically using the public API.
 
-### Typed auth wrappers (library)
-For convenient, type-safe auth acquisition without raw maps, use the WithName wrappers in the root package. These return (header, value, error) and store the token under the logical name you pass.
+### Struct-based Auth API (library)
+Use the struct-based API to configure providers and acquire tokens. Tokens are values; set headers explicitly in migrations.
 
-Note: Providers return only the token value. When you need Authorization, set it explicitly in your migrations using the token variable `{{._auth_token}}`.
+- Embedded (automatic) acquisition with multiple providers:
 
-```
-# illustrative snippet
+```go
 ctx := context.Background()
+base := apimigrate.Env{Global: map[string]string{"api_base": srvURL}}
 
-// Basic (stores under name "example_basic")
-h, v, err := apimigrate.AcquireBasicAuthWithName(ctx, "example_basic", apimigrate.BasicAuthConfig{
-  Username: "admin",
-  Password: "admin",
-})
-_ = h; _ = v; _ = err // h is typically "Authorization"
+// Configure two Basic providers under names a1 and a2
+auth1 := apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a1", Methods: map[string]apimigrate.MethodConfig{
+  apimigrate.AuthTypeBasic: apimigrate.BasicAuthConfig{Username: "u1", Password: "p1"},
+}}
+auth2 := apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a2", Methods: map[string]apimigrate.MethodConfig{
+  apimigrate.AuthTypeBasic: apimigrate.BasicAuthConfig{Username: "u2", Password: "p2"},
+}}
 
-// OAuth2 Password grant (stores under name "keycloak")
-h, v, err = apimigrate.AcquireOAuth2PasswordWithName(ctx, "keycloak", apimigrate.OAuth2PasswordConfig{
-  ClientID:  "admin-cli",
-  TokenURL:  "http://localhost:8080/realms/master/protocol/openid-connect/token",
-  Username:  "admin",
-  Password:  "root",
-})
-_ = h; _ = v; _ = err
+m := apimigrate.Migrator{Dir: "./migs", Env: base, StoreConfig: &apimigrate.StoreConfig{}}
+m.Auth = []apimigrate.Auth{auth1, auth2}
+_, err := m.MigrateUp(ctx, 0)
 ```
-See `examples/auth_embedded` for a runnable sample.
+
+- Decoupled acquisition (acquire first, then migrate):
+
+```go
+ctx := context.Background()
+base := apimigrate.Env{Global: map[string]string{"api_base": srvURL}}
+
+a := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "basic", Methods: map[string]apimigrate.MethodConfig{
+  apimigrate.AuthTypeBasic: apimigrate.BasicAuthConfig{Username: "admin", Password: "admin"},
+}}
+if v, err := a.Acquire(ctx, &base); err == nil {
+  if base.Auth == nil { base.Auth = map[string]string{} }
+  base.Auth["basic"] = v
+}
+
+m := apimigrate.Migrator{Dir: "./migs", Env: base, StoreConfig: &apimigrate.StoreConfig{}}
+_, err := m.MigrateUp(ctx, 0)
+```
+
+See examples:
+- examples/auth_embedded
+- examples/auth_embedded_multi_registry
+- examples/auth_embedded_multi_registry_type2
 
 ### Registering a custom provider (for library users)
 

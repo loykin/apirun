@@ -2,6 +2,7 @@ package migration
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/loykin/apimigrate/internal/auth"
 	"github.com/loykin/apimigrate/internal/env"
 	"github.com/loykin/apimigrate/internal/store"
 	"github.com/loykin/apimigrate/internal/task"
@@ -329,5 +331,80 @@ down:
 	m1, _ := st.LoadStoredEnv(1)
 	if len(m1) != 0 {
 		t.Fatalf("expected stored env for v1 to be deleted, still have: %v", m1)
+	}
+}
+
+// Test ensureAuth with multiple providers and respecting pre-set values
+func TestEnsureAuth_MultiAndRespectPreset(t *testing.T) {
+	// Register a dummy provider under type "dummyX" locally
+	auth.Register("dummyX", func(spec map[string]interface{}) (auth.Method, error) {
+		return dummyMethod("tokX"), nil
+	})
+	auth.Register("dummyY", func(spec map[string]interface{}) (auth.Method, error) {
+		return dummyMethod("tokY"), nil
+	})
+
+	m := &Migrator{Env: env.Env{Global: map[string]string{}, Auth: map[string]string{"y": "preset"}}}
+	m.Auth = []auth.Auth{
+		{Type: "dummyX", Name: "x", Methods: map[string]auth.MethodConfig{"dummyX": auth.NewAuthSpecFromMap(map[string]interface{}{})}},
+		{Type: "dummyY", Name: "y", Methods: map[string]auth.MethodConfig{"dummyY": auth.NewAuthSpecFromMap(map[string]interface{}{})}},
+	}
+	if err := m.ensureAuth(context.Background()); err != nil {
+		t.Fatalf("ensureAuth error: %v", err)
+	}
+	if m.Env.Auth["x"] != "tokX" {
+		t.Fatalf("expected x set to tokX, got %q", m.Env.Auth["x"])
+	}
+	if m.Env.Auth["y"] != "preset" {
+		t.Fatalf("expected y to remain preset, got %q", m.Env.Auth["y"])
+	}
+}
+
+type dummyMethod string
+
+func (d dummyMethod) Acquire(_ context.Context) (string, error) { return string(d), nil }
+
+// Test that MigrateUp propagates acquired auth into task requests
+func TestMigrateUp_PropagatesAuthHeader(t *testing.T) {
+	exp := "Basic " + base64.StdEncoding.EncodeToString([]byte("u:p"))
+	hit := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/ok" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if got := r.Header.Get("Authorization"); got != exp {
+			t.Fatalf("unexpected Authorization: got %q want %q", got, exp)
+		}
+		hit++
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	mig := []byte("" +
+		"up:\n" +
+		"  name: t\n" +
+		"  request:\n" +
+		"    method: GET\n" +
+		"    url: " + srv.URL + "/ok\n" +
+		"    headers:\n" +
+		"      - { name: Authorization, value: 'Basic {{.auth.b}}' }\n" +
+		"  response:\n" +
+		"    result_code: ['200']\n")
+	if err := os.WriteFile(filepath.Join(dir, "001_ok.yaml"), mig, 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	st := openTestStore(t, filepath.Join(dir, store.DbFileName))
+	defer func() { _ = st.Close() }()
+
+	m := &Migrator{Dir: dir, Store: *st, Env: env.Env{Global: map[string]string{}}, Auth: []auth.Auth{
+		{Type: "basic", Name: "b", Methods: map[string]auth.MethodConfig{"basic": auth.NewAuthSpecFromMap(map[string]interface{}{"username": "u", "password": "p"})}},
+	}}
+	if _, err := m.MigrateUp(context.Background(), 0); err != nil {
+		t.Fatalf("MigrateUp: %v", err)
+	}
+	if hit != 1 {
+		t.Fatalf("expected server hit once, got %d", hit)
 	}
 }

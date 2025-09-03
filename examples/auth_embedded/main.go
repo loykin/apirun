@@ -36,23 +36,19 @@ func main() {
 		"api_base": srv.URL,
 	}}
 
-	// Programmatically define an auth provider (basic) using AcquireAuthAndSetEnv
+	// Programmatically define an auth provider (basic) using struct-based API
 	spec := apimigrate.BasicAuthConfig{
 		Username: "admin",
 		Password: "admin",
 	}
 
-	// Acquire token and store under .auth.basic for template access
-	if _, err := apimigrate.AcquireAuthAndSetEnv(ctx, apimigrate.AuthTypeBasic, "basic", spec, &base); err != nil {
-		log.Fatalf("acquire auth failed: %v", err)
-	} else {
-		fmt.Printf("auth token acquired; available as .auth.basic\n")
-	}
+	auth := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "basic", Methods: map[string]apimigrate.MethodConfig{apimigrate.AuthTypeBasic: spec}}
 
 	// Run migrations from the local directory
 	storeConfig := apimigrate.StoreConfig{}
 	storeConfig.DriverConfig = &apimigrate.SqliteConfig{Path: storePath}
 	m := apimigrate.Migrator{Env: base, Dir: "./examples/auth_embedded/migration", StoreConfig: &storeConfig}
+	m.Auth = []apimigrate.Auth{*auth}
 	if _, err := m.MigrateUp(ctx, 0); err != nil {
 		log.Fatalf("migrate up failed: %v", err)
 	}

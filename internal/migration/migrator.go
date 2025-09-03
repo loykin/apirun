@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/loykin/apimigrate/internal/auth"
 	"github.com/loykin/apimigrate/internal/env"
 	"github.com/loykin/apimigrate/internal/store"
 	"github.com/loykin/apimigrate/internal/task"
@@ -15,7 +16,37 @@ type Migrator struct {
 	Dir              string
 	Store            store.Store
 	Env              env.Env
+	Auth             []auth.Auth
 	SaveResponseBody bool
+}
+
+// ensureAuth performs one-time auth acquisition when m.Auth is configured.
+// It respects existing Env.Auth[name] values to coexist with external auth setup.
+func (m *Migrator) ensureAuth(ctx context.Context) error {
+	if m == nil || m.Auth == nil || len(m.Auth) == 0 {
+		return nil
+	}
+	if m.Env.Auth == nil {
+		m.Env.Auth = map[string]string{}
+	}
+	for i := range m.Auth {
+		a := m.Auth[i]
+		name := a.Name
+		if name != "" {
+			if v, ok := m.Env.Auth[name]; ok && v != "" {
+				// Already set by caller; do not override
+				continue
+			}
+		}
+		val, err := a.Acquire(ctx, &m.Env)
+		if err != nil {
+			return err
+		}
+		if name != "" {
+			m.Env.Auth[name] = val
+		}
+	}
+	return nil
 }
 
 // MigrateUp applies migrations greater than the current store version up to targetVersion.
@@ -140,6 +171,10 @@ func (m *Migrator) runDownForVersion(ctx context.Context, ver int, f vfile) (*Ex
 }
 
 func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
+	// Perform automatic auth once if configured
+	if err := m.ensureAuth(ctx); err != nil {
+		return nil, err
+	}
 	files, err := listMigrationFiles(m.Dir)
 	if err != nil {
 		return nil, err
@@ -174,6 +209,10 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 }
 
 func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
+	// Perform automatic auth once if configured
+	if err := m.ensureAuth(ctx); err != nil {
+		return nil, err
+	}
 	files, err := listMigrationFiles(m.Dir)
 	if err != nil {
 		return nil, err

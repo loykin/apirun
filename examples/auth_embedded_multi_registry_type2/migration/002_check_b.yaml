@@ -1,0 +1,15 @@
+up:
+  name: check-b
+  request:
+    method: GET
+    url: "{{.env.api_base}}/b"
+    headers:
+      - name: Authorization
+        value: "Basic {{.auth.a2}}"
+  response:
+    result_code: ["200"]
+
+down:
+  name: noop-b
+  method: GET
+  url: "{{.env.api_base}}/b"
