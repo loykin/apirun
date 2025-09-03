@@ -71,7 +71,7 @@ jobs:
           output: trivy-report.json
 
       - name: Upload Trivy report artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: trivy-report
           path: trivy-report.json
@@ -184,7 +184,7 @@ jobs:
           commit_message: "chore(ci): publish coverage endpoint (Shields)"
 
       - name: Download Trivy report artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
         with:
           name: trivy-report
           path: .
@@ -211,7 +211,7 @@ jobs:
           echo "{\"schemaVersion\":1,\"label\":\"Trivy\",\"message\":\"$TOTAL\",\"color\":\"$COLOR\"}" > shields/trivy.json
 
       - name: Publish Trivy badge to gh-pages
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
