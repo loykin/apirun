@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/loykin/apimigrate)](https://goreportcard.com/report/github.com/loykin/apimigrate)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/loykin/apimigrate/badge)](https://securityscorecards.dev/viewer/?uri=github.com/loykin/apimigrate)
 ![CodeQL](https://github.com/loykin/apimigrate/actions/workflows/codeql.yml/badge.svg)
-[![Trivy](https://img.shields.io/endpoint?url=https://loykin.github.io/apimigrate/shields/trivy.json&cacheSeconds=60)](https://loykin.github.io/apimigrate/shields/trivy.json)
+[![Trivy](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/loykin/apimigrate/gh-pages/shields/trivy.json&cacheSeconds=60)](https://raw.githubusercontent.com/loykin/apimigrate/gh-pages/shields/trivy.json)
 
 A lightweight Go library and CLI for running API-driven migrations defined in YAML files. It helps you automate provisioning or configuration tasks against HTTP APIs (e.g., create users/dashboards, import resources) in a versioned, repeatable way.
 
