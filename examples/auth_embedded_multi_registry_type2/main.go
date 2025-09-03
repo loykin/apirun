@@ -13,10 +13,11 @@ import (
 	"github.com/loykin/apimigrate"
 )
 
+// This example shows the decoupled flow: acquire auth first, then run migrations.
 func main() {
 	ctx := context.Background()
 
-	// Use a temporary sqlite store within a temp dir so the example doesn't leave files around
+	// Temporary sqlite store in a temp dir
 	var storePath string
 	tmpDir, err := os.MkdirTemp("", "apimigrate-example-*")
 	if err == nil {
@@ -24,11 +25,10 @@ func main() {
 		storePath = filepath.Join(tmpDir, "apimigrate.db")
 	}
 
-	// Start a local HTTP test server that validates different Authorization headers
+	// Local HTTP server that expects different Basic headers per path
 	expA := "Basic " + base64.StdEncoding.EncodeToString([]byte("u1:p1"))
 	expB := "Basic " + base64.StdEncoding.EncodeToString([]byte("u2:p2"))
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Expect different paths to use different auth headers
 		switch r.URL.Path {
 		case "/a":
 			if got := r.Header.Get("Authorization"); got != expA {
@@ -51,26 +51,43 @@ func main() {
 	}))
 	defer srv.Close()
 
-	// Base environment
+	// Base env
 	base := apimigrate.Env{Global: map[string]string{
 		"api_base": srv.URL,
 	}}
 
-	// Configure two different Basic tokens under different names via struct-based API
+	// 1) Acquire tokens separately (decoupled from migrator). Store into base.Auth.
+	// a1
+	specA := apimigrate.BasicAuthConfig{Username: "u1", Password: "p1"}
+	authA := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a1", Methods: map[string]apimigrate.MethodConfig{apimigrate.AuthTypeBasic: specA}}
+	if v, err := authA.Acquire(ctx, &base); err != nil {
+		log.Fatalf("acquire a1 failed: %v", err)
+	} else {
+		if base.Auth == nil {
+			base.Auth = map[string]string{}
+		}
+		base.Auth["a1"] = v
+	}
+	// a2
+	specB := apimigrate.BasicAuthConfig{Username: "u2", Password: "p2"}
+	authB := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a2", Methods: map[string]apimigrate.MethodConfig{apimigrate.AuthTypeBasic: specB}}
+	if v, err := authB.Acquire(ctx, &base); err != nil {
+		log.Fatalf("acquire a2 failed: %v", err)
+	} else {
+		if base.Auth == nil {
+			base.Auth = map[string]string{}
+		}
+		base.Auth["a2"] = v
+	}
+	fmt.Println("auth tokens acquired separately; available as .auth.a1 and .auth.a2")
 
-	auth1 := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a1", Methods: map[string]apimigrate.MethodConfig{apimigrate.AuthTypeBasic: apimigrate.BasicAuthConfig{Username: "u1", Password: "p1"}}}
-
-	auth2 := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a2", Methods: map[string]apimigrate.MethodConfig{apimigrate.AuthTypeBasic: apimigrate.BasicAuthConfig{Username: "u2", Password: "p2"}}}
-
-	// Run migrations from this example's migration directory
-	migDir := "./examples/auth_embedded_multi_registry/migration"
-
+	// 2) Run migrations (migrator.Auth left empty to demonstrate separation)
+	migDir := "./examples/auth_embedded_multi_registry_type2/migration"
 	storeConfig := apimigrate.StoreConfig{}
 	storeConfig.DriverConfig = &apimigrate.SqliteConfig{Path: storePath}
 	m := apimigrate.Migrator{Env: base, Dir: migDir, StoreConfig: &storeConfig}
-	m.Auth = []apimigrate.Auth{*auth1, *auth2}
 	if _, err := m.MigrateUp(ctx, 0); err != nil {
 		log.Fatalf("migrate up failed: %v", err)
 	}
-	fmt.Println("multi-registry migrations completed successfully")
+	fmt.Println("decoupled multi-registry migrations completed successfully")
 }

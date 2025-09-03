@@ -46,6 +46,7 @@ type Migrator struct {
 	Dir              string
 	store            Store
 	Env              Env
+	Auth             []auth.Auth
 	StoreConfig      *StoreConfig
 	SaveResponseBody bool
 }
@@ -87,7 +88,7 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 		}
 	}
 
-	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, SaveResponseBody: m.SaveResponseBody}
+	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody}
 	return im.MigrateUp(ctx, targetVersion)
 }
 
@@ -125,7 +126,7 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 			return nil, err
 		}
 	}
-	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, SaveResponseBody: m.SaveResponseBody}
+	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody}
 	return im.MigrateDown(ctx, targetVersion)
 }
 
@@ -156,52 +157,15 @@ type AuthMethod = auth.Method
 
 type AuthFactory = auth.Factory
 
+// Auth Expose struct-based auth configuration for external users.
+type Auth = auth.Auth
+
+type MethodConfig = auth.MethodConfig
+
+func NewAuthSpecFromMap(m map[string]interface{}) MethodConfig { return auth.NewAuthSpecFromMap(m) }
+
 // RegisterAuthProvider exposes custom auth provider registration for library users.
 func RegisterAuthProvider(typ string, f AuthFactory) { auth.Register(typ, f) }
-
-// AcquireAuthByProviderSpecWithName acquires auth by provider type/spec but stores under the provided name,
-// allowing callers to omit "name" inside spec and control the registry key explicitly.
-// It returns only the acquired token value; header handling is decided by the caller (e.g., via env variables).
-func AcquireAuthByProviderSpecWithName(ctx context.Context, typ string, spec map[string]interface{}) (value string, err error) {
-	// name is kept for API compatibility but no longer used internally
-	v, err := auth.AcquireAndStoreWithName(ctx, typ, spec)
-	return v, err
-}
-
-// AuthSpec is a small interface allowing callers to pass strongly typed auth configs
-// while keeping the internal registry based on map[string]interface{}.
-// Implementations must return a map compatible with internal provider decoders.
-type AuthSpec interface {
-	ToMap() map[string]interface{}
-}
-
-// mapAuthSpec adapts a plain map into an AuthSpec.
-type mapAuthSpec struct{ m map[string]interface{} }
-
-func (s mapAuthSpec) ToMap() map[string]interface{} { return s.m }
-
-// NewAuthSpecFromMap returns an AuthSpec backed by the provided map.
-func NewAuthSpecFromMap(m map[string]interface{}) AuthSpec { return mapAuthSpec{m: m} }
-
-// AcquireAuthAndSetEnv acquires auth by provider type/spec, and stores the acquired token
-// into base.Auth[name] for template access via {{.auth.name}}. It returns the token value.
-func AcquireAuthAndSetEnv(ctx context.Context, typ string, name string, spec AuthSpec, base *Env) (string, error) {
-	var mp map[string]interface{}
-	if spec != nil {
-		mp = spec.ToMap()
-	}
-	v, err := AcquireAuthByProviderSpecWithName(ctx, typ, mp)
-	if err != nil {
-		return "", err
-	}
-	if base != nil {
-		if base.Auth == nil {
-			base.Auth = map[string]string{}
-		}
-		base.Auth[strings.TrimSpace(name)] = strings.TrimSpace(v)
-	}
-	return v, nil
-}
 
 // RenderAnyTemplate exposes template rendering used for config/auth maps in the CLI.
 func RenderAnyTemplate(v interface{}, base Env) interface{} { return util.RenderAnyTemplate(v, base) }

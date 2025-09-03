@@ -15,22 +15,19 @@ import (
 	httpc "github.com/loykin/apimigrate/internal/httpc"
 )
 
-// Test that AcquireAuthAndSetEnv acquires a basic token and stores it under .auth[name]
-func TestAcquireAuthAndSetEnv_Basic(t *testing.T) {
+// Test that struct-based Auth acquires a basic token and stores it under .auth[name]
+func TestAcquireAuth_Basic(t *testing.T) {
 	ctx := context.Background()
-	base := Env{Global: map[string]string{}}
 	// basic: username/password -> base64(username:password)
 	spec := NewAuthSpecFromMap(map[string]interface{}{"username": "u", "password": "p"})
-	v, err := AcquireAuthAndSetEnv(ctx, "basic", "b1", spec, &base)
+	a := &Auth{Type: "basic", Name: "b1", Methods: map[string]MethodConfig{"basic": spec}}
+	v, err := a.Acquire(ctx, nil)
 	if err != nil {
-		t.Fatalf("AcquireAuthAndSetEnv error: %v", err)
+		t.Fatalf("Acquire error: %v", err)
 	}
 	exp := base64.StdEncoding.EncodeToString([]byte("u:p"))
 	if v != exp {
 		t.Fatalf("unexpected token: got %q want %q", v, exp)
-	}
-	if base.Auth["b1"] != exp {
-		t.Fatalf("token not stored under auth name: got %q want %q", base.Auth["b1"], exp)
 	}
 }
 

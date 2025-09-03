@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/loykin/apimigrate"
+	iauth "github.com/loykin/apimigrate/internal/auth"
 	"github.com/loykin/apimigrate/internal/env"
 	"gopkg.in/yaml.v3"
 )
@@ -150,9 +151,19 @@ func (c *ConfigDoc) DecodeAuth(ctx context.Context, env *env.Env, verbose bool) 
 		// Render templated values in the auth config using the base env
 		renderedAny := apimigrate.RenderAnyTemplate(a.Config, *env)
 		renderedCfg, _ := renderedAny.(map[string]interface{})
-		_, err := apimigrate.AcquireAuthAndSetEnv(ctx, pt, storedName, apimigrate.NewAuthSpecFromMap(renderedCfg), env)
+		// Use new struct-based API
+		authCfg := &iauth.Auth{Type: pt, Name: storedName, Methods: map[string]iauth.MethodConfig{pt: iauth.NewAuthSpecFromMap(renderedCfg)}}
+		// Attach to env for template rendering by migrations
+		if env.Auth == nil {
+			env.Auth = map[string]string{}
+		}
+		// Acquire immediately to keep previous CLI behavior and populate env.Auth
+		val, err := authCfg.Acquire(ctx, env)
 		if err != nil {
 			return fmt.Errorf("auth[%d] type=%s name=%s: acquire failed: %w", i, pt, storedName, err)
+		}
+		if strings.TrimSpace(storedName) != "" {
+			env.Auth[storedName] = val
 		}
 		if verbose {
 			slog.Info("auth token acquired", "name", strings.TrimSpace(storedName))

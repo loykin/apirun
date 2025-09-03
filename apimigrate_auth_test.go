@@ -2,11 +2,14 @@ package apimigrate
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	iauth "github.com/loykin/apimigrate/internal/auth"
@@ -204,5 +207,120 @@ func TestRegistry_LoadsWithPublicConstants_PocketBase(t *testing.T) {
 	v, err := iauth.AcquireAndStoreWithName(ctx, AuthTypePocketBase, spec)
 	if err != nil || v != "pb-token-2" {
 		t.Fatalf("AcquireAndStoreWithName pocketbase error: v=%q err=%v", v, err)
+	}
+}
+
+// TestEmbeddedAuthAndMigrateUp verifies that running MigrateUp with embedded auth slice
+// against the embedded auth example works end-to-end with an httptest server.
+func TestEmbeddedAuthAndMigrateUp(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+
+	// Prepare a temp sqlite store path to avoid touching repo files
+	tmpDir := t.TempDir()
+	storePath := filepath.Join(tmpDir, "apimigrate.db")
+
+	// Start a local HTTP test server that validates Authorization header
+	var hits int32
+	expectedAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:admin"))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/200" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if got := r.Header.Get("Authorization"); got != expectedAuth {
+			t.Fatalf("unexpected Authorization header: got %q want %q", got, expectedAuth)
+		}
+		atomic.AddInt32(&hits, 1)
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer srv.Close()
+
+	// Base env shared with migrations
+	base := Env{Global: map[string]string{
+		"api_base": srv.URL,
+	}}
+
+	// Acquire token using struct-based API
+	spec := NewAuthSpecFromMap(map[string]interface{}{
+		"username": "admin",
+		"password": "admin",
+	})
+	a := &Auth{Type: AuthTypeBasic, Name: "basic", Methods: map[string]MethodConfig{AuthTypeBasic: spec}}
+
+	storeConfig := StoreConfig{}
+	storeConfig.Driver = DriverSqlite
+	storeConfig.DriverConfig = &SqliteConfig{Path: storePath}
+	m := Migrator{Env: base, Dir: "./examples/auth_embedded/migration", StoreConfig: &storeConfig}
+	m.Auth = []Auth{*a}
+	results, err := m.MigrateUp(ctx, 0)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("MigrateUp error: %v", err)
+	}
+	if results == nil || len(results) != 1 {
+		t.Fatalf("expected exactly 1 migration to run, got %d", len(results))
+	}
+	if got := atomic.LoadInt32(&hits); got != 1 {
+		t.Fatalf("expected server to be hit once, got %d", got)
+	}
+}
+
+// TestEmbeddedAuthMultiAndMigrateUp verifies two auth tokens embedded in Migrator are propagated
+// to two different migrations/endpoints.
+func TestEmbeddedAuthMultiAndMigrateUp(t *testing.T) {
+	ctx := context.Background()
+
+	// Temp sqlite state
+	dir := t.TempDir()
+	storePath := filepath.Join(dir, "apimigrate.db")
+
+	// Server with two endpoints requiring different basic tokens
+	expA := "Basic " + base64.StdEncoding.EncodeToString([]byte("u1:p1"))
+	expB := "Basic " + base64.StdEncoding.EncodeToString([]byte("u2:p2"))
+	var hitsA, hitsB int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/a":
+			if got := r.Header.Get("Authorization"); got != expA {
+				w.WriteHeader(401)
+				return
+			}
+			atomic.AddInt32(&hitsA, 1)
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte("ok"))
+		case "/b":
+			if got := r.Header.Get("Authorization"); got != expB {
+				w.WriteHeader(401)
+				return
+			}
+			atomic.AddInt32(&hitsB, 1)
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte("ok"))
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer srv.Close()
+
+	base := Env{Global: map[string]string{"api_base": srv.URL}}
+	m := Migrator{Env: base, Dir: "./examples/auth_embedded_multi_registry/migration", StoreConfig: &StoreConfig{}}
+	m.StoreConfig.Driver = DriverSqlite
+	m.StoreConfig.DriverConfig = &SqliteConfig{Path: storePath}
+
+	a1 := &Auth{Type: AuthTypeBasic, Name: "a1", Methods: map[string]MethodConfig{AuthTypeBasic: BasicAuthConfig{Username: "u1", Password: "p1"}}}
+	a2 := &Auth{Type: AuthTypeBasic, Name: "a2", Methods: map[string]MethodConfig{AuthTypeBasic: BasicAuthConfig{Username: "u2", Password: "p2"}}}
+	m.Auth = []Auth{*a1, *a2}
+
+	results, err := m.MigrateUp(ctx, 0)
+	if err != nil {
+		t.Fatalf("MigrateUp error: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 migrations to run, got %d", len(results))
+	}
+	if atomic.LoadInt32(&hitsA) != 1 || atomic.LoadInt32(&hitsB) != 1 {
+		t.Fatalf("expected both endpoints to be hit once, got a=%d b=%d", hitsA, hitsB)
 	}
 }
