@@ -49,6 +49,8 @@ type Migrator struct {
 	Auth             []auth.Auth
 	StoreConfig      *StoreConfig
 	SaveResponseBody bool
+	// RenderBodyDefault controls default templating for RequestSpec bodies (nil = default true)
+	RenderBodyDefault *bool
 }
 
 // MigrateUp applies pending migrations up to targetVersion (0 = all) using this Migrator's Store and Env.
@@ -88,7 +90,7 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 		}
 	}
 
-	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody}
+	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody, RenderBodyDefault: m.RenderBodyDefault}
 	return im.MigrateUp(ctx, targetVersion)
 }
 
@@ -126,7 +128,7 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 			return nil, err
 		}
 	}
-	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody}
+	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody, RenderBodyDefault: m.RenderBodyDefault}
 	return im.MigrateDown(ctx, targetVersion)
 }
 

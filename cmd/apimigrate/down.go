@@ -67,6 +67,15 @@ var downCmd = &cobra.Command{
 			log.Printf("down migrations in %s to %d", dir, to)
 		}
 		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp}
+		// Set default render_body from config if provided
+		if strings.TrimSpace(configPath) != "" {
+			var doc ConfigDoc
+			if err := doc.Load(configPath); err == nil {
+				if doc.RenderBody != nil {
+					m.RenderBodyDefault = doc.RenderBody
+				}
+			}
+		}
 		// Configure store via Migrator.StoreConfig (auto-connect inside MigrateDown)
 		var scPtr *apimigrate.StoreConfig
 		if strings.TrimSpace(configPath) != "" {

@@ -130,12 +130,14 @@ type WaitConfig struct {
 }
 
 type ConfigDoc struct {
-	Auth       []AuthConfig `mapstructure:"auth"`
-	MigrateDir string       `mapstructure:"migrate_dir"`
-	Wait       WaitConfig   `mapstructure:"wait"`
-	Env        []EnvConfig  `mapstructure:"env"`
-	Store      StoreConfig  `mapstructure:"store"`
-	Client     ClientConfig `mapstructure:"client"`
+	Auth       []AuthConfig `mapstructure:"auth" yaml:"auth"`
+	MigrateDir string       `mapstructure:"migrate_dir" yaml:"migrate_dir"`
+	Wait       WaitConfig   `mapstructure:"wait" yaml:"wait"`
+	Env        []EnvConfig  `mapstructure:"env" yaml:"env"`
+	Store      StoreConfig  `mapstructure:"store" yaml:"store"`
+	Client     ClientConfig `mapstructure:"client" yaml:"client"`
+	// Optional: control default rendering of request bodies with templates
+	RenderBody *bool `mapstructure:"render_body" yaml:"render_body"`
 }
 
 func (c *ConfigDoc) DecodeAuth(ctx context.Context, env *env.Env, verbose bool) error {

@@ -9,13 +9,14 @@ import (
 )
 
 type RequestSpec struct {
-	AuthName string   `yaml:"auth_name"`
-	Method   string   `yaml:"method"`
-	URL      string   `yaml:"url"`
-	Headers  []Header `yaml:"headers"`
-	Queries  []Query  `yaml:"queries"`
-	Body     string   `yaml:"body"`
-	BodyFile string   `yaml:"body_file"`
+	AuthName   string   `yaml:"auth_name"`
+	Method     string   `yaml:"method"`
+	URL        string   `yaml:"url"`
+	Headers    []Header `yaml:"headers"`
+	Queries    []Query  `yaml:"queries"`
+	Body       string   `yaml:"body"`
+	BodyFile   string   `yaml:"body_file"`
+	RenderBody *bool    `yaml:"render_body"`
 }
 
 // Render builds headers, query params and body applying Go template rendering using Env.
@@ -44,9 +45,17 @@ func (r RequestSpec) Render(env env.Env) (map[string]string, map[string]string, 
 		body = r.Body
 	}
 
-	body, err := renderBody(env, body)
-	if err != nil {
-		return hdrs, queries, "", err
+	// Decide whether to render the body as a template. Default is true when unset.
+	render := true
+	if r.RenderBody != nil {
+		render = *r.RenderBody
+	}
+	if render {
+		var err error
+		body, err = renderBody(env, body)
+		if err != nil {
+			return hdrs, queries, "", err
+		}
 	}
 
 	return hdrs, queries, body, nil

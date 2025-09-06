@@ -8,6 +8,8 @@ import (
 	env2 "github.com/loykin/apimigrate/internal/env"
 )
 
+func boolPtr(b bool) *bool { return &b }
+
 func TestEnv_RenderGoTemplate_BasicAndMissingAndEmpty(t *testing.T) {
 	// basic render
 	env := env2.Env{Local: map[string]string{"USER": "alice", "city": "Seoul"}}
@@ -191,5 +193,51 @@ func TestRequest_Render_BodyFileNotFound_Error(t *testing.T) {
 	_, _, _, err := req.Render(env)
 	if err == nil {
 		t.Fatalf("expected error for missing BodyFile, got nil")
+	}
+}
+
+func TestRequest_Render_RenderBodyFalse_LiteralBody(t *testing.T) {
+	env := env2.Env{Local: map[string]string{"X": "y"}}
+	req := RequestSpec{Body: `{"a":"{{.env.X}}","raw":"{{ not_replaced }}"}`, RenderBody: boolPtr(false)}
+	_, _, body, err := req.Render(env)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if body != `{"a":"{{.env.X}}","raw":"{{ not_replaced }}"}` {
+		t.Fatalf("expected literal body unchanged, got %q", body)
+	}
+}
+
+func TestRequest_Render_RenderBodyTrue_Renders(t *testing.T) {
+	env := env2.Env{Local: map[string]string{"X": "y"}}
+	req := RequestSpec{Body: `{"a":"{{.env.X}}"}`, RenderBody: boolPtr(true)}
+	_, _, body, err := req.Render(env)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if body != `{"a":"y"}` {
+		t.Fatalf("expected rendered body, got %q", body)
+	}
+}
+
+func TestRequest_Render_BodyFile_RenderBodyFalse(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "apimigrate_body_literal_*.json")
+	if err != nil {
+		t.Fatalf("tmp: %v", err)
+	}
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	content := `{"a": "{{.env.X}}", "raw": "{{ abc }}"}`
+	if _, err := tmpFile.WriteString(content); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_ = tmpFile.Close()
+	env := env2.Env{Local: map[string]string{"X": "y"}}
+	req := RequestSpec{BodyFile: tmpFile.Name(), RenderBody: boolPtr(false)}
+	_, _, body, err := req.Render(env)
+	if err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	if body != content {
+		t.Fatalf("expected content unchanged from file, got %q", body)
 	}
 }

@@ -18,6 +18,9 @@ type Migrator struct {
 	Env              env.Env
 	Auth             []auth.Auth
 	SaveResponseBody bool
+	// RenderBodyDefault controls default templating for RequestSpec bodies when not set per-request.
+	// nil means default to true (render). When false, bodies with templates like {{...}} are sent as-is, unrendered.
+	RenderBodyDefault *bool
 }
 
 // ensureAuth performs one-time auth acquisition when m.Auth is configured.
@@ -91,6 +94,11 @@ func (m *Migrator) runUpForFile(ctx context.Context, f vfile, sessionStored map[
 			}
 		}
 	}
+	// Apply global default for body rendering if request didn't set it explicitly
+	if t.Up.Request.RenderBody == nil && m.RenderBodyDefault != nil {
+		val := *m.RenderBodyDefault
+		t.Up.Request.RenderBody = &val
+	}
 	res, err := t.Up.Execute(ctx, "", "")
 	ewv := &ExecWithVersion{Version: f.index, Result: res}
 	// Record run if we have result
@@ -148,6 +156,11 @@ func (m *Migrator) runDownForVersion(ctx context.Context, ver int, f vfile) (*Ex
 				t.Down.Env.Local[k] = val
 			}
 		}
+	}
+	// Apply global default for body rendering on optional Find.Request if not set
+	if t.Down.Find != nil && t.Down.Find.Request.RenderBody == nil && m.RenderBodyDefault != nil {
+		val := *m.RenderBodyDefault
+		t.Down.Find.Request.RenderBody = &val
 	}
 	res, err := t.Down.Execute(ctx)
 	ewv := &ExecWithVersion{Version: ver, Result: res}

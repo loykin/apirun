@@ -94,3 +94,9 @@ client:
 # insecure: false
 # min_tls_version: ""   # e.g., "1.2" or "tls1.2"
 # max_tls_version: ""   # e.g., "1.3" or "tls1.3"
+
+# Request body templating default
+# When true (default), request.body and request.body_file contents are rendered as Go templates using env/auth.
+# When set to false, bodies are sent as-is and braces like {{ abc }} are not substituted.
+# You can override per-request with request.render_body in a migration.
+# render_body: true
