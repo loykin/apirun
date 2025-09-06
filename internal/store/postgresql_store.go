@@ -182,7 +182,7 @@ func (p *PostgresStore) LoadEnv(th TableNames, version int, direction string) (m
 	row := p.db.QueryRow(q, version, direction)
 	var envJSON sql.NullString
 	if err := row.Scan(&envJSON); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return map[string]string{}, nil
 		}
 		return map[string]string{}, err

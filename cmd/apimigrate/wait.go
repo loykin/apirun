@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/loykin/apimigrate"
-	httpc "github.com/loykin/apimigrate/internal/httpc"
+	"github.com/loykin/apimigrate/internal/httpc"
 )
 
 // doWait polls an HTTP endpoint until it returns the expected status or timeout elapses.

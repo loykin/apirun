@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/go-resty/resty/v2"
-	httpc "github.com/loykin/apimigrate/internal/httpc"
+	"github.com/loykin/apimigrate/internal/httpc"
 )
 
 // Test that struct-based Auth acquires a basic token and stores it under .auth[name]
@@ -332,7 +332,7 @@ func TestMigrator_StoreConfig_DefaultSqlitePath(t *testing.T) {
 
 // Test struct-based Auth acquires a token via registered provider
 func TestAuth_Acquire_StoresInAuth(t *testing.T) {
-	// Register a dummy provider that returns a fixed token value
+	// Register a fake provider that returns a fixed token value
 	RegisterAuthProvider("dummy", func(spec map[string]interface{}) (AuthMethod, error) {
 		return dummyMethodEnvHelper{}, nil
 	})

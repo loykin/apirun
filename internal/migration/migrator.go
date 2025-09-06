@@ -28,6 +28,88 @@ type Migrator struct {
 	DryRunFrom int
 }
 
+// initTaskAndEnv loads task from file and initializes env for up/down, merges stored/session env as needed.
+func (m *Migrator) initTaskAndEnv(t *task.Task, f vfile, ver int, sessionStored map[string]string, mode string) error {
+	if err := t.LoadFromFile(f.path); err != nil {
+		return fmt.Errorf("failed to load %s: %w", f.name, err)
+	}
+	// Helper to set Global/Auth and ensure Local map exists
+	setEnv := func(e *env.Env) {
+		if m.Env.Global != nil {
+			e.Global = m.Env.Global
+		} else {
+			e.Global = map[string]string{}
+		}
+		if m.Env.Auth != nil {
+			e.Auth = m.Env.Auth
+		} else {
+			e.Auth = map[string]string{}
+		}
+		if e.Local == nil {
+			e.Local = map[string]string{}
+		}
+	}
+	if mode == "up" {
+		setEnv(&t.Up.Env)
+		// Merge stored env from previously applied versions
+		var applied []int
+		if m.DryRun {
+			for i := 1; i <= m.DryRunFrom; i++ {
+				applied = append(applied, i)
+			}
+		} else if list, err := m.Store.ListApplied(); err == nil {
+			applied = list
+		}
+		if len(applied) > 0 {
+			for _, av := range applied {
+				if m2, _ := m.Store.LoadStoredEnv(av); len(m2) > 0 {
+					for k, val := range m2 {
+						if _, exists := t.Up.Env.Local[k]; !exists {
+							t.Up.Env.Local[k] = val
+						}
+					}
+				}
+			}
+		}
+		// Merge sessionStored
+		if len(sessionStored) > 0 {
+			for k, val := range sessionStored {
+				if _, exists := t.Up.Env.Local[k]; !exists {
+					t.Up.Env.Local[k] = val
+				}
+			}
+		}
+		// Apply global default for body rendering if request didn't set explicitly
+		if t.Up.Request.RenderBody == nil && m.RenderBodyDefault != nil {
+			val := *m.RenderBodyDefault
+			t.Up.Request.RenderBody = &val
+		}
+		return nil
+	}
+	// down mode
+	setEnv(&t.Down.Env)
+	// Merge stored env for this version (prefer stored_env; fallback to legacy up env)
+	if loaded, _ := m.Store.LoadStoredEnv(ver); len(loaded) > 0 {
+		for k, val := range loaded {
+			if _, exists := t.Down.Env.Local[k]; !exists {
+				t.Down.Env.Local[k] = val
+			}
+		}
+	} else if loadedLegacy, _ := m.Store.LoadEnv(ver, "up"); len(loadedLegacy) > 0 {
+		for k, val := range loadedLegacy {
+			if _, exists := t.Down.Env.Local[k]; !exists {
+				t.Down.Env.Local[k] = val
+			}
+		}
+	}
+	// Apply global default for body rendering on optional Find.Request if not set
+	if t.Down.Find != nil && t.Down.Find.Request.RenderBody == nil && m.RenderBodyDefault != nil {
+		val := *m.RenderBodyDefault
+		t.Down.Find.Request.RenderBody = &val
+	}
+	return nil
+}
+
 // ensureAuth performs one-time auth acquisition when m.Auth is configured.
 // It respects existing Env.Auth[name] values to coexist with external auth setup.
 func (m *Migrator) ensureAuth(ctx context.Context) error {
@@ -62,60 +144,11 @@ func (m *Migrator) ensureAuth(ctx context.Context) error {
 // It records each applied version in the store after successful execution.
 func (m *Migrator) runUpForFile(ctx context.Context, f vfile, sessionStored map[string]string) (*ExecWithVersion, map[string]string, error) {
 	var t task.Task
-	if err := t.LoadFromFile(f.path); err != nil {
-		return nil, nil, fmt.Errorf("failed to load %s: %w", f.name, err)
-	}
-	if m.Env.Global != nil {
-		t.Up.Env.Global = m.Env.Global
-	} else {
-		t.Up.Env.Global = map[string]string{}
-	}
-	// propagate auth map for template rendering ({{.auth.name}})
-	if m.Env.Auth != nil {
-		t.Up.Env.Auth = m.Env.Auth
-	} else {
-		t.Up.Env.Auth = map[string]string{}
-	}
-	if t.Up.Env.Local == nil {
-		t.Up.Env.Local = map[string]string{}
-	}
-	// Merge stored env from previously applied versions
-	applied := []int{}
-	if m.DryRun {
-		// simulate applied versions up to DryRunFrom
-		for i := 1; i <= m.DryRunFrom; i++ {
-			applied = append(applied, i)
-		}
-	} else if list, err := m.Store.ListApplied(); err == nil {
-		applied = list
-	}
-	if len(applied) > 0 {
-		for _, av := range applied {
-			if m2, _ := m.Store.LoadStoredEnv(av); len(m2) > 0 {
-				for k, val := range m2 {
-					if _, exists := t.Up.Env.Local[k]; !exists {
-						t.Up.Env.Local[k] = val
-					}
-				}
-			}
-		}
-	}
-	// Merge sessionStored for this run
-	if len(sessionStored) > 0 {
-		for k, val := range sessionStored {
-			if _, exists := t.Up.Env.Local[k]; !exists {
-				t.Up.Env.Local[k] = val
-			}
-		}
-	}
-	// Apply global default for body rendering if request didn't set it explicitly
-	if t.Up.Request.RenderBody == nil && m.RenderBodyDefault != nil {
-		val := *m.RenderBodyDefault
-		t.Up.Request.RenderBody = &val
+	if err := m.initTaskAndEnv(&t, f, f.index, sessionStored, "up"); err != nil {
+		return nil, nil, err
 	}
 	res, err := t.Up.Execute(ctx, "", "")
 	ewv := &ExecWithVersion{Version: f.index, Result: res}
-	// Record run if we have result
 	if res != nil {
 		save := m.SaveResponseBody
 		var bodyPtr *string
@@ -123,7 +156,6 @@ func (m *Migrator) runUpForFile(ctx context.Context, f vfile, sessionStored map[
 			b := res.ResponseBody
 			bodyPtr = &b
 		}
-		// persist extracted env
 		toStore := map[string]string{}
 		if res.ExtractedEnv != nil {
 			toStore = res.ExtractedEnv
@@ -142,41 +174,8 @@ func (m *Migrator) runUpForFile(ctx context.Context, f vfile, sessionStored map[
 // Each successful down removes that version from the store.
 func (m *Migrator) runDownForVersion(ctx context.Context, ver int, f vfile) (*ExecWithVersion, error) {
 	var t task.Task
-	if err := t.LoadFromFile(f.path); err != nil {
-		return nil, fmt.Errorf("failed to load %s: %w", f.name, err)
-	}
-	if m.Env.Global != nil {
-		t.Down.Env.Global = m.Env.Global
-	} else {
-		t.Down.Env.Global = map[string]string{}
-	}
-	// propagate auth map for template rendering ({{.auth.name}})
-	if m.Env.Auth != nil {
-		t.Down.Env.Auth = m.Env.Auth
-	} else {
-		t.Down.Env.Auth = map[string]string{}
-	}
-	if t.Down.Env.Local == nil {
-		t.Down.Env.Local = map[string]string{}
-	}
-	// Merge stored env for this version (prefer stored_env; fallback to legacy)
-	if loaded, _ := m.Store.LoadStoredEnv(ver); len(loaded) > 0 {
-		for k, val := range loaded {
-			if _, exists := t.Down.Env.Local[k]; !exists {
-				t.Down.Env.Local[k] = val
-			}
-		}
-	} else if loadedLegacy, _ := m.Store.LoadEnv(ver, "up"); len(loadedLegacy) > 0 {
-		for k, val := range loadedLegacy {
-			if _, exists := t.Down.Env.Local[k]; !exists {
-				t.Down.Env.Local[k] = val
-			}
-		}
-	}
-	// Apply global default for body rendering on optional Find.Request if not set
-	if t.Down.Find != nil && t.Down.Find.Request.RenderBody == nil && m.RenderBodyDefault != nil {
-		val := *m.RenderBodyDefault
-		t.Down.Find.Request.RenderBody = &val
+	if err := m.initTaskAndEnv(&t, f, ver, nil, "down"); err != nil {
+		return nil, err
 	}
 	res, err := t.Down.Execute(ctx)
 	ewv := &ExecWithVersion{Version: ver, Result: res}

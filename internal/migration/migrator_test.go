@@ -336,7 +336,7 @@ down:
 
 // Test ensureAuth with multiple providers and respecting pre-set values
 func TestEnsureAuth_MultiAndRespectPreset(t *testing.T) {
-	// Register a dummy provider under type "dummyX" locally
+	// Register a fake provider under type "dummyX" locally
 	auth.Register("dummyX", func(spec map[string]interface{}) (auth.Method, error) {
 		return dummyMethod("tokX"), nil
 	})

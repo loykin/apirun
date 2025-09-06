@@ -74,7 +74,7 @@ func (s *SqliteStore) IsApplied(th TableNames, v int) (bool, error) {
 	row := s.db.QueryRow(q, v)
 	var one int
 	err := row.Scan(&one)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
 	return err == nil, err
@@ -158,7 +158,7 @@ func (s *SqliteStore) LoadEnv(th TableNames, version int, direction string) (map
 	row := s.db.QueryRow(q, version, direction)
 	var envJSON sql.NullString
 	if err := row.Scan(&envJSON); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return map[string]string{}, nil
 		}
 		return map[string]string{}, err
