@@ -364,6 +364,37 @@ type dummyMethod string
 
 func (d dummyMethod) Acquire(_ context.Context) (string, error) { return string(d), nil }
 
+func TestMigrator_RenderBodyDefault_AppliesToUpAndDownFind(t *testing.T) {
+	// Server echoes body; we check that templates are not rendered when default=false
+	echo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+		_ = b
+	}))
+	defer echo.Close()
+
+	dir := t.TempDir()
+	// Up has a body with {{.env.X}} but no explicit request.render_body
+	migUp := "up:\n  name: t\n  env: { X: 'y' }\n  request:\n    method: POST\n    url: " + echo.URL + "/echo\n    body: '{" + "\"a\":\"{{.env.X}}\"" + "}'\n  response:\n    result_code: ['200']\n\n" +
+		"down:\n  name: d\n  env: { }\n  method: GET\n  url: " + echo.URL + "/d\n  find:\n    request:\n      method: POST\n      url: " + echo.URL + "/find\n      body: '{" + "\"b\":\"{{ missing }}\"" + "}'\n    response:\n      result_code: ['200']\n"
+	if err := os.WriteFile(filepath.Join(dir, "001_t.yaml"), []byte(migUp), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	st := openTestStore(t, filepath.Join(dir, store.DbFileName))
+	defer func() { _ = st.Close() }()
+
+	// Default render false: Up should NOT render .env.X and Down.Find should NOT render missing
+	defFalse := false
+	m := &Migrator{Dir: dir, Store: *st, Env: env.Env{Global: map[string]string{}}, RenderBodyDefault: &defFalse}
+	if _, err := m.MigrateUp(context.Background(), 0); err != nil {
+		t.Fatalf("MigrateUp: %v", err)
+	}
+	if _, err := m.MigrateDown(context.Background(), 0); err != nil {
+		t.Fatalf("MigrateDown: %v", err)
+	}
+}
+
 // Test that MigrateUp propagates acquired auth into task requests
 func TestMigrateUp_PropagatesAuthHeader(t *testing.T) {
 	exp := "Basic " + base64.StdEncoding.EncodeToString([]byte("u:p"))

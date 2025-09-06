@@ -13,6 +13,9 @@ up:
         value: apimigrate-sample
       - name: Authorization
         value: "Bearer {{.auth.sample}}"
+    # Optional body; use render_body: false to send literal braces like {{ abc }} without substitution
+    # body: '{"raw":"{{ abc }}"}'
+    # render_body: false
   response:
     # Accept HTTP 200 as success
     result_code: [ "200" ]

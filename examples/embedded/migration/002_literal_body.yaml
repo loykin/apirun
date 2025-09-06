@@ -1,0 +1,12 @@
+up:
+  name: send literal body with braces
+  request:
+    method: POST
+    url: https://httpbin.org/post
+    # This body contains double braces that normally would be templated.
+    # By setting render_body: false we send it unchanged.
+    body: '{"example":"{{ not_replaced }}"}'
+    render_body: false
+  response:
+    # Accept any 2xx
+    result_code: ["200", "201", "202", "204"]
