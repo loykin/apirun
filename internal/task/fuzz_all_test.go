@@ -12,9 +12,9 @@ import (
 func FuzzTask(f *testing.F) {
 	// Seed inputs for request rendering
 	f.Add("auth", "X-Name", "{{.env.who}}", "q", "{{.env.qv}}", "Hello, {{.env.who}}!",
-		"200", "", string([]byte("{\"a\":1}")), "id", "a")
+		"200", "", "{\"a\":1}", "id", "a")
 	f.Add("", "Authorization", "Bearer {{.auth.k}}", "x", "1", "{\"a\":1}",
-		"${{.x}}", "201", string([]byte(`{"a":{"b":[{"id":"1"}]}}`)), "rid", "a.b.0.id")
+		"${{.x}}", "201", `{"a":{"b":[{"id":"1"}]}}`, "rid", "a.b.0.id")
 
 	f.Fuzz(func(t *testing.T,
 		authName, hName, hVal, qName, qVal, body string,

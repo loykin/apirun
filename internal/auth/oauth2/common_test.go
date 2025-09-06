@@ -7,7 +7,7 @@ import (
 
 // small helper to ensure Acquire signature compiles with context
 func TestMethodAcquireSignature(t *testing.T) {
-	// Use a dummy Method via adapter to ensure types line up
+	// Use a fake Method via adapter to ensure types line up
 	d := Adapter{M: dummyMethod{}}
 	_, _ = d.Acquire(context.Background())
 }

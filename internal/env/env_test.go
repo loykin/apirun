@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	yaml "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 )
 
 func TestEnv_Lookup_BasicAndMissing(t *testing.T) {

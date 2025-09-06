@@ -85,7 +85,7 @@ up:
 	_ = writeFile(t, tdir, "001_first.yaml", m1)
 	_ = writeFile(t, tdir, "002_second.yaml", m2)
 
-	// Config with top-level auth array defining both providers (new schema requires nested config)
+	// Config with top-level auth array defining both providers (new schema requires to be nested config)
 	cfg := fmt.Sprintf(`---
 auth:
   - type: basic
@@ -135,7 +135,7 @@ func TestUpCmd_AuthChanges_WithTopLevelAuthArray_Variant(t *testing.T) {
 			}
 		case "/two":
 			if got := r.Header.Get("Authorization"); got != ("Basic " + exp2) {
-				t.Fatalf("/two expected Authorization %q, got %q", ("Basic " + exp2), got)
+				t.Fatalf("/two expected Authorization %q, got %q", "Basic "+exp2, got)
 			}
 		}
 		_, _ = w.Write([]byte(`{"ok":true}`))
