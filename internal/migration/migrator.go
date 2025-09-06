@@ -21,6 +21,11 @@ type Migrator struct {
 	// RenderBodyDefault controls default templating for RequestSpec bodies when not set per-request.
 	// nil means default to true (render). When false, bodies with templates like {{...}} are sent as-is, unrendered.
 	RenderBodyDefault *bool
+	// DryRun disables store mutations and simulates applied versions based on DryRunFrom.
+	DryRun bool
+	// DryRunFrom represents the snapshot version already applied when DryRun is true.
+	// 0 means from the beginning; N means treat versions <= N as applied.
+	DryRunFrom int
 }
 
 // ensureAuth performs one-time auth acquisition when m.Auth is configured.
@@ -75,7 +80,16 @@ func (m *Migrator) runUpForFile(ctx context.Context, f vfile, sessionStored map[
 		t.Up.Env.Local = map[string]string{}
 	}
 	// Merge stored env from previously applied versions
-	if applied, err := m.Store.ListApplied(); err == nil {
+	applied := []int{}
+	if m.DryRun {
+		// simulate applied versions up to DryRunFrom
+		for i := 1; i <= m.DryRunFrom; i++ {
+			applied = append(applied, i)
+		}
+	} else if list, err := m.Store.ListApplied(); err == nil {
+		applied = list
+	}
+	if len(applied) > 0 {
 		for _, av := range applied {
 			if m2, _ := m.Store.LoadStoredEnv(av); len(m2) > 0 {
 				for k, val := range m2 {
@@ -114,8 +128,10 @@ func (m *Migrator) runUpForFile(ctx context.Context, f vfile, sessionStored map[
 		if res.ExtractedEnv != nil {
 			toStore = res.ExtractedEnv
 		}
-		_ = m.Store.RecordRun(f.index, "up", res.StatusCode, bodyPtr, toStore, err != nil)
-		_ = m.Store.InsertStoredEnv(f.index, toStore)
+		if !m.DryRun {
+			_ = m.Store.RecordRun(f.index, "up", res.StatusCode, bodyPtr, toStore, err != nil)
+			_ = m.Store.InsertStoredEnv(f.index, toStore)
+		}
 		return ewv, toStore, err
 	}
 	return ewv, nil, err
@@ -171,15 +187,19 @@ func (m *Migrator) runDownForVersion(ctx context.Context, ver int, f vfile) (*Ex
 			b := res.ResponseBody
 			bodyPtr = &b
 		}
-		_ = m.Store.RecordRun(ver, "down", res.StatusCode, bodyPtr, nil, err != nil)
+		if !m.DryRun {
+			_ = m.Store.RecordRun(ver, "down", res.StatusCode, bodyPtr, nil, err != nil)
+		}
 	}
 	if err != nil {
 		return ewv, fmt.Errorf("down %s failed: %w", f.name, err)
 	}
-	if err := m.Store.Remove(ver); err != nil {
-		return ewv, fmt.Errorf("record remove %d: %w", ver, err)
+	if !m.DryRun {
+		if err := m.Store.Remove(ver); err != nil {
+			return ewv, fmt.Errorf("record remove %d: %w", ver, err)
+		}
+		_ = m.Store.DeleteStoredEnv(ver)
 	}
-	_ = m.Store.DeleteStoredEnv(ver)
 	return ewv, nil
 }
 
@@ -193,9 +213,15 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 		return nil, err
 	}
 
-	cur, err := m.Store.CurrentVersion()
-	if err != nil {
-		return nil, err
+	var cur int
+	if m.DryRun {
+		cur = m.DryRunFrom
+	} else {
+		var err error
+		cur, err = m.Store.CurrentVersion()
+		if err != nil {
+			return nil, err
+		}
 	}
 	// plan versions to run
 	plan := planUp(files, cur, targetVersion)
@@ -212,11 +238,13 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 		if err != nil {
 			return results, fmt.Errorf("migration %s failed: %w", f.name, err)
 		}
-		if err := m.Store.Apply(f.index); err != nil {
-			return results, fmt.Errorf("record apply %d: %w", f.index, err)
+		if !m.DryRun {
+			if err := m.Store.Apply(f.index); err != nil {
+				return results, fmt.Errorf("record apply %d: %w", f.index, err)
+			}
+			// Small delay to allow backend consistency before next migration
+			time.Sleep(1 * time.Second)
 		}
-		// Small delay to allow backend consistency before next migration
-		time.Sleep(1 * time.Second)
 	}
 	return results, nil
 }
@@ -231,9 +259,15 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 		return nil, err
 	}
 
-	cur, err := m.Store.CurrentVersion()
-	if err != nil {
-		return nil, err
+	var cur int
+	if m.DryRun {
+		cur = m.DryRunFrom
+	} else {
+		var err error
+		cur, err = m.Store.CurrentVersion()
+		if err != nil {
+			return nil, err
+		}
 	}
 	if targetVersion < 0 {
 		targetVersion = 0
@@ -246,9 +280,18 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 	fileByVer := mapFilesByVersion(files)
 
 	// collect applied versions to rollback: (target, cur]
-	applied, err := m.Store.ListApplied()
-	if err != nil {
-		return nil, err
+	var applied []int
+	if m.DryRun {
+		// simulate applied 1..cur
+		for i := 1; i <= cur; i++ {
+			applied = append(applied, i)
+		}
+	} else {
+		var err error
+		applied, err = m.Store.ListApplied()
+		if err != nil {
+			return nil, err
+		}
 	}
 	toRollback := make([]int, 0)
 	for _, v := range applied {

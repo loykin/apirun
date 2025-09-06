@@ -18,6 +18,21 @@ repeatable way.
 
 > Recent changes (2025-09)
 > - New struct-based authentication API: type Auth { Type, Name, Methods } with method Acquire(ctx, env *env.Env).
+> - Migrator now supports multiple auth entries: Migrator.Auth []auth.Auth. It auto-acquires tokens once at the start of MigrateUp/Down and injects them into templates under {{.auth.<name>}}.
+> - Legacy helpers removed from public API: AcquireAuthAndSetEnv, AcquireAuthByProviderSpecWithName, and AuthSpec. Use the Auth struct and MethodConfig instead (e.g., BasicAuthConfig, OAuth2* configs, or NewAuthSpecFromMap).
+> - Template variables are grouped: use {{.env.key}} for your variables and {{.auth.name}} for acquired tokens.
+> - YAML headers must be a list of name/value objects (not a map). Example: headers: [ { name: Authorization, value: "Basic {{.auth.basic}}" } ].
+> - Added examples demonstrating both embedded multi-auth and decoupled flows:
+>   - examples/auth_embedded: single embedded auth.
+>   - examples/auth_embedded_multi_registry: multiple embedded auths.
+>   - examples/auth_embedded_multi_registry_type2: decoupled (acquire first, then migrate).
+> - Dry-run execution mode for planning and validation without persisting state. Use CLI flags `--dry-run` and `--dry-run-from` or set `Migrator.DryRun=true` and `Migrator.DryRunFrom` in library usage. Dry-run supports two modes: from the beginning (0) and from a snapshot version (N).
+> - Dry-run execution mode for planning and validation without persisting state. Use CLI flags `--dry-run` and
+>   `--dry-run-from` or set `Migrator.DryRun=true` and `Migrator.DryRunFrom` in library usage. Dry-run supports two modes:
+>   from the beginning (0) and from a snapshot version (N).
+
+> Recent changes (2025-09)
+> - New struct-based authentication API: type Auth { Type, Name, Methods } with method Acquire(ctx, env *env.Env).
 > - Migrator now supports multiple auth entries: Migrator.Auth []auth.Auth. It auto-acquires tokens once at the start of
     MigrateUp/Down and injects them into templates under {{.auth.<name>}}.
 > - Legacy helpers removed from public API: AcquireAuthAndSetEnv, AcquireAuthByProviderSpecWithName, and AuthSpec. Use

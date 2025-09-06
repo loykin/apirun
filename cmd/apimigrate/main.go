@@ -98,6 +98,8 @@ func init() {
 	v.SetDefault("config", "./config/config.yaml")
 	v.SetDefault("v", true)
 	v.SetDefault("to", 0)
+	v.SetDefault("dry_run", false)
+	v.SetDefault("dry_run_from", 0)
 
 	// Environment variables support: APIMIGRATE_CONFIG, ...
 	v.SetEnvPrefix("APIMIGRATE")
@@ -106,12 +108,20 @@ func init() {
 	rootCmd.PersistentFlags().String("config", v.GetString("config"), "path to a config yaml (like examples/keycloak_migration/config.yaml)")
 	rootCmd.PersistentFlags().BoolP("v", "v", v.GetBool("v"), "verbose output")
 	upCmd.Flags().Int("to", v.GetInt("to"), "target version to migrate up to (0 = all)")
+	upCmd.Flags().Bool("dry-run", v.GetBool("dry_run"), "simulate migrations without writing to the store")
+	upCmd.Flags().Int("dry-run-from", v.GetInt("dry_run_from"), "simulate as if versions up to N are already applied")
 	downCmd.Flags().Int("to", v.GetInt("to"), "target version to migrate down to")
+	downCmd.Flags().Bool("dry-run", v.GetBool("dry_run"), "simulate rollbacks without writing to the store")
+	downCmd.Flags().Int("dry-run-from", v.GetInt("dry_run_from"), "simulate as if versions up to N are already applied")
 
 	_ = v.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
 	_ = v.BindPFlag("v", rootCmd.PersistentFlags().Lookup("v"))
 	_ = v.BindPFlag("to", upCmd.Flags().Lookup("to"))
+	_ = v.BindPFlag("dry_run", upCmd.Flags().Lookup("dry-run"))
+	_ = v.BindPFlag("dry_run_from", upCmd.Flags().Lookup("dry-run-from"))
 	_ = v.BindPFlag("to", downCmd.Flags().Lookup("to"))
+	_ = v.BindPFlag("dry_run", downCmd.Flags().Lookup("dry-run"))
+	_ = v.BindPFlag("dry_run_from", downCmd.Flags().Lookup("dry-run-from"))
 
 	rootCmd.AddCommand(upCmd)
 	rootCmd.AddCommand(downCmd)

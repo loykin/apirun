@@ -22,6 +22,8 @@ var upCmd = &cobra.Command{
 			configPath = os.Getenv("APIMIGRATE_CONFIG")
 		}
 		verbose := v.GetBool("v")
+		dry := v.GetBool("dry_run")
+		dryFrom := v.GetInt("dry_run_from")
 		to := v.GetInt("to")
 		ctx := context.Background()
 		baseEnv := apimigrate.NewEnv()
@@ -69,9 +71,13 @@ var upCmd = &cobra.Command{
 			dir = abs
 		}
 		if verbose {
-			log.Printf("up migrations in %s to %d", dir, to)
+			if dry {
+				log.Printf("[dry-run] up migrations in %s to %d (from=%d)", dir, to, dryFrom)
+			} else {
+				log.Printf("up migrations in %s to %d", dir, to)
+			}
 		}
-		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp}
+		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry, DryRunFrom: dryFrom}
 		// Set default render_body from config if provided
 		if strings.TrimSpace(configPath) != "" {
 			var doc ConfigDoc

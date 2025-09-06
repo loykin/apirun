@@ -18,6 +18,8 @@ var downCmd = &cobra.Command{
 		v := viper.GetViper()
 		configPath := v.GetString("config")
 		verbose := v.GetBool("v")
+		dry := v.GetBool("dry_run")
+		dryFrom := v.GetInt("dry_run_from")
 		to := v.GetInt("to")
 		ctx := context.Background()
 		baseEnv := apimigrate.NewEnv()
@@ -64,9 +66,13 @@ var downCmd = &cobra.Command{
 			dir = abs
 		}
 		if verbose {
-			log.Printf("down migrations in %s to %d", dir, to)
+			if dry {
+				log.Printf("[dry-run] down migrations in %s to %d (from=%d)", dir, to, dryFrom)
+			} else {
+				log.Printf("down migrations in %s to %d", dir, to)
+			}
 		}
-		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp}
+		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry, DryRunFrom: dryFrom}
 		// Set default render_body from config if provided
 		if strings.TrimSpace(configPath) != "" {
 			var doc ConfigDoc

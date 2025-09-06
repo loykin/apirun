@@ -51,6 +51,10 @@ type Migrator struct {
 	SaveResponseBody bool
 	// RenderBodyDefault controls default templating for RequestSpec bodies (nil = default true)
 	RenderBodyDefault *bool
+	// DryRun disables store mutations and simulates applied versions from DryRunFrom.
+	DryRun bool
+	// DryRunFrom indicates snapshot version already applied when DryRun is true (0 = from beginning).
+	DryRunFrom int
 }
 
 // MigrateUp applies pending migrations up to targetVersion (0 = all) using this Migrator's Store and Env.
@@ -90,7 +94,7 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 		}
 	}
 
-	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody, RenderBodyDefault: m.RenderBodyDefault}
+	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody, RenderBodyDefault: m.RenderBodyDefault, DryRun: m.DryRun, DryRunFrom: m.DryRunFrom}
 	return im.MigrateUp(ctx, targetVersion)
 }
 
@@ -128,7 +132,7 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 			return nil, err
 		}
 	}
-	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody, RenderBodyDefault: m.RenderBodyDefault}
+	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody, RenderBodyDefault: m.RenderBodyDefault, DryRun: m.DryRun, DryRunFrom: m.DryRunFrom}
 	return im.MigrateDown(ctx, targetVersion)
 }
 
