@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
@@ -255,5 +256,71 @@ func TestRecordRunAndLoadEnv(t *testing.T) {
 	// Expect empty on malformed json
 	if len(m3) != 0 {
 		t.Fatalf("expected empty for malformed env_json, got %+v", m3)
+	}
+}
+
+// Cover the unknown driver branch in Store.Connect
+func TestStoreConnect_UnknownDriver(t *testing.T) {
+	var st Store
+	// Passing an unknown driver should return an error
+	err := st.Connect(Config{Driver: "unknown-driver"})
+	if err == nil {
+		t.Fatalf("expected error for unknown driver")
+	}
+}
+
+// Cover Close() path when connector is nil but DB is set (closes DB)
+func TestStoreClose_DBOnly(t *testing.T) {
+	// Open a lightweight in-memory sqlite DB directly and attach to Store
+	db, err := sql.Open("sqlite", "file::memory:?cache=shared&_busy_timeout=5000&_fk=1")
+	if err != nil {
+		t.Fatalf("sql.Open sqlite: %v", err)
+	}
+	st := &Store{DB: db}
+	if err := st.Close(); err != nil {
+		t.Fatalf("Close(): %v", err)
+	}
+}
+
+// Cover ToMap helpers used by connectors
+func TestDriverConfig_ToMapHelpers(t *testing.T) {
+	// Sqlite
+	sc := &SqliteConfig{Path: "/tmp/x.db"}
+	m := sc.ToMap()
+	if m["path"] != "/tmp/x.db" {
+		t.Fatalf("SqliteConfig.ToMap path mismatch: %#v", m)
+	}
+	// Postgres: build DSN from components when DSN empty
+	pc := &PostgresConfig{Host: "h", Port: 0, User: "u", Password: "p", DBName: "d", SSLMode: ""}
+	pm := pc.ToMap()
+	dsn, _ := pm["dsn"].(string)
+	if dsn == "" {
+		t.Fatalf("PostgresConfig.ToMap should build DSN from components, got empty")
+	}
+	if dsn != "postgres://u:p@h:5432/d?sslmode=disable" {
+		t.Fatalf("built DSN mismatch: %q", dsn)
+	}
+}
+
+func TestSafeTableNames_DefaultsWhenEmpty(t *testing.T) {
+	var s Store
+	tn := s.safeTableNames()
+	def := defaultTableNames()
+	if tn != def {
+		t.Fatalf("expected defaults when empty, got %+v", tn)
+	}
+}
+
+func TestSafeTableNames_MixedValidity(t *testing.T) {
+	var s Store
+	// Only one valid provided, others invalid/empty -> fallback appropriately
+	s.SetTableNames("valid_name", "", "invalid name with space")
+	tn := s.safeTableNames()
+	if tn.SchemaMigrations != "valid_name" {
+		t.Fatalf("SchemaMigrations should keep valid_name, got %s", tn.SchemaMigrations)
+	}
+	def := defaultTableNames()
+	if tn.MigrationRuns != def.MigrationRuns || tn.StoredEnv != def.StoredEnv {
+		t.Fatalf("expected fallbacks for invalid/empty, got %+v", tn)
 	}
 }

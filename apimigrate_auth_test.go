@@ -246,7 +246,7 @@ func TestEmbeddedAuthAndMigrateUp(t *testing.T) {
 		"username": "admin",
 		"password": "admin",
 	})
-	a := &Auth{Type: AuthTypeBasic, Name: "basic", Methods: map[string]MethodConfig{AuthTypeBasic: spec}}
+	a := &Auth{Type: AuthTypeBasic, Name: "basic", Methods: spec}
 
 	storeConfig := StoreConfig{}
 	storeConfig.Driver = DriverSqlite
@@ -309,8 +309,8 @@ func TestEmbeddedAuthMultiAndMigrateUp(t *testing.T) {
 	m.StoreConfig.Driver = DriverSqlite
 	m.StoreConfig.DriverConfig = &SqliteConfig{Path: storePath}
 
-	a1 := &Auth{Type: AuthTypeBasic, Name: "a1", Methods: map[string]MethodConfig{AuthTypeBasic: BasicAuthConfig{Username: "u1", Password: "p1"}}}
-	a2 := &Auth{Type: AuthTypeBasic, Name: "a2", Methods: map[string]MethodConfig{AuthTypeBasic: BasicAuthConfig{Username: "u2", Password: "p2"}}}
+	a1 := &Auth{Type: AuthTypeBasic, Name: "a1", Methods: BasicAuthConfig{Username: "u1", Password: "p1"}}
+	a2 := &Auth{Type: AuthTypeBasic, Name: "a2", Methods: BasicAuthConfig{Username: "u2", Password: "p2"}}
 	m.Auth = []Auth{*a1, *a2}
 
 	results, err := m.MigrateUp(ctx, 0)
