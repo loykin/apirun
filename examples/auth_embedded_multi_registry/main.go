@@ -57,10 +57,8 @@ func main() {
 	}}
 
 	// Configure two different Basic tokens under different names via struct-based API
-
-	auth1 := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a1", Methods: map[string]apimigrate.MethodConfig{apimigrate.AuthTypeBasic: apimigrate.BasicAuthConfig{Username: "u1", Password: "p1"}}}
-
-	auth2 := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a2", Methods: map[string]apimigrate.MethodConfig{apimigrate.AuthTypeBasic: apimigrate.BasicAuthConfig{Username: "u2", Password: "p2"}}}
+	auth1 := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a1", Methods: apimigrate.BasicAuthConfig{Username: "u1", Password: "p1"}}
+	auth2 := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a2", Methods: apimigrate.BasicAuthConfig{Username: "u2", Password: "p2"}}
 
 	// Run migrations from this example's migration directory
 	migDir := "./examples/auth_embedded_multi_registry/migration"

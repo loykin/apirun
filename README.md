@@ -6,7 +6,9 @@
 ![CodeQL](https://github.com/loykin/apimigrate/actions/workflows/codeql.yml/badge.svg)
 [![Trivy](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/loykin/apimigrate/gh-pages/shields/trivy.json&cacheSeconds=60)](https://raw.githubusercontent.com/loykin/apimigrate/gh-pages/shields/trivy.json)
 
-A lightweight Go library and CLI for running API-driven migrations defined in YAML files. It helps you automate provisioning or configuration tasks against HTTP APIs (e.g., create users/dashboards, import resources) in a versioned, repeatable way.
+A lightweight Go library and CLI for running API-driven migrations defined in YAML files. It helps you automate
+provisioning or configuration tasks against HTTP APIs (e.g., create users/dashboards, import resources) in a versioned,
+repeatable way.
 
 - Library: import and run migrations programmatically.
 - CLI: run versioned migrations from a directory and record versions in a local SQLite store.
@@ -16,12 +18,16 @@ A lightweight Go library and CLI for running API-driven migrations defined in YA
 
 > Recent changes (2025-09)
 > - New struct-based authentication API: type Auth { Type, Name, Methods } with method Acquire(ctx, env *env.Env).
-> - Migrator now supports multiple auth entries: Migrator.Auth []auth.Auth. It auto-acquires tokens once at the start of MigrateUp/Down and injects them into templates under {{.auth.<name>}}.
-> - Legacy helpers removed from public API: AcquireAuthAndSetEnv, AcquireAuthByProviderSpecWithName, and AuthSpec. Use the Auth struct and MethodConfig instead (e.g., BasicAuthConfig, OAuth2* configs, or NewAuthSpecFromMap).
+> - Migrator now supports multiple auth entries: Migrator.Auth []auth.Auth. It auto-acquires tokens once at the start of
+    MigrateUp/Down and injects them into templates under {{.auth.<name>}}.
+> - Legacy helpers removed from public API: AcquireAuthAndSetEnv, AcquireAuthByProviderSpecWithName, and AuthSpec. Use
+    the Auth struct and MethodConfig instead (e.g., BasicAuthConfig, OAuth2* configs, or NewAuthSpecFromMap).
 > - Template variables are grouped: use {{.env.key}} for your variables and {{.auth.name}} for acquired tokens.
-> - YAML headers must be a list of name/value objects (not a map). Example: headers: [ { name: Authorization, value: "Basic {{.auth.basic}}" } ].
+> - YAML headers must be a list of name/value objects (not a map). Example:
+    headers: [ { name: Authorization, value: "Basic {{.auth.basic}}" } ].
 > - Added examples demonstrating both embedded multi-auth and decoupled flows:
->   - examples/auth_embedded: single embedded auth.
+    >
+- examples/auth_embedded: single embedded auth.
 >   - examples/auth_embedded_multi_registry: multiple embedded auths.
 >   - examples/auth_embedded_multi_registry_type2: decoupled (acquire first, then migrate).
 
@@ -33,9 +39,12 @@ A lightweight Go library and CLI for running API-driven migrations defined in YA
 - Configurable handling when extracted variables are missing (env_missing: skip | fail).
 - Optional "find" step for down migrations to discover IDs before deletion.
 - Health-check wait feature to poll an endpoint until it returns the expected status before running migrations.
-- HTTP client TLS options per config document (insecure, min/max TLS version). Default minimum TLS version is 1.3 unless overridden.
+- HTTP client TLS options per config document (insecure, min/max TLS version). Default minimum TLS version is 1.3 unless
+  overridden.
 - Pluggable auth provider registry with helper APIs and typed wrappers for library users.
-- Explicit header handling: providers return only token values; the library never auto-prefixes Authorization. Set headers like `Authorization: "Basic {{._auth_token}}"` or `Authorization: "Bearer {{._auth_token}}"` in your migrations.
+- Explicit header handling: providers return only token values; the library never auto-prefixes Authorization. Set
+  headers like `Authorization: "Basic {{._auth_token}}"` or `Authorization: "Bearer {{._auth_token}}"` in your
+  migrations.
 
 ## Install
 
@@ -67,11 +76,13 @@ go run ./cmd/apimigrate
 ```
 
 What this does by default:
+
 - Loads config from ./config/config.yaml
 - Runs versioned migrations found under ./config/migration
 - Records migration history in ./config/migration/apimigrate.db
 
-There is a sample migration at config/migration/001_sample.yaml that calls https://example.com and should succeed out of the box.
+There is a sample migration at config/migration/001_sample.yaml that calls https://example.com and should succeed out of
+the box.
 
 Other useful commands:
 
@@ -87,6 +98,7 @@ go run ./cmd/apimigrate status
 ```
 
 Customize:
+
 - Use --config to point to a different YAML file (it must include migrate_dir):
 
 ```bash
@@ -94,10 +106,13 @@ go run ./cmd/apimigrate --config examples/keycloak_migration/config.yaml -v
 ```
 
 DriverConfig YAML supports:
-- auth: acquire and store tokens via providers, injected by logical name in tasks (request.auth_name or down.auth). String fields support Go templates ({{.var}}) rendered against env.
+
+- auth: acquire and store tokens via providers, injected by logical name in tasks (request.auth_name or down.auth).
+  String fields support Go templates ({{.var}}) rendered against env.
 - migrate_dir: path to migrations (001_*.yaml, 002_*.yaml, ...).
 - env: global key/value variables used in templating. You can also pull from OS env with valueFromEnv.
-- wait: optional HTTP health check before running migrations (url/method/status/timeout/interval). The url supports templating (e.g., "{{.api_base}}/health").
+- wait: optional HTTP health check before running migrations (url/method/status/timeout/interval). The url supports
+  templating (e.g., "{{.api_base}}/health").
 - client: HTTP client TLS options (insecure, min_tls_version, max_tls_version) applied to requests and wait checks.
 - store: choose the persistence backend (sqlite or postgres) and whether to save response bodies.
 
@@ -121,11 +136,11 @@ migrate_dir: ./config/migration
 
 # Optional: wait for an HTTP health check to succeed before running migrations
 wait:
-  # url: "{{.api_base}}/health"
-  # method: GET       # default: GET
-  # status: 200       # default: 200
-  # timeout: 30s      # default: 60s
-  # interval: 1s      # default: 2s
+# url: "{{.api_base}}/health"
+# method: GET       # default: GET
+# status: 200       # default: 200
+# timeout: 30s      # default: 60s
+# interval: 1s      # default: 2s
 
 # Global environment variables available to all migrations
 env:
@@ -146,7 +161,7 @@ store:
 
   # SQLite options (used when type is sqlite)
   sqlite:
-    # path: ./config/migration/apimigrate.db   # default: <migrate_dir>/apimigrate.db
+  # path: ./config/migration/apimigrate.db   # default: <migrate_dir>/apimigrate.db
 
   # PostgreSQL options (used when type is postgres)
   # postgres:
@@ -163,49 +178,60 @@ store:
 
 # HTTP client TLS settings (optional, default minimum TLS is 1.3)
 client:
-  # insecure: false
-  # min_tls_version: "1.2"   # or "tls1.2"
-  # max_tls_version: "1.3"   # or "tls1.3"
+# insecure: false
+# min_tls_version: "1.2"   # or "tls1.2"
+# max_tls_version: "1.3"   # or "tls1.3"
 ```
 
 Notes:
-- If store.type is omitted or set to sqlite, apimigrate stores migration history in a local SQLite file under <migrate_dir>/apimigrate.db by default. You can override the path via store.sqlite.path.
+
+- If store.type is omitted or set to sqlite, apimigrate stores migration history in a local SQLite file under <
+  migrate_dir>/apimigrate.db by default. You can override the path via store.sqlite.path.
 - To use PostgreSQL, set store.type to postgres and either:
-  - provide store.postgres.dsn directly, or
-  - provide the component fields (host/port/user/password/dbname[/sslmode]) and a DSN will be constructed.
+    - provide store.postgres.dsn directly, or
+    - provide the component fields (host/port/user/password/dbname[/sslmode]) and a DSN will be constructed.
 - The migration history schema is initialized automatically by the library (no external migration tool needed).
-- Advanced: you can customize table names via store.table_prefix (derives three names automatically) or by setting store.table_schema_migrations, store.table_migration_runs, and store.table_stored_env individually (explicit names take precedence over the prefix).
+- Advanced: you can customize table names via store.table_prefix (derives three names automatically) or by setting
+  store.table_schema_migrations, store.table_migration_runs, and store.table_stored_env individually (explicit names
+  take precedence over the prefix).
 - You can inspect current/applied versions with: `apimigrate status --config <path>`.
 
 ### Customizing store table names (rules)
-You can change the SQLite/PostgreSQL table (and index) names used to persist the migration history. There are two ways to configure names under the store section:
+
+You can change the SQLite/PostgreSQL table (and index) names used to persist the migration history. There are two ways
+to configure names under the store section:
 
 1) table_prefix (simple):
+
 - Derives names automatically as:
-  - <prefix>_schema_migrations
-  - <prefix>_migration_runs
-  - <prefix>_stored_env
+    - <prefix>_schema_migrations
+    - <prefix>_migration_runs
+    - <prefix>_stored_env
 - Example:
   store:
-    table_prefix: app1
+  table_prefix: app1
   results in: app1_schema_migrations, app1_migration_runs, app1_stored_env
 
 2) Explicit names (fine-grained):
+
 - Set one or more of these fields to override individually:
-  - table_schema_migrations
-  - table_migration_runs
-  - table_stored_env
-  - index_stored_env_by_version (optional index name, reserved for future use)
+    - table_schema_migrations
+    - table_migration_runs
+    - table_stored_env
+    - index_stored_env_by_version (optional index name, reserved for future use)
 - When both prefix and explicit names are provided, explicit names take precedence for the fields you set.
 
 Validation and constraints:
+
 - Allowed identifier characters: only ASCII letters, digits and underscores, starting with a letter or underscore.
-  - Regex: ^[a-zA-Z_][a-zA-Z0-9_]*$
+    - Regex: ^[a-zA-Z_][a-zA-Z0-9_]*$
 - If a provided name does not match the allowed pattern, apimigrate falls back to the safe default for that identifier.
-- Do not include quotes, dots, or schema qualifiers in names; use plain identifiers (e.g., my_schema_migrations, not public.my_schema_migrations). The default schema of your database connection will be used.
+- Do not include quotes, dots, or schema qualifiers in names; use plain identifiers (e.g., my_schema_migrations, not
+  public.my_schema_migrations). The default schema of your database connection will be used.
 - The same rules apply to both SQLite and PostgreSQL backends.
 
 Examples (YAML):
+
 - Using a single prefix:
   ```yaml
   store:
@@ -225,12 +251,14 @@ Examples (YAML):
   ```
 
 Programmatic (library) equivalent:
+
 - Construct a Migrator and set StoreConfig with driver-specific options and optional custom table names (pseudo-code):
-  - Set Driver to postgres or sqlite
-  - Provide DSN or sqlite path
-  - Optionally customize table names
+    - Set Driver to postgres or sqlite
+    - Provide DSN or sqlite path
+    - Optionally customize table names
 
 See also:
+
 - `config/config.yaml` (commented template)
 - `examples/keycloak_migration/config.yaml`
 - `examples/grafana_migration/config.yaml`
@@ -238,7 +266,8 @@ See also:
 
 ## Migration file format
 
-Each migration file contains an `up` and optionally a `down` section. Requests support templated fields; responses can validate status and extract values via gjson paths.
+Each migration file contains an `up` and optionally a `down` section. Requests support templated fields; responses can
+validate status and extract values via gjson paths.
 
 Example snippet:
 
@@ -251,12 +280,12 @@ up:
     auth_name: keycloak
     method: POST
     url: "{{.kc_base}}/admin/realms/{{.realm}}/users"
-    headers: []
-    queries: []
+    headers: [ ]
+    queries: [ ]
     body: |
       {"username": "{{.username}}", "enabled": true}
   response:
-    result_code: ["201", "409"]
+    result_code: [ "201", "409" ]
 
 down:
   name: delete user
@@ -266,7 +295,7 @@ down:
       method: GET
       url: "{{.kc_base}}/admin/realms/{{.realm}}/users?username={{.username}}&exact=true"
     response:
-      result_code: ["200"]
+      result_code: [ "200" ]
       env_from:
         user_id: "0.id"   # gjson path into array element
   method: DELETE
@@ -274,13 +303,15 @@ down:
 ```
 
 Notes:
+
 - Empty `result_code` means any HTTP status is allowed.
 - `env_from` uses gjson paths (e.g., `id`, `0.id`, `data.items.0.id`).
-- All values extracted via `env_from` are automatically persisted into the local store so they can be reused later (e.g., in down).
+- All values extracted via `env_from` are automatically persisted into the local store so they can be reused later (
+  e.g., in down).
 - Control behavior for missing extractions with `env_missing` under `response`:
-  - `skip` (default): ignore missing keys in `env_from` and continue.
-  - `fail`: treat missing keys as an error; the migration run will be recorded with failed=true.
-  Example:
+    - `skip` (default): ignore missing keys in `env_from` and continue.
+    - `fail`: treat missing keys as an error; the migration run will be recorded with failed=true.
+      Example:
   ```yaml
   response:
     result_code: ["200"]
@@ -289,15 +320,20 @@ Notes:
       rid: id           # required; if absent -> error
       optional: maybe   # if missing, execution fails in 'fail' mode
   ```
-- Authorization headers are not auto-prefixed. When using a token acquired via `auth_name` or injected `_auth_token`, set the header explicitly in your migration, e.g., `Authorization: "Basic {{._auth_token}}"` for Basic or `Authorization: "Bearer {{._auth_token}}"` for OAuth2.
+- Authorization headers are not auto-prefixed. When using a token acquired via `auth_name` or injected `_auth_token`,
+  set the header explicitly in your migration, e.g., `Authorization: "Basic {{._auth_token}}"` for Basic or
+  `Authorization: "Bearer {{._auth_token}}"` for OAuth2.
 
 ### Templating in config (requests, auth, wait)
+
 - Only basic Go templates are supported: use `{{.var}}`.
-- Templating applies in many string fields: request URL/headers/body, auth configs under `auth[].config`, and the `wait.url`.
+- Templating applies in many string fields: request URL/headers/body, auth configs under `auth[].config`, and the
+  `wait.url`.
 - Variables come from layered env (global from config + local from each migration).
 - YAML tip: when a field contains `{{...}}`, quote the string to avoid YAML parser confusion.
 
 ### Wait for service (health checks)
+
 Before running migrations, you can wait until a service is healthy:
 
 ```yaml
@@ -310,9 +346,9 @@ wait:
 
 # Optional: TLS options used by wait and all HTTP requests
 client:
-  # insecure: false
-  # min_tls_version: "1.2"
-  # max_tls_version: "1.3"
+# insecure: false
+# min_tls_version: "1.2"
+# max_tls_version: "1.3"
 ```
 
 ## Programmatic usage (library)
@@ -323,24 +359,25 @@ client:
 package main
 
 import (
-  "context"
-  "github.com/loykin/apimigrate"
+"context"
+"github.com/loykin/apimigrate"
 )
 
 func main() {
-  ctx := context.Background()
-  base := apimigrate.Env{Global: map[string]string{"kc_base": "http://localhost:8080"}}
-  // Apply all migrations in directory
-  m := apimigrate.Migrator{Dir: "examples/keycloak_migration/migration", Env: base}
-    results, err := m.MigrateUp(ctx, 0)
-  if err != nil { panic(err) }
-  _ = results
+ctx := context.Background()
+base := apimigrate.Env{Global: map[string]string{"kc_base": "http://localhost:8080"}}
+// Apply all migrations in directory
+m := apimigrate.Migrator{Dir: "examples/keycloak_migration/migration", Env: base}
+results, err := m.MigrateUp(ctx, 0)
+if err != nil { panic(err) }
+_ = results
 }
 ```
 
 ## Authentication providers
 
 Built-in providers:
+
 - oauth2 (multiple grants via internal/auth/oauth2)
 - basic
 - pocketbase
@@ -348,7 +385,9 @@ Built-in providers:
 They can be configured via `config.yaml` (see examples) or acquired programmatically using the public API.
 
 ### Struct-based Auth API (library)
-Use the struct-based API to configure providers and acquire tokens. Tokens are values; set headers explicitly in migrations.
+
+Use the struct-based API to configure providers and acquire tokens. Tokens are values; set headers explicitly in
+migrations.
 
 - Embedded (automatic) acquisition with multiple providers:
 
@@ -357,12 +396,8 @@ ctx := context.Background()
 base := apimigrate.Env{Global: map[string]string{"api_base": srvURL}}
 
 // Configure two Basic providers under names a1 and a2
-auth1 := apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a1", Methods: map[string]apimigrate.MethodConfig{
-  apimigrate.AuthTypeBasic: apimigrate.BasicAuthConfig{Username: "u1", Password: "p1"},
-}}
-auth2 := apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a2", Methods: map[string]apimigrate.MethodConfig{
-  apimigrate.AuthTypeBasic: apimigrate.BasicAuthConfig{Username: "u2", Password: "p2"},
-}}
+auth1 := apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a1", Methods: apimigrate.BasicAuthConfig{Username: "u1", Password: "p1"}}
+auth2 := apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a2", Methods: apimigrate.BasicAuthConfig{Username: "u2", Password: "p2"}}
 
 m := apimigrate.Migrator{Dir: "./migs", Env: base, StoreConfig: &apimigrate.StoreConfig{}}
 m.Auth = []apimigrate.Auth{auth1, auth2}
@@ -375,12 +410,10 @@ _, err := m.MigrateUp(ctx, 0)
 ctx := context.Background()
 base := apimigrate.Env{Global: map[string]string{"api_base": srvURL}}
 
-a := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "basic", Methods: map[string]apimigrate.MethodConfig{
-  apimigrate.AuthTypeBasic: apimigrate.BasicAuthConfig{Username: "admin", Password: "admin"},
-}}
+a := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "basic", Methods: apimigrate.BasicAuthConfig{Username: "admin", Password: "admin"}}
 if v, err := a.Acquire(ctx, &base); err == nil {
-  if base.Auth == nil { base.Auth = map[string]string{} }
-  base.Auth["basic"] = v
+if base.Auth == nil { base.Auth = map[string]string{} }
+base.Auth["basic"] = v
 }
 
 m := apimigrate.Migrator{Dir: "./migs", Env: base, StoreConfig: &apimigrate.StoreConfig{}}
@@ -388,6 +421,7 @@ _, err := m.MigrateUp(ctx, 0)
 ```
 
 See examples:
+
 - examples/auth_embedded
 - examples/auth_embedded_multi_registry
 - examples/auth_embedded_multi_registry_type2
@@ -399,7 +433,7 @@ Use the re-exported API from the root package.
 - Register your factory:
 
 ```go
-apimigrate.RegisterAuthProvider("demo", func(spec map[string]interface{}) (apimigrate.AuthMethod, error) { /* ... */ })
+apimigrate.RegisterAuthProvider("demo", func (spec map[string]interface{}) (apimigrate.AuthMethod, error) { /* ... */ })
 ```
 
 - Acquire and store token by provider spec (store under a logical name):
@@ -410,6 +444,7 @@ _ = v; _ = err
 ```
 
 A complete runnable example is provided:
+
 - `examples/auth_registry`
 
 Run it:
@@ -434,10 +469,11 @@ Each example directory contains its own README or config and migration files.
 ## Run history and failure flag
 
 - Each Up/Down execution is recorded in the migration_runs table with:
-  - version, direction (up|down), status_code, ran_at, and optionally the response body (when configured).
-  - env_json: JSON of variables extracted by env_from.
-  - failed: boolean indicating whether the operation returned an error (e.g., disallowed status or env_missing=fail).
-- You can query this table directly (SQLite or Postgres) for auditing or troubleshooting. The CLI currently provides a high-level status command:
+    - version, direction (up|down), status_code, ran_at, and optionally the response body (when configured).
+    - env_json: JSON of variables extracted by env_from.
+    - failed: boolean indicating whether the operation returned an error (e.g., disallowed status or env_missing=fail).
+- You can query this table directly (SQLite or Postgres) for auditing or troubleshooting. The CLI currently provides a
+  high-level status command:
 
 ```bash
 apimigrate status --config <path/to/config.yaml>

@@ -10,9 +10,9 @@ import (
 )
 
 type Auth struct {
-	Type    string                  `mapstructure:"type"`
-	Name    string                  `mapstructure:"name"`
-	Methods map[string]MethodConfig `mapstructure:"methods"`
+	Type    string       `mapstructure:"type"`
+	Name    string       `mapstructure:"name"`
+	Methods MethodConfig `mapstructure:"methods"`
 }
 
 type MethodConfig interface {
@@ -30,7 +30,7 @@ func NewAuthSpecFromMap(m map[string]interface{}) MethodConfig { return mapConfi
 // Acquire resolves and acquires authentication according to this Auth configuration.
 // Behavior:
 // - Uses Type as the provider key (e.g., "basic", "oauth2", "pocketbase").
-// - Looks up the method configuration in Methods[Type].
+// - Uses the single Methods configuration (since Type is already selected globally).
 // - Renders any Go templates in the method config using only flat key/value pairs from the environment:
 //   - First from process environment variables if present (so CLI can inject secrets),
 //   - Then leaves unchanged any placeholders if not resolvable (RenderAnyTemplate keeps originals when missing).
@@ -48,11 +48,7 @@ func (a *Auth) Acquire(ctx context.Context, e *env.Env) (string, error) {
 	if a.Methods == nil {
 		return "", errors.New("auth: methods not provided")
 	}
-	mc, ok := a.Methods[pt]
-	if !ok || mc == nil {
-		return "", errors.New("auth: method config not found for type: " + pt)
-	}
-	cfg := mc.ToMap()
+	cfg := a.Methods.ToMap()
 	// Render templates in cfg using the provided env (global/local/auth)
 	var base env.Env
 	if e != nil {

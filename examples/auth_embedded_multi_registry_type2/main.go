@@ -59,7 +59,7 @@ func main() {
 	// 1) Acquire tokens separately (decoupled from migrator). Store into base.Auth.
 	// a1
 	specA := apimigrate.BasicAuthConfig{Username: "u1", Password: "p1"}
-	authA := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a1", Methods: map[string]apimigrate.MethodConfig{apimigrate.AuthTypeBasic: specA}}
+	authA := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a1", Methods: specA}
 	if v, err := authA.Acquire(ctx, &base); err != nil {
 		log.Fatalf("acquire a1 failed: %v", err)
 	} else {
@@ -70,7 +70,7 @@ func main() {
 	}
 	// a2
 	specB := apimigrate.BasicAuthConfig{Username: "u2", Password: "p2"}
-	authB := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a2", Methods: map[string]apimigrate.MethodConfig{apimigrate.AuthTypeBasic: specB}}
+	authB := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a2", Methods: specB}
 	if v, err := authB.Acquire(ctx, &base); err != nil {
 		log.Fatalf("acquire a2 failed: %v", err)
 	} else {
