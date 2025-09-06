@@ -42,7 +42,7 @@ func main() {
 		Password: "admin",
 	}
 
-	auth := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "basic", Methods: map[string]apimigrate.MethodConfig{apimigrate.AuthTypeBasic: spec}}
+	auth := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "basic", Methods: spec}
 
 	// Run migrations from the local directory
 	storeConfig := apimigrate.StoreConfig{}

@@ -20,7 +20,7 @@ func TestAcquireAuth_Basic(t *testing.T) {
 	ctx := context.Background()
 	// basic: username/password -> base64(username:password)
 	spec := NewAuthSpecFromMap(map[string]interface{}{"username": "u", "password": "p"})
-	a := &Auth{Type: "basic", Name: "b1", Methods: map[string]MethodConfig{"basic": spec}}
+	a := &Auth{Type: "basic", Name: "b1", Methods: spec}
 	v, err := a.Acquire(ctx, nil)
 	if err != nil {
 		t.Fatalf("Acquire error: %v", err)
@@ -293,4 +293,63 @@ func TestMigrateDown_RollsBack(t *testing.T) {
 	if len(resDown) != 1 || hitsDown != 1 {
 		t.Fatalf("expected 1 down migration and 1 hit, got len=%d hitsDown=%d", len(resDown), hitsDown)
 	}
+}
+
+// Ensure Migrator with StoreConfig sqlite and empty path defaults to Dir/StoreDBFileName
+func TestMigrator_StoreConfig_DefaultSqlitePath(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	mig := []byte("" +
+		"up:\n" +
+		"  name: t\n" +
+		"  request:\n" +
+		"    method: GET\n" +
+		"    url: " + srv.URL + "/ok\n" +
+		"  response:\n" +
+		"    result_code: ['200']\n")
+	if err := os.WriteFile(filepath.Join(dir, "001_ok.yaml"), mig, 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	cfg := &StoreConfig{}
+	cfg.Config.Driver = DriverSqlite
+	cfg.Config.DriverConfig = &SqliteConfig{Path: ""} // force defaulting
+	m := &Migrator{Dir: dir, StoreConfig: cfg}
+	if _, err := m.MigrateUp(context.Background(), 0); err != nil {
+		t.Fatalf("MigrateUp: %v", err)
+	}
+	// sqlite file should be created under dir
+	p := filepath.Join(dir, StoreDBFileName)
+	if _, err := os.Stat(p); err != nil {
+		t.Fatalf("expected sqlite file at %s, stat err: %v", p, err)
+	}
+}
+
+// Test struct-based Auth acquires a token via registered provider
+func TestAuth_Acquire_StoresInAuth(t *testing.T) {
+	// Register a dummy provider that returns a fixed token value
+	RegisterAuthProvider("dummy", func(spec map[string]interface{}) (AuthMethod, error) {
+		return dummyMethodEnvHelper{}, nil
+	})
+
+	ctx := context.Background()
+	a := &Auth{Type: "dummy", Name: "demo", Methods: NewAuthSpecFromMap(map[string]interface{}{})}
+	v, err := a.Acquire(ctx, nil)
+	if err != nil {
+		t.Fatalf("Acquire error: %v", err)
+	}
+	if v != "Bearer unit-token" {
+		t.Fatalf("unexpected token value: %q", v)
+	}
+}
+
+type dummyMethodEnvHelper struct{}
+
+func (d dummyMethodEnvHelper) Acquire(_ context.Context) (string, error) {
+	return "Bearer unit-token", nil
 }

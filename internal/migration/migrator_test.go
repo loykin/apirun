@@ -346,8 +346,8 @@ func TestEnsureAuth_MultiAndRespectPreset(t *testing.T) {
 
 	m := &Migrator{Env: env.Env{Global: map[string]string{}, Auth: map[string]string{"y": "preset"}}}
 	m.Auth = []auth.Auth{
-		{Type: "dummyX", Name: "x", Methods: map[string]auth.MethodConfig{"dummyX": auth.NewAuthSpecFromMap(map[string]interface{}{})}},
-		{Type: "dummyY", Name: "y", Methods: map[string]auth.MethodConfig{"dummyY": auth.NewAuthSpecFromMap(map[string]interface{}{})}},
+		{Type: "dummyX", Name: "x", Methods: auth.NewAuthSpecFromMap(map[string]interface{}{})},
+		{Type: "dummyY", Name: "y", Methods: auth.NewAuthSpecFromMap(map[string]interface{}{})},
 	}
 	if err := m.ensureAuth(context.Background()); err != nil {
 		t.Fatalf("ensureAuth error: %v", err)
@@ -430,7 +430,7 @@ func TestMigrateUp_PropagatesAuthHeader(t *testing.T) {
 	defer func() { _ = st.Close() }()
 
 	m := &Migrator{Dir: dir, Store: *st, Env: env.Env{Global: map[string]string{}}, Auth: []auth.Auth{
-		{Type: "basic", Name: "b", Methods: map[string]auth.MethodConfig{"basic": auth.NewAuthSpecFromMap(map[string]interface{}{"username": "u", "password": "p"})}},
+		{Type: "basic", Name: "b", Methods: auth.NewAuthSpecFromMap(map[string]interface{}{"username": "u", "password": "p"})},
 	}}
 	if _, err := m.MigrateUp(context.Background(), 0); err != nil {
 		t.Fatalf("MigrateUp: %v", err)

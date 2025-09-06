@@ -154,7 +154,7 @@ func (c *ConfigDoc) DecodeAuth(ctx context.Context, env *env.Env, verbose bool) 
 		renderedAny := apimigrate.RenderAnyTemplate(a.Config, *env)
 		renderedCfg, _ := renderedAny.(map[string]interface{})
 		// Use new struct-based API
-		authCfg := &iauth.Auth{Type: pt, Name: storedName, Methods: map[string]iauth.MethodConfig{pt: iauth.NewAuthSpecFromMap(renderedCfg)}}
+		authCfg := &iauth.Auth{Type: pt, Name: storedName, Methods: iauth.NewAuthSpecFromMap(renderedCfg)}
 		// Attach to env for template rendering by migrations
 		if env.Auth == nil {
 			env.Auth = map[string]string{}
