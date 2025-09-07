@@ -14,9 +14,9 @@ import (
 	"testing"
 
 	"github.com/loykin/apimigrate/internal/auth"
-	"github.com/loykin/apimigrate/internal/env"
 	"github.com/loykin/apimigrate/internal/store"
 	"github.com/loykin/apimigrate/internal/task"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 func TestDecodeTaskYAML_Valid(t *testing.T) {
@@ -41,7 +41,7 @@ func TestDecodeTaskYAML_Valid(t *testing.T) {
 		t.Fatalf("unexpected up.response result_code: %v", tk.Up.Response.ResultCode)
 	}
 	if tk.Down.Name != "test-down" || tk.Down.Method != http.MethodDelete || tk.Down.URL != "http://example.com" {
-		t.Fatalf("unexpected down fields: %+v", tk.Down)
+		t.Fatalf("unexpected down fields: name=%q method=%q url=%q", tk.Down.Name, tk.Down.Method, tk.Down.URL)
 	}
 }
 
@@ -99,12 +99,12 @@ func TestMigrator_RecordsFailedFlag_OnEnvMissingFail(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	base := env.Env{Global: map[string]string{}}
+	base := env.Env{Global: env.FromStringMap(map[string]string{})}
 	st := openTestStore(t, filepath.Join(dir, store.DbFileName))
 	defer func() { _ = st.Close() }()
 
 	// Run MigrateUp; expect error and migration_runs.failed=true
-	_, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 0)
+	_, err := (&Migrator{Dir: dir, Env: &base, Store: *st}).MigrateUp(ctx, 0)
 	if err == nil {
 		t.Fatalf("expected migrate up to fail due to env_missing=fail")
 	}
@@ -128,10 +128,10 @@ func TestMigrator_RecordsFailedFlag_OnEnvMissingFail(t *testing.T) {
 	}
 	st2 := openTestStore(t, filepath.Join(dir2, store.DbFileName))
 	defer func() { _ = st2.Close() }()
-	if _, err := (&Migrator{Dir: dir2, Env: base, Store: *st2}).MigrateUp(ctx, 0); err != nil {
+	if _, err := (&Migrator{Dir: dir2, Env: &base, Store: *st2}).MigrateUp(ctx, 0); err != nil {
 		t.Fatalf("migrate up v2: %v", err)
 	}
-	if _, err := (&Migrator{Dir: dir2, Env: base, Store: *st2}).MigrateDown(ctx, 0); err != nil {
+	if _, err := (&Migrator{Dir: dir2, Env: &base, Store: *st2}).MigrateDown(ctx, 0); err != nil {
 		t.Fatalf("migrate down: %v", err)
 	}
 	// Re-run a focused query for last down row in dir2 store
@@ -251,11 +251,11 @@ down:
 	}
 
 	ctx := context.Background()
-	base := env.Env{Global: map[string]string{"GLOBAL": "g"}}
+	base := env.Env{Global: env.FromStringMap(map[string]string{"GLOBAL": "g"})}
 	st := openTestStore(t, filepath.Join(dir, store.DbFileName))
 	defer func() { _ = st.Close() }()
 
-	m := &Migrator{Dir: dir, Env: base, Store: *st}
+	m := &Migrator{Dir: dir, Env: &base, Store: *st}
 	// First up: should apply both 001 and 002
 	resUp1, err := m.MigrateUp(ctx, 0)
 	if err != nil {
@@ -344,7 +344,7 @@ func TestEnsureAuth_MultiAndRespectPreset(t *testing.T) {
 		return dummyMethod("tokY"), nil
 	})
 
-	m := &Migrator{Env: env.Env{Global: map[string]string{}, Auth: map[string]string{"y": "preset"}}}
+	m := &Migrator{Env: &env.Env{Global: env.Map{}, Auth: env.FromStringMap(map[string]string{"y": "preset"})}}
 	m.Auth = []auth.Auth{
 		{Type: "dummyX", Name: "x", Methods: auth.NewAuthSpecFromMap(map[string]interface{}{})},
 		{Type: "dummyY", Name: "y", Methods: auth.NewAuthSpecFromMap(map[string]interface{}{})},
@@ -352,11 +352,24 @@ func TestEnsureAuth_MultiAndRespectPreset(t *testing.T) {
 	if err := m.ensureAuth(context.Background()); err != nil {
 		t.Fatalf("ensureAuth error: %v", err)
 	}
-	if m.Env.Auth["x"] != "tokX" {
-		t.Fatalf("expected x set to tokX, got %q", m.Env.Auth["x"])
+	// lazy: x should not be acquired yet, y preset should remain
+	if vx, ok := m.Env.Auth["x"]; !ok {
+		t.Fatalf("expected auth key x to be present (lazy), not missing")
+	} else {
+		if _, isLazy := vx.(interface{ String() string }); !isLazy {
+			t.Fatalf("expected x to be a lazy-like value before usage, got %T", vx)
+		}
 	}
-	if m.Env.Auth["y"] != "preset" {
-		t.Fatalf("expected y to remain preset, got %q", m.Env.Auth["y"])
+	if vy, ok := m.Env.Auth["y"]; !ok || vy.String() != "preset" {
+		t.Fatalf("expected y to remain preset, got %v", vy)
+	}
+	// referencing .auth.x should acquire lazily
+	if got := m.Env.RenderGoTemplate("{{.auth.x}}"); got != "tokX" {
+		t.Fatalf("expected lazy acquire of x to tokX, got %q", got)
+	}
+	// and map should now be populated
+	if v, ok := m.Env.Auth["x"]; !ok || v.String() != "tokX" {
+		t.Fatalf("expected x set to tokX after lazy acquire, got %v", v)
 	}
 }
 
@@ -386,7 +399,7 @@ func TestMigrator_RenderBodyDefault_AppliesToUpAndDownFind(t *testing.T) {
 
 	// Default render false: Up should NOT render .env.X and Down.Find should NOT render missing
 	defFalse := false
-	m := &Migrator{Dir: dir, Store: *st, Env: env.Env{Global: map[string]string{}}, RenderBodyDefault: &defFalse}
+	m := &Migrator{Dir: dir, Store: *st, Env: &env.Env{Global: env.Map{}}, RenderBodyDefault: &defFalse}
 	if _, err := m.MigrateUp(context.Background(), 0); err != nil {
 		t.Fatalf("MigrateUp: %v", err)
 	}
@@ -429,7 +442,7 @@ func TestMigrateUp_PropagatesAuthHeader(t *testing.T) {
 	st := openTestStore(t, filepath.Join(dir, store.DbFileName))
 	defer func() { _ = st.Close() }()
 
-	m := &Migrator{Dir: dir, Store: *st, Env: env.Env{Global: map[string]string{}}, Auth: []auth.Auth{
+	m := &Migrator{Dir: dir, Store: *st, Env: &env.Env{Global: env.Map{}}, Auth: []auth.Auth{
 		{Type: "basic", Name: "b", Methods: auth.NewAuthSpecFromMap(map[string]interface{}{"username": "u", "password": "p"})},
 	}}
 	if _, err := m.MigrateUp(context.Background(), 0); err != nil {

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/loykin/apimigrate/internal/env"
 	"github.com/loykin/apimigrate/internal/util"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 type Auth struct {
@@ -50,11 +50,7 @@ func (a *Auth) Acquire(ctx context.Context, e *env.Env) (string, error) {
 	}
 	cfg := a.Methods.ToMap()
 	// Render templates in cfg using the provided env (global/local/auth)
-	var base env.Env
-	if e != nil {
-		base = *e
-	}
-	renderedAny := util.RenderAnyTemplate(cfg, base)
+	renderedAny := util.RenderAnyTemplate(cfg, e)
 	rendered, _ := renderedAny.(map[string]interface{})
 	if rendered == nil {
 		rendered = cfg

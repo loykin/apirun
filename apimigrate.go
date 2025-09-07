@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/loykin/apimigrate/internal/auth"
-	"github.com/loykin/apimigrate/internal/env"
 	imig "github.com/loykin/apimigrate/internal/migration"
 	"github.com/loykin/apimigrate/internal/store"
 	"github.com/loykin/apimigrate/internal/task"
 	"github.com/loykin/apimigrate/internal/util"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 const DriverSqlite = store.DriverSqlite
@@ -45,7 +45,7 @@ type StoreConfig struct {
 type Migrator struct {
 	Dir              string
 	store            Store
-	Env              Env
+	Env              *env.Env
 	Auth             []auth.Auth
 	StoreConfig      *StoreConfig
 	SaveResponseBody bool
@@ -136,8 +136,7 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 	return im.MigrateDown(ctx, targetVersion)
 }
 
-// Env is the environment layering structure used by migrations.
-type Env = env.Env
+// Env is no longer re-exported here; use pkg/env.Env directly.
 
 // ExecResult is the result of a single task execution.
 type ExecResult = task.ExecResult
@@ -147,13 +146,6 @@ type ExecWithVersion = imig.ExecWithVersion
 
 // Store is an alias to the internal store type.
 type Store = store.Store
-
-// NewEnv returns a value Env with initialized internal maps, suitable for direct use
-// in public APIs that expect Env by value.
-func NewEnv() Env {
-	p := env.New()
-	return *p
-}
 
 // StoreDBFileName is the default sqlite filename used for migration history.
 const StoreDBFileName = store.DbFileName
@@ -174,7 +166,9 @@ func NewAuthSpecFromMap(m map[string]interface{}) MethodConfig { return auth.New
 func RegisterAuthProvider(typ string, f AuthFactory) { auth.Register(typ, f) }
 
 // RenderAnyTemplate exposes template rendering used for config/auth maps in the CLI.
-func RenderAnyTemplate(v interface{}, base Env) interface{} { return util.RenderAnyTemplate(v, base) }
+func RenderAnyTemplate(v interface{}, base *env.Env) interface{} {
+	return util.RenderAnyTemplate(v, base)
+}
 
 // OpenStoreFromOptions opens a store based on StoreConfig.
 // If storeConfig is nil, opens sqlite at dir/StoreDBFileName.

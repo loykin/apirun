@@ -7,10 +7,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/loykin/apimigrate"
 	iauth "github.com/loykin/apimigrate/internal/auth"
-	"github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/pkg/env"
 	"gopkg.in/yaml.v3"
 )
 
@@ -55,6 +56,28 @@ type StoreConfig struct {
 	TableSchemaMigrations string `mapstructure:"table_schema_migrations" yaml:"table_schema_migrations"`
 	TableMigrationRuns    string `mapstructure:"table_migration_runs" yaml:"table_migration_runs"`
 	TableStoredEnv        string `mapstructure:"table_stored_env" yaml:"table_stored_env"`
+}
+
+// lazyVal is a Stringer that resolves once via proc when first printed
+// used to install lazy .auth values into env.Auth Map without tying env to auth
+type lazyVal struct {
+	once sync.Once
+	res  string
+	err  error
+	proc func() (string, error)
+}
+
+func (l *lazyVal) String() string {
+	l.once.Do(func() {
+		v, err := l.proc()
+		if err != nil {
+			l.err = err
+			l.res = ""
+			return
+		}
+		l.res = v
+	})
+	return l.res
 }
 
 func (c *StoreConfig) ToStorOptions() *apimigrate.StoreConfig {
@@ -140,7 +163,9 @@ type ConfigDoc struct {
 	RenderBody *bool `mapstructure:"render_body" yaml:"render_body"`
 }
 
-func (c *ConfigDoc) DecodeAuth(ctx context.Context, env *env.Env, verbose bool) error {
+func (c *ConfigDoc) DecodeAuth(ctx context.Context, e *env.Env) error {
+	// Prepare lazy acquisition closures per auth name
+	procs := map[string]func() (string, error){}
 	for i, a := range c.Auth {
 		pt := strings.TrimSpace(a.Type)
 		if pt == "" {
@@ -151,32 +176,33 @@ func (c *ConfigDoc) DecodeAuth(ctx context.Context, env *env.Env, verbose bool) 
 			return fmt.Errorf("auth[%d] type=%s: missing name (use auth[].name)", i, pt)
 		}
 		// Render templated values in the auth config using the base env
-		renderedAny := apimigrate.RenderAnyTemplate(a.Config, *env)
+		renderedAny := apimigrate.RenderAnyTemplate(a.Config, e)
 		renderedCfg, _ := renderedAny.(map[string]interface{})
-		// Use new struct-based API
+		// Build struct-based config for later acquisition
 		authCfg := &iauth.Auth{Type: pt, Name: storedName, Methods: iauth.NewAuthSpecFromMap(renderedCfg)}
-		// Attach to env for template rendering by migrations
-		if env.Auth == nil {
-			env.Auth = map[string]string{}
-		}
-		// Acquire immediately to keep previous CLI behavior and populate env.Auth
-		val, err := authCfg.Acquire(ctx, env)
-		if err != nil {
-			return fmt.Errorf("auth[%d] type=%s name=%s: acquire failed: %w", i, pt, storedName, err)
-		}
-		if strings.TrimSpace(storedName) != "" {
-			env.Auth[storedName] = val
-		}
-		if verbose {
-			slog.Info("auth token acquired", "name", strings.TrimSpace(storedName))
+		procs[storedName] = func() (string, error) {
+			// Use provided ctx if available; fall back to Background
+			cctx := ctx
+			if cctx == nil {
+				cctx = context.Background()
+			}
+			return authCfg.Acquire(cctx, e)
 		}
 	}
-
+	// Ensure map exists
+	if e.Auth == nil {
+		e.Auth = env.Map{}
+	}
+	// Install lazy values for each configured auth
+	for name, proc := range procs {
+		// preset values are not set here (DecodeAuth only wires lazies)
+		e.Auth[name] = &lazyVal{proc: proc}
+	}
 	return nil
 }
 
-func (c *ConfigDoc) GetEnv(verbose bool) (apimigrate.Env, error) {
-	base := apimigrate.NewEnv()
+func (c *ConfigDoc) GetEnv(verbose bool) (*env.Env, error) {
+	base := env.New()
 
 	// env (optional) - process before auth so templating can use it
 	for _, kv := range c.Env {
@@ -190,7 +216,7 @@ func (c *ConfigDoc) GetEnv(verbose bool) (apimigrate.Env, error) {
 				slog.Error("warning: env %s requested from %s but variable is empty or not set", kv.Name, kv.ValueFromEnv)
 			}
 		}
-		base.Global[kv.Name] = val
+		_ = base.SetString("global", kv.Name, val)
 	}
 
 	return base, nil

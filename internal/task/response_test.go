@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 // Verify that when ResultCode is not specified, any status is accepted as success.
@@ -19,7 +19,7 @@ func TestExecuteUp_NoResultCode_AllSuccess(t *testing.T) {
 
 	up := Up{
 		Name:    "startup",
-		Env:     env.Env{},
+		Env:     &env.Env{},
 		Request: RequestSpec{},
 		Response: ResponseSpec{
 			ResultCode: nil, // no codes specified

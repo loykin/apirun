@@ -4,14 +4,14 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 func TestRenderAnyTemplate_BasicGoTemplateOnly(t *testing.T) {
-	e := env.Env{Global: map[string]string{
+	e := env.Env{Global: env.FromStringMap(map[string]string{
 		"name":   "Alice",
 		"nested": "World",
-	}}
+	})}
 
 	in := map[string]interface{}{
 		"plain":            "no templating here",
@@ -24,7 +24,7 @@ func TestRenderAnyTemplate_BasicGoTemplateOnly(t *testing.T) {
 		},
 	}
 
-	outAny := RenderAnyTemplate(in, e)
+	outAny := RenderAnyTemplate(in, &e)
 	out, ok := outAny.(map[string]interface{})
 	if !ok {
 		t.Fatalf("expected map[string]interface{} output, got %T", outAny)

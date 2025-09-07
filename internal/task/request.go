@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 type RequestSpec struct {
@@ -22,7 +22,7 @@ type RequestSpec struct {
 // Render builds headers, query params and body applying Go template rendering using Env.
 // It also injects Authorization header from AuthName if present in env and not already set.
 // Returns an error if the body template fails to parse/execute.
-func (r RequestSpec) Render(env env.Env) (map[string]string, map[string]string, string, error) {
+func (r RequestSpec) Render(env *env.Env) (map[string]string, map[string]string, string, error) {
 	hdrs := renderHeaders(env, r.Headers)
 	queries := renderQueries(env, r.Queries)
 

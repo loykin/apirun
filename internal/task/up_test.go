@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 func TestUp_Execute_OverrideMethodURL_ExtractEnv(t *testing.T) {
@@ -31,7 +31,7 @@ func TestUp_Execute_OverrideMethodURL_ExtractEnv(t *testing.T) {
 
 	u := Up{
 		Name: "create",
-		Env:  env.Env{Local: map[string]string{"name": "alice", "q": "ok"}},
+		Env:  &env.Env{Local: env.FromStringMap(map[string]string{"name": "alice", "q": "ok"})},
 		Request: RequestSpec{
 			Method:  http.MethodPost,                  // should override provided method
 			URL:     srv.URL + "/create?q={{.env.q}}", // should override provided URL
@@ -65,7 +65,7 @@ func TestUp_TLS_Insecure_AllowsSelfSigned(t *testing.T) {
 	defer srv.Close()
 
 	u := Up{
-		Env: env.Env{},
+		Env: &env.Env{},
 		Request: RequestSpec{
 			Method: http.MethodGet,
 			URL:    srv.URL,
@@ -85,7 +85,7 @@ func TestUp_Execute_StatusNotAllowed_ReturnsError(t *testing.T) {
 	defer srv.Close()
 
 	u := Up{
-		Env: env.Env{},
+		Env: &env.Env{},
 		Request: RequestSpec{
 			Method: http.MethodGet,
 			URL:    srv.URL,
@@ -113,7 +113,7 @@ func TestUp_Execute_EnvMissingPolicy(t *testing.T) {
 	tRun := func(name string, envMissing string, wantErr bool) {
 		t.Run(name, func(t *testing.T) {
 			u := Up{
-				Env:     env.Env{},
+				Env:     &env.Env{},
 				Request: RequestSpec{Method: http.MethodGet, URL: srv.URL},
 				Response: ResponseSpec{
 					ResultCode: []string{"200"},

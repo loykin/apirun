@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 type Down struct {
 	Name    string    `yaml:"name"`
 	Auth    string    `yaml:"auth"`
-	Env     env.Env   `yaml:"env"`
+	Env     *env.Env  `yaml:"env"`
 	Method  string    `yaml:"method"`
 	URL     string    `yaml:"url"`
 	Headers []Header  `yaml:"headers"`
@@ -63,10 +63,10 @@ func (d *Down) runFind(ctx context.Context) (*ExecResult, error) {
 	}
 	if len(extracted) > 0 {
 		if d.Env.Local == nil {
-			d.Env.Local = map[string]string{}
+			d.Env.Local = env.Map{}
 		}
 		for k, v := range extracted {
-			d.Env.Local[k] = v
+			_ = d.Env.SetString("local", k, v)
 		}
 	}
 	return nil, nil

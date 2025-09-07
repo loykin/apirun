@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/loykin/apimigrate"
 	iauth "github.com/loykin/apimigrate/internal/auth"
-	"github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 func TestConfigDoc_Load_NotRegularFile(t *testing.T) {
@@ -26,7 +27,7 @@ func TestConfigDoc_GetEnv_ValueFromEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetEnv: %v", err)
 	}
-	if base.Global["a"] != "xyz" {
+	if base.Global["a"] != env.Str("xyz") {
 		t.Fatalf("expected env a=xyz, got %q", base.Global["a"])
 	}
 }
@@ -40,11 +41,12 @@ func TestConfigDoc_DecodeAuth_BasicFlow(t *testing.T) {
 	}}}
 	base := env.New()
 	ctx := context.Background()
-	if err := doc.DecodeAuth(ctx, base, false); err != nil {
+	if err := doc.DecodeAuth(ctx, base); err != nil {
 		t.Fatalf("DecodeAuth error: %v", err)
 	}
-	if base.Auth == nil || base.Auth["b1"] == "" {
-		t.Fatalf("expected token stored under .auth[b1]")
+	// Lazy acquisition: token should be fetched when referenced in a template
+	if got := base.RenderGoTemplate("{{.auth.b1}}"); got == "{{.auth.b1}}" || got == "" {
+		t.Fatalf("expected lazy auth to acquire token for b1, got %q", got)
 	}
 }
 
@@ -78,11 +80,12 @@ func TestDecodeAuth_RendersTemplatesInAuthConfig(t *testing.T) {
 		}},
 	}
 	base, _ := doc.GetEnv(false)
-	if err := doc.DecodeAuth(context.Background(), &base, false); err != nil {
+	if err := doc.DecodeAuth(context.Background(), base); err != nil {
 		t.Fatalf("DecodeAuth: %v", err)
 	}
-	if base.Auth["tpl"] == "" {
-		t.Fatalf("expected rendered token under tpl")
+	// Lazy acquisition via template reference
+	if got := base.RenderGoTemplate("{{.auth.tpl}}"); got == "" || got == "{{.auth.tpl}}" {
+		t.Fatalf("expected lazy rendered token under tpl, got %q", got)
 	}
 }
 
@@ -101,3 +104,21 @@ func TestPublicAuthHelpers_WireThrough(t *testing.T) {
 type dummyMethodWire string
 
 func (d dummyMethodWire) Acquire(_ context.Context) (string, error) { return string(d), nil }
+
+func TestLazyVal_String_SuccessAndError(t *testing.T) {
+	calls := 0
+	l := &lazyVal{proc: func() (string, error) { calls++; return "VAL", nil }}
+	if s := l.String(); s != "VAL" {
+		t.Fatalf("expected VAL, got %q", s)
+	}
+	// second call should not invoke proc again
+	_ = l.String()
+	if calls != 1 {
+		t.Fatalf("expected single call, got %d", calls)
+	}
+	// error case
+	e := &lazyVal{proc: func() (string, error) { return "", errors.New("boom") }}
+	if s := e.String(); s != "" {
+		t.Fatalf("expected empty on error, got %q", s)
+	}
+}

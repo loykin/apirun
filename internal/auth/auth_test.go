@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 func TestAuth_Acquire_Errors(t *testing.T) {
@@ -42,7 +42,7 @@ func TestAuth_Acquire_BasicProvider(t *testing.T) {
 
 func TestAuth_Acquire_RendersFromEnv(t *testing.T) {
 	ctx := context.Background()
-	base := env.Env{Global: map[string]string{"user": "alice", "pass": "wonder"}}
+	base := env.Env{Global: env.FromStringMap(map[string]string{"user": "alice", "pass": "wonder"})}
 	// Use basic provider but with templates pulling from env
 	a := &Auth{Type: "basic", Name: "b", Methods: NewAuthSpecFromMap(map[string]interface{}{
 		"username": "{{.env.user}}",

@@ -12,7 +12,9 @@ func FuzzRenderGoTemplate(f *testing.F) {
 	f.Add("{{.MISSING}") // malformed template
 	f.Add("{{.a}}{{.b}}{{.c}}")
 
-	e := &Env{Global: Map{"name": "world", "a": "1", "b": "2"}, Local: Map{"c": "3"}}
+	e := &Env{
+		Global: FromStringMap(map[string]string{"name": "world", "a": "1", "b": "2"}),
+		Local:  FromStringMap(map[string]string{"c": "3"})}
 	f.Fuzz(func(t *testing.T, s string) {
 		_ = e.RenderGoTemplate(s)
 	})

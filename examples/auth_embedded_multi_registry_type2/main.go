@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/loykin/apimigrate"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 // This example shows the decoupled flow: acquire auth first, then run migrations.
@@ -52,9 +53,9 @@ func main() {
 	defer srv.Close()
 
 	// Base env
-	base := apimigrate.Env{Global: map[string]string{
+	base := env.Env{Global: env.FromStringMap(map[string]string{
 		"api_base": srv.URL,
-	}}
+	})}
 
 	// 1) Acquire tokens separately (decoupled from migrator). Store into base.Auth.
 	// a1
@@ -64,9 +65,9 @@ func main() {
 		log.Fatalf("acquire a1 failed: %v", err)
 	} else {
 		if base.Auth == nil {
-			base.Auth = map[string]string{}
+			base.Auth = env.Map{}
 		}
-		base.Auth["a1"] = v
+		base.Auth["a1"] = env.Str(v)
 	}
 	// a2
 	specB := apimigrate.BasicAuthConfig{Username: "u2", Password: "p2"}
@@ -75,9 +76,9 @@ func main() {
 		log.Fatalf("acquire a2 failed: %v", err)
 	} else {
 		if base.Auth == nil {
-			base.Auth = map[string]string{}
+			base.Auth = env.Map{}
 		}
-		base.Auth["a2"] = v
+		base.Auth["a2"] = env.Str(v)
 	}
 	fmt.Println("auth tokens acquired separately; available as .auth.a1 and .auth.a2")
 
@@ -85,7 +86,7 @@ func main() {
 	migDir := "./examples/auth_embedded_multi_registry_type2/migration"
 	storeConfig := apimigrate.StoreConfig{}
 	storeConfig.DriverConfig = &apimigrate.SqliteConfig{Path: storePath}
-	m := apimigrate.Migrator{Env: base, Dir: migDir, StoreConfig: &storeConfig}
+	m := apimigrate.Migrator{Env: &base, Dir: migDir, StoreConfig: &storeConfig}
 	if _, err := m.MigrateUp(ctx, 0); err != nil {
 		log.Fatalf("migrate up failed: %v", err)
 	}

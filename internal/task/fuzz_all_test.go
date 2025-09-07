@@ -3,7 +3,7 @@ package task
 import (
 	"testing"
 
-	ienv "github.com/loykin/apimigrate/internal/env"
+	ienv "github.com/loykin/apimigrate/pkg/env"
 )
 
 // FuzzTask is a single fuzz entry point for the internal/task package.
@@ -27,12 +27,14 @@ func FuzzTask(f *testing.F) {
 			Queries:  []Query{{Name: qName, Value: qVal}},
 			Body:     body,
 		}
-		e := ienv.Env{Global: ienv.Map{"who": "world", "qv": "ok", "x": val}, Local: ienv.Map{"who": "bob"}, Auth: ienv.Map{"k": "tok"}}
-		_, _, _, _ = r.Render(e)
+		e := ienv.Env{Global: ienv.FromStringMap(map[string]string{"who": "world", "qv": "ok", "x": val}),
+			Local: ienv.FromStringMap(map[string]string{"who": "bob"}),
+			Auth:  ienv.FromStringMap(map[string]string{"k": "tok"})}
+		_, _, _, _ = r.Render(&e)
 
 		// 2) ResponseSpec.AllowedStatus
 		r2 := ResponseSpec{ResultCode: []string{pat}}
-		_ = r2.AllowedStatus(ienv.Env{Global: ienv.Map{"x": val}})
+		_ = r2.AllowedStatus(&ienv.Env{Global: ienv.FromStringMap(map[string]string{"x": val})})
 
 		// 3) ResponseSpec.ExtractEnv
 		if len(bodyJSON) > 1<<16 {

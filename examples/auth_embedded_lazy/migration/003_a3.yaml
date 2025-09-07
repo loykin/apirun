@@ -1,0 +1,11 @@
+---
+up:
+  name: call-a3
+  request:
+    method: GET
+    url: "{{.env.api_base}}/a3"
+    headers:
+      - name: Authorization
+        value: "Basic {{.auth.a3}}"
+  response:
+    result_code: [ "200" ]
