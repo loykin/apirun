@@ -41,10 +41,10 @@ repeatable way.
 > - YAML headers must be a list of name/value objects (not a map). Example:
     headers: [ { name: Authorization, value: "Basic {{.auth.basic}}" } ].
 > - Added examples demonstrating both embedded multi-auth and decoupled flows:
-    >
-- examples/auth_embedded: single embedded auth.
+>   - examples/auth_embedded: single embedded auth.
 >   - examples/auth_embedded_multi_registry: multiple embedded auths.
 >   - examples/auth_embedded_multi_registry_type2: decoupled (acquire first, then migrate).
+>   - examples/auth_embedded_lazy: multiple embedded auths acquired lazily on first use per auth.
 
 - Versioned up/down migrations with persisted history (SQLite, `apimigrate.db`).
 - Request templating with simple Go templates using layered environment variables.
@@ -210,6 +210,14 @@ Notes:
   store.table_schema_migrations, store.table_migration_runs, and store.table_stored_env individually (explicit names
   take precedence over the prefix).
 - You can inspect current/applied versions with: `apimigrate status --config <path>`.
+
+### Body templating default
+
+By default, request bodies are rendered as Go templates when they contain {{...}}. You can disable this by:
+- Setting request.render_body: false in a specific YAML request; or
+- Setting the programmatic Migrator.RenderBodyDefault = false to make unannotated requests send the raw body as-is.
+
+This is useful when you want to post JSON that legitimately includes template-like braces.
 
 ### Customizing store table names (rules)
 
@@ -440,6 +448,7 @@ See examples:
 - examples/auth_embedded
 - examples/auth_embedded_multi_registry
 - examples/auth_embedded_multi_registry_type2
+- examples/auth_embedded_lazy
 
 ### Registering a custom provider (for library users)
 
