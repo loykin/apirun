@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 func TestDown_Execute_WithFindAndTemplatingAndAuthFromEnv(t *testing.T) {
@@ -46,7 +46,7 @@ func TestDown_Execute_WithFindAndTemplatingAndAuthFromEnv(t *testing.T) {
 
 	d := Down{
 		Name: "teardown",
-		Env:  env.Env{Auth: map[string]string{"kc": "Bearer abc"}, Local: map[string]string{"flag": "yes", "reason": "cleanup", "name": "bob"}},
+		Env:  &env.Env{Auth: env.Map{"kc": env.Str("Bearer abc")}, Local: env.FromStringMap(map[string]string{"flag": "yes", "reason": "cleanup", "name": "bob"})},
 		Find: &FindSpec{
 			Request: RequestSpec{
 				Method: http.MethodGet,
@@ -91,7 +91,7 @@ func TestDown_Execute_FinalNon2xx_ReturnsError(t *testing.T) {
 	defer srv.Close()
 
 	d := Down{
-		Env:    env.Env{},
+		Env:    &env.Env{},
 		Method: http.MethodDelete,
 		URL:    srv.URL + "/x",
 	}
@@ -121,7 +121,7 @@ func TestDown_Execute_DoesNotOverrideExplicitAuthorizationHeader(t *testing.T) {
 	d := Down{
 		Name:   "no-override",
 		Auth:   "a1",
-		Env:    env.Env{Local: map[string]string{}},
+		Env:    &env.Env{Local: env.FromStringMap(map[string]string{})},
 		Method: http.MethodDelete,
 		URL:    srv.URL + "/x",
 		Headers: []Header{
@@ -157,7 +157,7 @@ func TestDown_Find_ValidationFailure_ReturnsExecResultAndError(t *testing.T) {
 
 	d := Down{
 		Name: "with-find",
-		Env:  env.Env{Local: map[string]string{}},
+		Env:  &env.Env{Local: env.FromStringMap(map[string]string{})},
 		Find: &FindSpec{
 			Request: RequestSpec{
 				Method: http.MethodGet,
@@ -200,7 +200,7 @@ func TestDown_Execute_JSONBodySetsContentType(t *testing.T) {
 	defer srv.Close()
 
 	d := Down{
-		Env:    env.Env{Local: map[string]string{"x": "1"}},
+		Env:    &env.Env{Local: env.FromStringMap(map[string]string{"x": "1"})},
 		Method: http.MethodDelete,
 		URL:    srv.URL + "/json",
 		Body:   `{"a":{{.env.x}}}`,
@@ -268,7 +268,7 @@ func TestDown_Find_EnvMissingPolicy(t *testing.T) {
 	tRun := func(name, policy string, wantErr bool, wantDelCalls int) {
 		t.Run(name, func(t *testing.T) {
 			d := Down{
-				Env:    env.Env{Local: map[string]string{}},
+				Env:    &env.Env{Local: env.FromStringMap(map[string]string{})},
 				Method: http.MethodDelete,
 				URL:    srv.URL + "/do?id={{.env.rid}}",
 				Find: &FindSpec{

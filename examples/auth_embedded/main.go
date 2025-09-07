@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/loykin/apimigrate"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 func main() {
@@ -32,9 +33,9 @@ func main() {
 	defer srv.Close()
 
 	// Base environment available to all migrations
-	base := apimigrate.Env{Global: map[string]string{
+	base := env.Env{Global: env.FromStringMap(map[string]string{
 		"api_base": srv.URL,
-	}}
+	})}
 
 	// Programmatically define an auth provider (basic) using struct-based API
 	spec := apimigrate.BasicAuthConfig{
@@ -47,7 +48,7 @@ func main() {
 	// Run migrations from the local directory
 	storeConfig := apimigrate.StoreConfig{}
 	storeConfig.DriverConfig = &apimigrate.SqliteConfig{Path: storePath}
-	m := apimigrate.Migrator{Env: base, Dir: "./examples/auth_embedded/migration", StoreConfig: &storeConfig}
+	m := apimigrate.Migrator{Env: &base, Dir: "./examples/auth_embedded/migration", StoreConfig: &storeConfig}
 	m.Auth = []apimigrate.Auth{*auth}
 	if _, err := m.MigrateUp(ctx, 0); err != nil {
 		log.Fatalf("migrate up failed: %v", err)

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/loykin/apimigrate"
+	ienv "github.com/loykin/apimigrate/pkg/env"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -24,7 +25,8 @@ var rootCmd = &cobra.Command{
 		verbose := v.GetBool("v")
 
 		ctx := context.Background()
-		baseEnv := apimigrate.NewEnv()
+		be := ienv.New()
+		baseEnv := be
 		// store options are handled by default sqlite behavior in Migrator when not explicitly set
 		saveResp := false
 
@@ -44,7 +46,7 @@ var rootCmd = &cobra.Command{
 			if err := doWait(ctx, envFromCfg, doc.Wait, doc.Client, verbose); err != nil {
 				return err
 			}
-			if err := doc.DecodeAuth(ctx, &envFromCfg, verbose); err != nil {
+			if err := doc.DecodeAuth(ctx, envFromCfg); err != nil {
 				return err
 			}
 			_ = doc.Store.ToStorOptions()

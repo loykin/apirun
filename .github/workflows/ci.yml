@@ -88,6 +88,8 @@ jobs:
           go run ./examples/auth_embedded_multi_registry
           echo "Running examples/auth_embedded_multi_registry_type2"
           go run ./examples/auth_embedded_multi_registry_type2
+          echo "Running examples/auth_embedded_lazy"
+          go run ./examples/auth_embedded_lazy
           echo "Running examples/auth_registry"
           go run ./examples/auth_registry
           echo "Running examples/embedded_sqlite"

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 // FuzzRenderAnyTemplate ensures RenderAnyTemplate never panics on arbitrary JSON-like inputs
@@ -19,7 +19,7 @@ func FuzzRenderAnyTemplate(f *testing.F) {
 		}
 		var in interface{}
 		_ = json.Unmarshal(data, &in) // if it fails, in stays nil which is fine
-		e := env.Env{Global: map[string]string{k: v}}
-		_ = RenderAnyTemplate(in, e)
+		e := env.Env{Global: env.FromStringMap(map[string]string{k: v})}
+		_ = RenderAnyTemplate(in, &e)
 	})
 }

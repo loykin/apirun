@@ -5,14 +5,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	env2 "github.com/loykin/apimigrate/internal/env"
+	env2 "github.com/loykin/apimigrate/pkg/env"
 )
 
 func boolPtr(b bool) *bool { return &b }
 
 func TestEnv_RenderGoTemplate_BasicAndMissingAndEmpty(t *testing.T) {
 	// basic render
-	env := env2.Env{Local: map[string]string{"USER": "alice", "city": "Seoul"}}
+	env := env2.Env{Local: env2.FromStringMap(map[string]string{"USER": "alice", "city": "Seoul"})}
 	got := env.RenderGoTemplate("hello {{.env.USER}} from {{.env.city}}")
 	if got != "hello alice from Seoul" {
 		t.Fatalf("unexpected render result: %q", got)
@@ -38,11 +38,11 @@ func TestEnv_RenderGoTemplate_BasicAndMissingAndEmpty(t *testing.T) {
 }
 
 func TestRequest_Render_TemplatingAndAuthInjection(t *testing.T) {
-	env := env2.Env{Auth: map[string]string{"kc": "Bearer abc"}, Local: map[string]string{
+	env := env2.Env{Auth: env2.Map{"kc": env2.Str("Bearer abc")}, Local: env2.FromStringMap(map[string]string{
 		"name":           "bob",
 		"CITY":           "busan",
 		"forwarded_data": "zzz",
-	}}
+	})}
 
 	req := RequestSpec{
 		Headers: []Header{
@@ -57,7 +57,7 @@ func TestRequest_Render_TemplatingAndAuthInjection(t *testing.T) {
 		Body: `{"hello": "{{.env.name}}"}`,
 	}
 
-	hdrs, queries, body, err := req.Render(env)
+	hdrs, queries, body, err := req.Render(&env)
 	if err != nil {
 		t.Fatalf("unexpected render error: %v", err)
 	}
@@ -89,12 +89,12 @@ func TestRequest_Render_TemplatingAndAuthInjection(t *testing.T) {
 }
 
 func TestRequest_Render_DoesNotOverrideAuthorization(t *testing.T) {
-	env := env2.Env{Local: map[string]string{"KEY": "Bearer should-not-use"}}
+	env := env2.Env{Local: env2.FromStringMap(map[string]string{"KEY": "Bearer should-not-use"})}
 	req := RequestSpec{
 		Headers: []Header{{Name: "Authorization", Value: "Bearer preset"}},
 	}
 
-	hdrs, _, _, err := req.Render(env)
+	hdrs, _, _, err := req.Render(&env)
 	if err != nil {
 		t.Fatalf("unexpected render error: %v", err)
 	}
@@ -104,13 +104,13 @@ func TestRequest_Render_DoesNotOverrideAuthorization(t *testing.T) {
 }
 
 func TestRequest_Render_PassThroughNoTemplates(t *testing.T) {
-	env := env2.Env{Local: map[string]string{"FOO": "bar"}}
+	env := env2.Env{Local: env2.FromStringMap(map[string]string{"FOO": "bar"})}
 	req := RequestSpec{
 		Headers: []Header{{Name: "A", Value: "x"}},
 		Queries: []Query{{Name: "q", Value: "y"}},
 		Body:    "plain",
 	}
-	hdrs, queries, body, err := req.Render(env)
+	hdrs, queries, body, err := req.Render(&env)
 	if err != nil {
 		t.Fatalf("unexpected render error: %v", err)
 	}
@@ -131,9 +131,9 @@ func TestRequest_Render_BodyFile(t *testing.T) {
 	}
 	_ = tmpFile.Close()
 
-	env := env2.Env{Local: map[string]string{"X": "y"}}
+	env := env2.Env{Local: env2.FromStringMap(map[string]string{"X": "y"})}
 	req := RequestSpec{BodyFile: tmpFile.Name()}
-	_, _, body, err := req.Render(env)
+	_, _, body, err := req.Render(&env)
 	if err != nil {
 		t.Fatalf("unexpected render error: %v", err)
 	}
@@ -153,8 +153,8 @@ func TestRequest_Render_BodyFilePathTemplate(t *testing.T) {
 	}
 	// Build a templated path that resolves to the file above
 	req := RequestSpec{BodyFile: filepath.Join(dir, "{{.env.N}}")}
-	env := env2.Env{Local: map[string]string{"N": name, "V": "ok"}}
-	_, _, body, err := req.Render(env)
+	env := env2.Env{Local: env2.FromStringMap(map[string]string{"N": name, "V": "ok"})}
+	_, _, body, err := req.Render(&env)
 	if err != nil {
 		t.Fatalf("render error: %v", err)
 	}
@@ -164,9 +164,9 @@ func TestRequest_Render_BodyFilePathTemplate(t *testing.T) {
 }
 
 func TestRequest_Render_BodyFileWhitespaceFallbackToBody(t *testing.T) {
-	env := env2.Env{Local: map[string]string{"Y": "z"}}
+	env := env2.Env{Local: env2.FromStringMap(map[string]string{"Y": "z"})}
 	req := RequestSpec{BodyFile: "   \t\n  ", Body: "x{{.env.Y}}"}
-	_, _, body, err := req.Render(env)
+	_, _, body, err := req.Render(&env)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestRequest_Render_BodyFileWhitespaceFallbackToBody(t *testing.T) {
 func TestRequest_Render_EmptyBoth_NoError(t *testing.T) {
 	env := env2.Env{}
 	req := RequestSpec{}
-	_, _, body, err := req.Render(env)
+	_, _, body, err := req.Render(&env)
 	if err != nil {
 		t.Fatalf("unexpected error for empty body fields: %v", err)
 	}
@@ -188,18 +188,18 @@ func TestRequest_Render_EmptyBoth_NoError(t *testing.T) {
 }
 
 func TestRequest_Render_BodyFileNotFound_Error(t *testing.T) {
-	env := env2.Env{Local: map[string]string{"X": "missing.json"}}
+	env := env2.Env{Local: env2.FromStringMap(map[string]string{"X": "missing.json"})}
 	req := RequestSpec{BodyFile: filepath.Join(t.TempDir(), "{{.env.X}}")}
-	_, _, _, err := req.Render(env)
+	_, _, _, err := req.Render(&env)
 	if err == nil {
 		t.Fatalf("expected error for missing BodyFile, got nil")
 	}
 }
 
 func TestRequest_Render_RenderBodyFalse_LiteralBody(t *testing.T) {
-	env := env2.Env{Local: map[string]string{"X": "y"}}
+	env := env2.Env{Local: env2.FromStringMap(map[string]string{"X": "y"})}
 	req := RequestSpec{Body: `{"a":"{{.env.X}}","raw":"{{ not_replaced }}"}`, RenderBody: boolPtr(false)}
-	_, _, body, err := req.Render(env)
+	_, _, body, err := req.Render(&env)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -209,9 +209,9 @@ func TestRequest_Render_RenderBodyFalse_LiteralBody(t *testing.T) {
 }
 
 func TestRequest_Render_RenderBodyTrue_Renders(t *testing.T) {
-	env := env2.Env{Local: map[string]string{"X": "y"}}
+	env := env2.Env{Local: env2.FromStringMap(map[string]string{"X": "y"})}
 	req := RequestSpec{Body: `{"a":"{{.env.X}}"}`, RenderBody: boolPtr(true)}
-	_, _, body, err := req.Render(env)
+	_, _, body, err := req.Render(&env)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -231,9 +231,9 @@ func TestRequest_Render_BodyFile_RenderBodyFalse(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	_ = tmpFile.Close()
-	env := env2.Env{Local: map[string]string{"X": "y"}}
+	env := env2.Env{Local: env2.FromStringMap(map[string]string{"X": "y"})}
 	req := RequestSpec{BodyFile: tmpFile.Name(), RenderBody: boolPtr(false)}
-	_, _, body, err := req.Render(env)
+	_, _, body, err := req.Render(&env)
 	if err != nil {
 		t.Fatalf("unexpected: %v", err)
 	}

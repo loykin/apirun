@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 type Up struct {
 	Name     string       `yaml:"name"`
-	Env      env.Env      `yaml:"env"`
+	Env      *env.Env     `yaml:"env"`
 	Request  RequestSpec  `yaml:"request"`
 	Response ResponseSpec `yaml:"response"`
 }
@@ -19,7 +19,7 @@ type Up struct {
 // It performs templating, sends the request, validates the response and extracts env.
 // If RequestSpec.Method or RequestSpec.URL are provided, they override the method/url
 // passed as parameters. This allows a single migration directory to hit different endpoints.
-func (u Up) Execute(ctx context.Context, method, url string) (*ExecResult, error) {
+func (u *Up) Execute(ctx context.Context, method, url string) (*ExecResult, error) {
 	// Build request components via RequestSpec method
 	hdrs, queries, body, rerr := u.Request.Render(u.Env)
 	if rerr != nil {

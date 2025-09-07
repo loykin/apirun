@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/go-resty/resty/v2"
-	"github.com/loykin/apimigrate/internal/env"
 	"github.com/loykin/apimigrate/internal/httpc"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 func isJSON(s string) bool {
@@ -59,7 +59,7 @@ func anyToString(v interface{}) string {
 	}
 }
 
-func renderHeaders(e env.Env, hs []Header) map[string]string {
+func renderHeaders(e *env.Env, hs []Header) map[string]string {
 	hdrs := make(map[string]string)
 	for _, h := range hs {
 		if h.Name == "" {
@@ -74,7 +74,7 @@ func renderHeaders(e env.Env, hs []Header) map[string]string {
 	return hdrs
 }
 
-func renderQueries(e env.Env, qs []Query) map[string]string {
+func renderQueries(e *env.Env, qs []Query) map[string]string {
 	m := make(map[string]string)
 	for _, q := range qs {
 		if q.Name == "" {
@@ -89,7 +89,7 @@ func renderQueries(e env.Env, qs []Query) map[string]string {
 	return m
 }
 
-func renderBody(e env.Env, b string) (string, error) {
+func renderBody(e *env.Env, b string) (string, error) {
 	if strings.Contains(b, "{{") {
 		return e.RenderGoTemplateErr(b)
 	}

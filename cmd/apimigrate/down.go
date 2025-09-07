@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/loykin/apimigrate"
+	"github.com/loykin/apimigrate/pkg/env"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -22,7 +23,8 @@ var downCmd = &cobra.Command{
 		dryFrom := v.GetInt("dry_run_from")
 		to := v.GetInt("to")
 		ctx := context.Background()
-		baseEnv := apimigrate.NewEnv()
+		be := env.New()
+		baseEnv := &be
 		dir := ""
 		saveResp := false
 		var storeCfgFromDoc *apimigrate.StoreConfig
@@ -46,7 +48,7 @@ var downCmd = &cobra.Command{
 			if err := doWait(ctx, envFromCfg, doc.Wait, doc.Client, verbose); err != nil {
 				return err
 			}
-			if err := doc.DecodeAuth(ctx, &envFromCfg, verbose); err != nil {
+			if err := doc.DecodeAuth(ctx, envFromCfg); err != nil {
 				return err
 			}
 			storeCfgFromDoc = doc.Store.ToStorOptions()
@@ -55,7 +57,7 @@ var downCmd = &cobra.Command{
 				dir = mDir
 			}
 			// Always use env from config (may carry Auth even if Global is empty)
-			baseEnv = envFromCfg
+			baseEnv = &envFromCfg
 			saveResp = saveBody
 		}
 		if strings.TrimSpace(dir) == "" {
@@ -72,7 +74,7 @@ var downCmd = &cobra.Command{
 				log.Printf("down migrations in %s to %d", dir, to)
 			}
 		}
-		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry, DryRunFrom: dryFrom}
+		m := apimigrate.Migrator{Env: *baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry, DryRunFrom: dryFrom}
 		// Set default render_body from config if provided
 		if strings.TrimSpace(configPath) != "" {
 			var doc ConfigDoc

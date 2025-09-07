@@ -2,17 +2,142 @@ package env
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
+	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
 
-type Map map[string]string
+type Str string
+
+func (s Str) String() string { return string(s) }
+
+func FromStringMap(m map[string]string) Map {
+	if m == nil {
+		return nil
+	}
+	out := Map{}
+	for k, v := range m {
+		out[k] = Str(v)
+	}
+	return out
+}
+
+type Val interface {
+	String() string
+}
+
+// Map is a generic value map where each value can be a plain string (fmt.Stringer)
+// or a lazy/computed value implementing String().
+// For convenience, we will store strings using Str type below.
+type Map map[string]Val
 
 // New returns a pointer to Env with all internal maps initialized.
 // Using this helps avoid nil map checks when populating Auth/Global/Local.
 func New() *Env {
-	return &Env{Auth: map[string]string{}, Global: map[string]string{}, Local: map[string]string{}}
+	return &Env{Auth: Map{}, Global: Map{}, Local: Map{}}
+}
+
+// Seal marks the Env as immutable for Set operations.
+func (e *Env) Seal() {
+	if e != nil {
+		e.mu.Lock()
+		e.sealed = true
+		e.mu.Unlock()
+	}
+}
+
+// Unseal re-allows Set operations (testing/initialization only).
+func (e *Env) Unseal() {
+	if e != nil {
+		e.mu.Lock()
+		e.sealed = false
+		e.mu.Unlock()
+	}
+}
+
+// Clone performs a deep copy of the Env maps. Lazy values (Stringer) are copied by reference.
+func (e *Env) Clone() *Env {
+	if e == nil {
+		return New()
+	}
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	out := &Env{Auth: Map{}, Global: Map{}, Local: Map{}}
+	for k, v := range e.Auth {
+		out.Auth[k] = v
+	}
+	for k, v := range e.Global {
+		out.Global[k] = v
+	}
+	for k, v := range e.Local {
+		out.Local[k] = v
+	}
+	return out
+}
+
+// GetString reads a value from the chosen map ("auth","global","local").
+func (e *Env) GetString(mapName, key string) string {
+	if e == nil {
+		return ""
+	}
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	var m Map
+	switch normalizeMapName(mapName) {
+	case "auth":
+		m = e.Auth
+	case "local":
+		m = e.Local
+	default:
+		m = e.Global
+	}
+	if m == nil {
+		return ""
+	}
+	if v, ok := m[key]; ok && v != nil {
+		return v.String()
+	}
+	return ""
+}
+
+// SetString sets a string into the chosen map. Returns error if sealed.
+func (e *Env) SetString(mapName, key, val string) error {
+	if e == nil {
+		return nil
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.sealed {
+		return fmt.Errorf("env: sealed (immutable)")
+	}
+	var m *Map
+	switch normalizeMapName(mapName) {
+	case "auth":
+		m = &e.Auth
+	case "local":
+		m = &e.Local
+	default:
+		m = &e.Global
+	}
+	if *m == nil {
+		*m = Map{}
+	}
+	(*m)[key] = Str(val)
+	return nil
+}
+
+func normalizeMapName(n string) string {
+	switch strings.ToLower(strings.TrimSpace(n)) {
+	case "auth":
+		return "auth"
+	case "local":
+		return "local"
+	default:
+		return "global"
+	}
 }
 
 // Env supports layered variables:
@@ -22,9 +147,11 @@ func New() *Env {
 // Lookup and rendering give precedence to Local over Global.
 // Note: zero values (nil maps) are handled gracefully.
 type Env struct {
+	mu     sync.RWMutex
 	Auth   Map `yaml:"-" json:"-" mapstructure:"-"`
 	Global Map `yaml:"-" json:"-" mapstructure:"-"`
 	Local  Map `yaml:"-" json:"env" mapstructure:"env"`
+	sealed bool
 }
 
 // UnmarshalYAML allows decoding a plain mapping under the `env` key directly into Local.
@@ -35,10 +162,9 @@ func (e *Env) UnmarshalYAML(value *yaml.Node) error {
 	// Attempt to decode mapping of string->string
 	var m map[string]string
 	if err := value.Decode(&m); err != nil {
-		// If it's not a simple mapping, leave Local as nil and return the error to signal misuse.
 		return err
 	}
-	e.Local = m
+	e.Local = FromStringMap(m)
 	return nil
 }
 
@@ -47,12 +173,16 @@ func (e *Env) merged() map[string]string {
 	m := map[string]string{}
 	if e != nil && e.Global != nil {
 		for k, v := range e.Global {
-			m[k] = v
+			if v != nil {
+				m[k] = v.String()
+			}
 		}
 	}
 	if e != nil && e.Local != nil {
 		for k, v := range e.Local {
-			m[k] = v
+			if v != nil {
+				m[k] = v.String()
+			}
 		}
 	}
 	return m
@@ -67,17 +197,14 @@ func (e *Env) dataForTemplate() map[string]interface{} {
 	merged := e.merged()
 	// Grouped access under .env only
 	data["env"] = merged
-	// Grouped access under .auth (may be nil)
+	// Grouped access under .auth: expose existing values (string or Stringer)
+	am := map[string]interface{}{}
 	if e != nil && e.Auth != nil {
-		// Copy to interface map to avoid accidental mutation
-		a := map[string]string{}
 		for k, v := range e.Auth {
-			a[k] = v
+			am[k] = v
 		}
-		data["auth"] = a
-	} else {
-		data["auth"] = map[string]string{}
 	}
+	data["auth"] = am
 	return data
 }
 
@@ -85,12 +212,16 @@ func (e *Env) dataForTemplate() map[string]interface{} {
 func (e *Env) Lookup(key string) (string, bool) {
 	if e != nil && e.Local != nil {
 		if v, ok := e.Local[key]; ok {
-			return v, true
+			if v != nil {
+				return v.String(), true
+			}
 		}
 	}
 	if e != nil && e.Global != nil {
 		if v, ok := e.Global[key]; ok {
-			return v, true
+			if v != nil {
+				return v.String(), true
+			}
 		}
 	}
 	return "", false

@@ -10,6 +10,8 @@ import (
 	"github.com/loykin/apimigrate"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	ienv "github.com/loykin/apimigrate/pkg/env"
 )
 
 var upCmd = &cobra.Command{
@@ -26,7 +28,8 @@ var upCmd = &cobra.Command{
 		dryFrom := v.GetInt("dry_run_from")
 		to := v.GetInt("to")
 		ctx := context.Background()
-		baseEnv := apimigrate.NewEnv()
+		be := ienv.New()
+		baseEnv := be
 		dir := ""
 		saveResp := false
 		var storeCfgFromDoc *apimigrate.StoreConfig
@@ -50,7 +53,7 @@ var upCmd = &cobra.Command{
 			if err := doWait(ctx, envFromCfg, doc.Wait, doc.Client, verbose); err != nil {
 				return err
 			}
-			if err := doc.DecodeAuth(ctx, &envFromCfg, verbose); err != nil {
+			if err := doc.DecodeAuth(ctx, envFromCfg); err != nil {
 				return err
 			}
 			// Build store options now; we'll pass them to Migrator below

@@ -7,15 +7,15 @@ import (
 	"time"
 
 	"github.com/loykin/apimigrate/internal/auth"
-	"github.com/loykin/apimigrate/internal/env"
 	"github.com/loykin/apimigrate/internal/store"
 	"github.com/loykin/apimigrate/internal/task"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 type Migrator struct {
 	Dir              string
 	Store            store.Store
-	Env              env.Env
+	Env              *env.Env
 	Auth             []auth.Auth
 	SaveResponseBody bool
 	// RenderBodyDefault controls default templating for RequestSpec bodies when not set per-request.
@@ -33,24 +33,9 @@ func (m *Migrator) initTaskAndEnv(t *task.Task, f vfile, ver int, sessionStored 
 	if err := t.LoadFromFile(f.path); err != nil {
 		return fmt.Errorf("failed to load %s: %w", f.name, err)
 	}
-	// Helper to set Global/Auth and ensure Local map exists
-	setEnv := func(e *env.Env) {
-		if m.Env.Global != nil {
-			e.Global = m.Env.Global
-		} else {
-			e.Global = map[string]string{}
-		}
-		if m.Env.Auth != nil {
-			e.Auth = m.Env.Auth
-		} else {
-			e.Auth = map[string]string{}
-		}
-		if e.Local == nil {
-			e.Local = map[string]string{}
-		}
-	}
 	if mode == "up" {
-		setEnv(&t.Up.Env)
+		// prepare up env
+		t.Up.Env = m.prepareTaskEnv(t.Up.Env)
 		// Merge stored env from previously applied versions
 		var applied []int
 		if m.DryRun {
@@ -65,7 +50,7 @@ func (m *Migrator) initTaskAndEnv(t *task.Task, f vfile, ver int, sessionStored 
 				if m2, _ := m.Store.LoadStoredEnv(av); len(m2) > 0 {
 					for k, val := range m2 {
 						if _, exists := t.Up.Env.Local[k]; !exists {
-							t.Up.Env.Local[k] = val
+							t.Up.Env.Local[k] = env.Str(val)
 						}
 					}
 				}
@@ -75,7 +60,7 @@ func (m *Migrator) initTaskAndEnv(t *task.Task, f vfile, ver int, sessionStored 
 		if len(sessionStored) > 0 {
 			for k, val := range sessionStored {
 				if _, exists := t.Up.Env.Local[k]; !exists {
-					t.Up.Env.Local[k] = val
+					t.Up.Env.Local[k] = env.Str(val)
 				}
 			}
 		}
@@ -87,18 +72,18 @@ func (m *Migrator) initTaskAndEnv(t *task.Task, f vfile, ver int, sessionStored 
 		return nil
 	}
 	// down mode
-	setEnv(&t.Down.Env)
+	t.Down.Env = m.prepareTaskEnv(t.Down.Env)
 	// Merge stored env for this version (prefer stored_env; fallback to legacy up env)
 	if loaded, _ := m.Store.LoadStoredEnv(ver); len(loaded) > 0 {
 		for k, val := range loaded {
 			if _, exists := t.Down.Env.Local[k]; !exists {
-				t.Down.Env.Local[k] = val
+				t.Down.Env.Local[k] = env.Str(val)
 			}
 		}
 	} else if loadedLegacy, _ := m.Store.LoadEnv(ver, "up"); len(loadedLegacy) > 0 {
 		for k, val := range loadedLegacy {
 			if _, exists := t.Down.Env.Local[k]; !exists {
-				t.Down.Env.Local[k] = val
+				t.Down.Env.Local[k] = env.Str(val)
 			}
 		}
 	}
@@ -110,31 +95,71 @@ func (m *Migrator) initTaskAndEnv(t *task.Task, f vfile, ver int, sessionStored 
 	return nil
 }
 
-// ensureAuth performs one-time auth acquisition when m.Auth is configured.
-// It respects existing Env.Auth[name] values to coexist with external auth setup.
+// prepareTaskEnv returns a per-task environment initialized from the Migrator base env.
+// It guarantees non-nil Env and maps for Auth/Global/Local. Global/Auth are copied from m.Env.Clone().
+func (m *Migrator) prepareTaskEnv(current *env.Env) *env.Env {
+	// Start with a concrete env instance
+	if current == nil {
+		current = env.New()
+	}
+	// Clone base (nil-safe) and copy maps
+	cl := (*env.Env)(nil)
+	if m != nil {
+		cl = m.Env.Clone()
+	} else {
+		cl = env.New()
+	}
+	if cl.Global != nil {
+		current.Global = cl.Global
+	} else if current.Global == nil {
+		current.Global = env.Map{}
+	}
+	if cl.Auth != nil {
+		current.Auth = cl.Auth
+	} else if current.Auth == nil {
+		current.Auth = env.Map{}
+	}
+	if current.Local == nil {
+		current.Local = env.Map{}
+	}
+	return current
+}
+
+// ensureAuth wires lazy acquisition for configured auth entries instead of acquiring immediately.
+// It prepares Env.AuthAcquire and pre-fills Env.Auth with empty values for referenced names so that
+// templates like {{.auth.name}} trigger acquisition on demand. Existing non-empty Env.Auth values are kept.
 func (m *Migrator) ensureAuth(ctx context.Context) error {
 	if m == nil || m.Auth == nil || len(m.Auth) == 0 {
 		return nil
 	}
+	// Ensure Env and Auth map exist and install lazy values for each configured auth
+	if m.Env == nil {
+		m.Env = env.New()
+	}
 	if m.Env.Auth == nil {
-		m.Env.Auth = map[string]string{}
+		m.Env.Auth = env.Map{}
 	}
 	for i := range m.Auth {
 		a := m.Auth[i]
 		name := a.Name
-		if name != "" {
-			if v, ok := m.Env.Auth[name]; ok && v != "" {
-				// Already set by caller; do not override
+		if name == "" {
+			continue
+		}
+		// Keep non-empty preset if already provided; otherwise set lazy
+		if v, ok := m.Env.Auth[name]; ok {
+			if v != nil && v.String() != "" {
 				continue
 			}
 		}
-		val, err := a.Acquire(ctx, &m.Env)
-		if err != nil {
-			return err
-		}
-		if name != "" {
-			m.Env.Auth[name] = val
-		}
+		// Directly call provider from the lazy resolver without intermediate procs map
+		authCfg := a
+		m.Env.Auth[name] = m.Env.MakeLazy(func(e *env.Env) (string, error) {
+			cctx := ctx
+			if cctx == nil {
+				cctx = context.Background()
+			}
+			return authCfg.Acquire(cctx, e)
+		})
 	}
 	return nil
 }

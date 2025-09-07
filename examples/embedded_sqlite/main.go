@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/loykin/apimigrate"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 // This example runs the versioned migrator programmatically using
@@ -26,7 +27,7 @@ func main() {
 	ctx := context.Background()
 
 	// Base environment (empty is fine for this example)
-	base := apimigrate.Env{Global: map[string]string{}}
+	base := env.Env{Global: env.FromStringMap(map[string]string{})}
 
 	// Open the default SQLite store under the migration directory and attach it to the migrator
 	st, err := apimigrate.OpenStoreFromOptions(migrateDir, nil)
@@ -39,7 +40,7 @@ func main() {
 	storeConfig.DriverConfig = &apimigrate.SqliteConfig{Path: filepath.Join(migrateDir, apimigrate.StoreDBFileName)}
 
 	// Apply all migrations in the directory
-	m := apimigrate.Migrator{Env: base, Dir: migrateDir, StoreConfig: &storeConfig}
+	m := apimigrate.Migrator{Env: &base, Dir: migrateDir, StoreConfig: &storeConfig}
 	vres, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		log.Fatalf("migrate up failed: %v", err)

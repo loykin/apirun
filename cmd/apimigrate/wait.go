@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loykin/apimigrate"
 	"github.com/loykin/apimigrate/internal/httpc"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 // doWait polls an HTTP endpoint until it returns the expected status or timeout elapses.
@@ -20,7 +20,7 @@ import (
 // - timeout defaults to 60s; interval defaults to 2s
 // - url is rendered with Go template using provided env
 // - TLS client options are applied via clientCfg and attached to the polling context
-func doWait(ctx context.Context, env apimigrate.Env, wc WaitConfig, clientCfg ClientConfig, verbose bool) error {
+func doWait(ctx context.Context, env *env.Env, wc WaitConfig, clientCfg ClientConfig, verbose bool) error {
 	urlRaw := strings.TrimSpace(wc.URL)
 	if urlRaw == "" {
 		return nil

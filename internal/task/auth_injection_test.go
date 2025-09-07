@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/loykin/apimigrate/internal/env"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 func TestRequest_Render_UsesAuthTokenFromEnvTemplate(t *testing.T) {
@@ -21,7 +21,7 @@ func TestRequest_Render_UsesAuthTokenFromEnvTemplate(t *testing.T) {
 	defer srv.Close()
 
 	up := Up{
-		Env:      env.Env{Auth: map[string]string{"kc": "Bearer XYZ"}},
+		Env:      &env.Env{Auth: env.FromStringMap(map[string]string{"kc": "Bearer XYZ"})},
 		Request:  RequestSpec{Headers: []Header{{Name: "Authorization", Value: "{{.auth.kc}}"}}},
 		Response: ResponseSpec{ResultCode: []string{"200"}},
 	}
@@ -37,7 +37,8 @@ func TestRequest_Render_DoesNotOverrideExistingHeader(t *testing.T) {
 		Headers: []Header{{Name: "Authorization", Value: "Bearer preset"}},
 	}
 
-	hdrs, _, _, err := req.Render(env.Env{})
+	e := env.New()
+	hdrs, _, _, err := req.Render(e)
 	if err != nil {
 		t.Fatalf("unexpected render error: %v", err)
 	}

@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	iauth "github.com/loykin/apimigrate/internal/auth"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 // helper to decode application/x-www-form-urlencoded bodies in test servers
@@ -237,9 +238,9 @@ func TestEmbeddedAuthAndMigrateUp(t *testing.T) {
 	defer srv.Close()
 
 	// Base env shared with migrations
-	base := Env{Global: map[string]string{
+	base := env.Env{Global: env.FromStringMap(map[string]string{
 		"api_base": srv.URL,
-	}}
+	})}
 
 	// Acquire token using struct-based API
 	spec := NewAuthSpecFromMap(map[string]interface{}{
@@ -251,7 +252,7 @@ func TestEmbeddedAuthAndMigrateUp(t *testing.T) {
 	storeConfig := StoreConfig{}
 	storeConfig.Driver = DriverSqlite
 	storeConfig.DriverConfig = &SqliteConfig{Path: storePath}
-	m := Migrator{Env: base, Dir: "./examples/auth_embedded/migration", StoreConfig: &storeConfig}
+	m := Migrator{Env: &base, Dir: "./examples/auth_embedded/migration", StoreConfig: &storeConfig}
 	m.Auth = []Auth{*a}
 	results, err := m.MigrateUp(ctx, 0)
 
@@ -304,8 +305,8 @@ func TestEmbeddedAuthMultiAndMigrateUp(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	base := Env{Global: map[string]string{"api_base": srv.URL}}
-	m := Migrator{Env: base, Dir: "./examples/auth_embedded_multi_registry/migration", StoreConfig: &StoreConfig{}}
+	base := env.Env{Global: env.FromStringMap(map[string]string{"api_base": srv.URL})}
+	m := Migrator{Env: &base, Dir: "./examples/auth_embedded_multi_registry/migration", StoreConfig: &StoreConfig{}}
 	m.StoreConfig.Driver = DriverSqlite
 	m.StoreConfig.DriverConfig = &SqliteConfig{Path: storePath}
 

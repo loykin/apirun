@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	"github.com/loykin/apimigrate/internal/httpc"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 // Test that struct-based Auth acquires a basic token and stores it under .auth[name]
@@ -217,11 +219,11 @@ func TestNewHTTPClient_TLSHelpers(t *testing.T) {
 }
 
 func TestRenderAnyTemplate_Basic(t *testing.T) {
-	base := Env{Global: map[string]string{"name": "world"}}
+	base := env.Env{Global: env.FromStringMap(map[string]string{"name": "world"})}
 	in := map[string]interface{}{
 		"greet": "hello {{.env.name}}",
 	}
-	out := RenderAnyTemplate(in, base).(map[string]interface{})
+	out := RenderAnyTemplate(in, &base).(map[string]interface{})
 	if s, _ := out["greet"].(string); !strings.Contains(s, "hello world") {
 		t.Fatalf("RenderAnyTemplate failed: got %q", s)
 	}
@@ -268,13 +270,13 @@ func TestMigrateDown_RollsBack(t *testing.T) {
 
 	// Use a sqlite store in temp dir
 	storePath := filepath.Join(dir, "state.db")
-	base := Env{Global: map[string]string{}}
+	base := env.Env{Global: env.Map{}}
 	ctx := context.Background()
 
 	storeConfig := StoreConfig{}
 	storeConfig.Config.Driver = DriverSqlite
 	storeConfig.Config.DriverConfig = &SqliteConfig{Path: storePath}
-	m := Migrator{Env: base, Dir: dir, StoreConfig: &storeConfig}
+	m := Migrator{Env: &base, Dir: dir, StoreConfig: &storeConfig}
 
 	// Run Up
 	resUp, err := m.MigrateUp(ctx, 0)
@@ -352,4 +354,51 @@ type dummyMethodEnvHelper struct{}
 
 func (d dummyMethodEnvHelper) Acquire(_ context.Context) (string, error) {
 	return "Bearer unit-token", nil
+}
+
+// When RenderBodyDefault=false at the wrapper level and request doesn't override,
+// the body should be sent unrendered (containing the template braces).
+func TestMigrator_RenderBodyDefault_DisablesBodyTemplating(t *testing.T) {
+	// Server that verifies request body contains template braces literally
+	sawRaw := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b := make([]byte, r.ContentLength)
+		_, _ = r.Body.Read(b)
+		_ = r.Body.Close()
+		if string(b) == "{\"val\":\"{{.env.name}}\"}" {
+			sawRaw = true
+		}
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	mig := fmt.Sprintf(`---
+up:
+  name: raw-body
+  env: { }
+  request:
+    method: POST
+    url: %s/post
+    body: '{"val":"{{.env.name}}"}'
+  response:
+    result_code: ["200"]
+`, srv.URL)
+	if err := os.WriteFile(filepath.Join(dir, "001_raw.yaml"), []byte(mig), 0o600); err != nil {
+		t.Fatalf("write mig: %v", err)
+	}
+
+	base := env.Env{Global: env.FromStringMap(map[string]string{"name": "world"})}
+	ctx := context.Background()
+	m := &Migrator{Env: &base, Dir: dir}
+	f := false
+	m.RenderBodyDefault = &f
+
+	if _, err := m.MigrateUp(ctx, 0); err != nil {
+		t.Fatalf("MigrateUp: %v", err)
+	}
+	if !sawRaw {
+		t.Fatalf("expected server to observe raw (unrendered) body")
+	}
 }

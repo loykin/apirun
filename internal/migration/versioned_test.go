@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/loykin/apimigrate/internal/env"
 	"github.com/loykin/apimigrate/internal/store"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 func openTestStore(t *testing.T, dbPath string) *store.Store {
@@ -53,15 +53,15 @@ func TestMigrateDown_DelegatesAndReverseOrder(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	base := env.Env{Global: map[string]string{}}
+	base := env.Env{Global: env.FromStringMap(map[string]string{})}
 	// Apply both
 	st := openTestStore(t, filepath.Join(dir, store.DbFileName))
 	defer func() { _ = st.Close() }()
-	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 0); err != nil {
+	if _, err := (&Migrator{Dir: dir, Env: &base, Store: *st}).MigrateUp(ctx, 0); err != nil {
 		t.Fatalf("migrate up failed: %v", err)
 	}
 	// Rollback to 0 (all downs), expect order 2 then 1
-	res, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateDown(ctx, 0)
+	res, err := (&Migrator{Dir: dir, Env: &base, Store: *st}).MigrateDown(ctx, 0)
 	if err != nil {
 		t.Fatalf("migrate down failed: %v", err)
 	}
@@ -90,10 +90,10 @@ func TestMigrateUp_RecordsStatusAndBody(t *testing.T) {
 				t.Fatalf("write mig: %v", err)
 			}
 			ctx := context.Background()
-			base := env.Env{Global: map[string]string{}}
+			base := env.Env{Global: env.FromStringMap(map[string]string{})}
 			st := openTestStore(t, filepath.Join(dir, store.DbFileName))
 			defer func() { _ = st.Close() }()
-			if _, err := (&Migrator{Dir: dir, Env: base, Store: *st, SaveResponseBody: save}).MigrateUp(ctx, 0); err != nil {
+			if _, err := (&Migrator{Dir: dir, Env: &base, Store: *st, SaveResponseBody: save}).MigrateUp(ctx, 0); err != nil {
 				t.Fatalf("migrate up: %v", err)
 			}
 
@@ -159,10 +159,10 @@ func TestMigrateUp_StoresEnv_Persisted(t *testing.T) {
 		t.Fatalf("write m1: %v", err)
 	}
 	ctx := context.Background()
-	base := env.Env{Global: map[string]string{}}
+	base := env.Env{Global: env.FromStringMap(map[string]string{})}
 	st := openTestStore(t, filepath.Join(dir, store.DbFileName))
 	defer func() { _ = st.Close() }()
-	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 0); err != nil {
+	if _, err := (&Migrator{Dir: dir, Env: &base, Store: *st}).MigrateUp(ctx, 0); err != nil {
 		t.Fatalf("migrate up: %v", err)
 	}
 	if createCalls == 0 {
@@ -214,15 +214,15 @@ func TestMigrateDown_UsesStoredEnvAndCleans(t *testing.T) {
 		t.Fatalf("write mig: %v", err)
 	}
 	ctx := context.Background()
-	base := env.Env{Global: map[string]string{}}
+	base := env.Env{Global: env.FromStringMap(map[string]string{})}
 	// Apply up
 	st := openTestStore(t, filepath.Join(dir, store.DbFileName))
 	defer func() { _ = st.Close() }()
-	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 0); err != nil {
+	if _, err := (&Migrator{Dir: dir, Env: &base, Store: *st}).MigrateUp(ctx, 0); err != nil {
 		t.Fatalf("migrate up: %v", err)
 	}
 	// Now perform down to 0, expecting DELETE with rid from store and cleanup
-	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateDown(ctx, 0); err != nil {
+	if _, err := (&Migrator{Dir: dir, Env: &base, Store: *st}).MigrateDown(ctx, 0); err != nil {
 		t.Fatalf("migrate down: %v", err)
 	}
 	if delPath != "/resource/123" {
@@ -270,12 +270,12 @@ func TestMigrateUp_TargetVersionPlanning(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	base := env.Env{Global: map[string]string{}}
+	base := env.Env{Global: env.FromStringMap(map[string]string{})}
 
 	// Apply up to version 2 only
 	st := openTestStore(t, filepath.Join(dir, store.DbFileName))
 	defer func() { _ = st.Close() }()
-	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 2); err != nil {
+	if _, err := (&Migrator{Dir: dir, Env: &base, Store: *st}).MigrateUp(ctx, 2); err != nil {
 		t.Fatalf("migrate up to 2: %v", err)
 	}
 	// Verify only v1 and v2 were called
@@ -292,7 +292,7 @@ func TestMigrateUp_TargetVersionPlanning(t *testing.T) {
 	}
 
 	// Now apply remaining (to=0 means all)
-	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(ctx, 0); err != nil {
+	if _, err := (&Migrator{Dir: dir, Env: &base, Store: *st}).MigrateUp(ctx, 0); err != nil {
 		t.Fatalf("migrate up all: %v", err)
 	}
 	if calls["/v3"] != 1 {
@@ -324,11 +324,11 @@ func TestMigrate_StoreOptions_ExplicitSQLitePath(t *testing.T) {
 
 	customDir := t.TempDir()
 	customPath := filepath.Join(customDir, "custom.db")
-	base := env.Env{Global: map[string]string{}}
+	base := env.Env{Global: env.FromStringMap(map[string]string{})}
 	// open custom store directly and inject into migrator
 	st := openTestStore(t, customPath)
 	defer func() { _ = st.Close() }()
-	if _, err := (&Migrator{Dir: dir, Env: base, Store: *st}).MigrateUp(context.Background(), 0); err != nil {
+	if _, err := (&Migrator{Dir: dir, Env: &base, Store: *st}).MigrateUp(context.Background(), 0); err != nil {
 		t.Fatalf("migrate up: %v", err)
 	}
 	if calls != 1 {

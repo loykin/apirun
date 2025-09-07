@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/loykin/apimigrate"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 // This example demonstrates how to run apimigrate programmatically (embedded)
@@ -29,7 +30,7 @@ func main() {
 	ctx := context.Background()
 	prefix := "demo"
 	// Base env for templating (empty here)
-	base := apimigrate.Env{Global: map[string]string{}}
+	base := env.Env{Global: env.FromStringMap(map[string]string{})}
 
 	// Configure store via StoreConfig: sqlite with custom table names
 	storeConfig := apimigrate.StoreConfig{}
@@ -41,7 +42,7 @@ func main() {
 	}
 	// Let path default to <migrateDir>/apimigrate.db by leaving it empty here; Migrator's default handles it
 	storeConfig.Config.DriverConfig = &apimigrate.SqliteConfig{Path: filepath.Join(migrateDir, apimigrate.StoreDBFileName)}
-	m := apimigrate.Migrator{Env: base, Dir: migrateDir, StoreConfig: &storeConfig}
+	m := apimigrate.Migrator{Env: &base, Dir: migrateDir, StoreConfig: &storeConfig}
 	vres, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		log.Fatalf("migrate up failed: %v", err)

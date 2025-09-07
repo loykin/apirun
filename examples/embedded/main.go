@@ -7,20 +7,21 @@ import (
 	"path/filepath"
 
 	"github.com/loykin/apimigrate"
+	"github.com/loykin/apimigrate/pkg/env"
 )
 
 func main() {
 	// Base environment available to all migrations
-	base := apimigrate.Env{Global: map[string]string{
+	base := env.Env{Global: env.FromStringMap(map[string]string{
 		"service": "embedded-sample",
-	}}
+	})}
 
 	ctx := context.Background()
 	// Resolve migrations directory relative to this example
 	dir := filepath.Join("examples", "embedded", "migration")
 
 	fmt.Printf("running embedded migrations in %s...\n", dir)
-	m := apimigrate.Migrator{Env: base, Dir: dir}
+	m := apimigrate.Migrator{Env: &base, Dir: dir}
 	vres, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		// Print partial results if any
