@@ -1,0 +1,3 @@
+# Ignore local sqlite DB artifacts created by running the example
+apimigrate.db
+*.db
