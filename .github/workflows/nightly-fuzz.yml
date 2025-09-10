@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          packages=$(go list ./internal/env ./internal/store ./internal/migration ./internal/task ./internal/httpc ./internal/util)
+          packages=$(go list ./pkg/env ./internal/store ./internal/migration ./internal/task ./internal/httpc ./internal/util)
           for pkg in $packages; do
             echo "Running fuzz on $pkg"
             go test $pkg -run=^$ -fuzz=Fuzz -fuzztime=10m
