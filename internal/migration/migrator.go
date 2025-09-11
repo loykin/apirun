@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/loykin/apimigrate/internal/auth"
+	acommon "github.com/loykin/apimigrate/internal/auth/common"
 	"github.com/loykin/apimigrate/internal/store"
 	"github.com/loykin/apimigrate/internal/task"
 	"github.com/loykin/apimigrate/pkg/env"
@@ -231,8 +232,9 @@ func (m *Migrator) runDownForVersion(ctx context.Context, ver int, f vfile) (*Ex
 }
 
 func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
-	// Apply TLS settings for task HTTP requests
+	// Apply TLS settings for task HTTP requests and auth providers
 	task.SetTLSConfig(m.TLSConfig)
+	acommon.SetTLSConfig(m.TLSConfig)
 	// Perform automatic auth once if configured
 	if err := m.ensureAuth(ctx); err != nil {
 		return nil, err
@@ -279,8 +281,9 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 }
 
 func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
-	// Apply TLS settings for task HTTP requests
+	// Apply TLS settings for task HTTP requests and auth providers
 	task.SetTLSConfig(m.TLSConfig)
+	acommon.SetTLSConfig(m.TLSConfig)
 	// Perform automatic auth once if configured
 	if err := m.ensureAuth(ctx); err != nil {
 		return nil, err

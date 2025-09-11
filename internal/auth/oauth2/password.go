@@ -3,8 +3,10 @@ package oauth2
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 
+	acommon "github.com/loykin/apimigrate/internal/auth/common"
 	"golang.org/x/oauth2"
 )
 
@@ -53,6 +55,15 @@ func (m passwordMethod) Acquire(ctx context.Context) (string, error) {
 	}
 	if clientID == "" || username == "" || password == "" {
 		return "", errors.New("oauth2: client_id, username and password are required for password grant")
+	}
+	// If a TLS config is provided, inject a custom HTTP client into the context
+	if cfg := acommon.GetTLSConfig(); cfg != nil {
+		tr := &http.Transport{TLSClientConfig: cfg}
+		hc := &http.Client{Transport: tr}
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		ctx = context.WithValue(ctx, oauth2.HTTPClient, hc)
 	}
 	ocfg := &oauth2.Config{
 		ClientID:     clientID,

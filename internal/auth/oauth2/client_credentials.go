@@ -3,8 +3,10 @@ package oauth2
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 
+	acommon "github.com/loykin/apimigrate/internal/auth/common"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 )
@@ -46,6 +48,15 @@ func (m clientCredentialsMethod) Acquire(ctx context.Context) (string, error) {
 	}
 	if clientID == "" || clientSecret == "" {
 		return "", errors.New("oauth2: client_id and client_secret are required for client_credentials grant")
+	}
+	// If a TLS config is provided, inject a custom HTTP client into the context
+	if cfg := acommon.GetTLSConfig(); cfg != nil {
+		tr := &http.Transport{TLSClientConfig: cfg}
+		hc := &http.Client{Transport: tr}
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		ctx = context.WithValue(ctx, oauth2.HTTPClient, hc)
 	}
 	cc := &clientcredentials.Config{
 		ClientID:     clientID,

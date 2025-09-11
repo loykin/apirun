@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	acommon "github.com/loykin/apimigrate/internal/auth/common"
 	"github.com/loykin/apimigrate/internal/httpc"
 )
 
@@ -32,7 +33,7 @@ func AcquirePocketBase(ctx context.Context, pc Config) (string, error) {
 	}
 	loginURL := strings.TrimRight(pc.BaseURL, "/") + "/api/admins/auth-with-password"
 	body := map[string]string{"identity": pc.Email, "password": pc.Password}
-	var h httpc.Httpc
+	h := httpc.Httpc{TlsConfig: acommon.GetTLSConfig()}
 	client := h.New()
 	resp, err := client.R().SetContext(ctx).SetHeader("Content-Type", "application/json").SetBody(body).Post(loginURL)
 	if err != nil {
