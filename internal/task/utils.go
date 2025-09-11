@@ -3,6 +3,7 @@ package task
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -96,8 +97,16 @@ func renderBody(e *env.Env, b string) (string, error) {
 	return b, nil
 }
 
+var tlsConfig *tls.Config
+
+// SetTLSConfig configures the TLS settings used by HTTP requests within tasks.
+// Passing nil resets to default client behavior.
+func SetTLSConfig(cfg *tls.Config) {
+	tlsConfig = cfg
+}
+
 func buildRequest(ctx context.Context, headers map[string]string, queries map[string]string, body string) *resty.Request {
-	var h httpc.Httpc
+	h := httpc.Httpc{TlsConfig: tlsConfig}
 	client := h.New()
 	req := client.R().SetContext(ctx).SetHeaders(headers).SetQueryParams(queries)
 	if strings.TrimSpace(body) != "" {

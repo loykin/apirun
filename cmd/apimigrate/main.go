@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"os"
@@ -29,6 +30,8 @@ var rootCmd = &cobra.Command{
 		baseEnv := be
 		// store options are handled by default sqlite behavior in Migrator when not explicitly set
 		saveResp := false
+		// optional TLS settings from config
+		var clientTLS *tls.Config
 
 		if strings.TrimSpace(configPath) != "" {
 			if verbose {
@@ -57,7 +60,34 @@ var rootCmd = &cobra.Command{
 			// Always use env from config (may carry Auth even if Global is empty)
 			baseEnv = envFromCfg
 			saveResp = saveBody
-			// TLS settings are now configured via httpc.Httpc struct at client creation time.
+			// Build TLS config for client based on doc.Client
+			minV := uint16(0)
+			maxV := uint16(0)
+			switch strings.TrimSpace(strings.ToLower(doc.Client.MinTLSVersion)) {
+			case "1.0", "10", "tls1.0", "tls10":
+				minV = tls.VersionTLS10
+			case "1.1", "11", "tls1.1", "tls11":
+				minV = tls.VersionTLS11
+			case "1.2", "12", "tls1.2", "tls12":
+				minV = tls.VersionTLS12
+			case "1.3", "13", "tls1.3", "tls13":
+				minV = tls.VersionTLS13
+			}
+			switch strings.TrimSpace(strings.ToLower(doc.Client.MaxTLSVersion)) {
+			case "1.0", "10", "tls1.0", "tls10":
+				maxV = tls.VersionTLS10
+			case "1.1", "11", "tls1.1", "tls11":
+				maxV = tls.VersionTLS11
+			case "1.2", "12", "tls1.2", "tls12":
+				maxV = tls.VersionTLS12
+			case "1.3", "13", "tls1.3", "tls13":
+				maxV = tls.VersionTLS13
+			}
+			cfg := &tls.Config{MinVersion: minV, MaxVersion: maxV}
+			if doc.Client.Insecure {
+				cfg.InsecureSkipVerify = true
+			}
+			clientTLS = cfg
 		}
 
 		// If dir wasn't set by config, fall back to the conventional example path
@@ -68,7 +98,7 @@ var rootCmd = &cobra.Command{
 			log.Printf("running migrations in %s (versioned, will be recorded)", dir)
 		}
 		// Use versioned executor so applied versions are persisted to the store
-		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp}
+		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp, TLSConfig: clientTLS}
 		// Use default store behavior (sqlite under dir) unless programmatic StoreConfig is provided elsewhere
 		vres, err := m.MigrateUp(ctx, 0)
 		if err != nil {
