@@ -2,6 +2,7 @@ package migration
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"sort"
 	"time"
@@ -26,6 +27,8 @@ type Migrator struct {
 	// DryRunFrom represents the snapshot version already applied when DryRun is true.
 	// 0 means from the beginning; N means treat versions <= N as applied.
 	DryRunFrom int
+	// TLSConfig applies to all HTTP requests executed by tasks during migrations.
+	TLSConfig *tls.Config
 }
 
 // initTaskAndEnv loads task from file and initializes env for up/down, merges stored/session env as needed.
@@ -228,6 +231,8 @@ func (m *Migrator) runDownForVersion(ctx context.Context, ver int, f vfile) (*Ex
 }
 
 func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
+	// Apply TLS settings for task HTTP requests
+	task.SetTLSConfig(m.TLSConfig)
 	// Perform automatic auth once if configured
 	if err := m.ensureAuth(ctx); err != nil {
 		return nil, err
@@ -274,6 +279,8 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 }
 
 func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
+	// Apply TLS settings for task HTTP requests
+	task.SetTLSConfig(m.TLSConfig)
 	// Perform automatic auth once if configured
 	if err := m.ensureAuth(ctx); err != nil {
 		return nil, err

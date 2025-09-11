@@ -2,6 +2,7 @@ package apimigrate
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -55,6 +56,8 @@ type Migrator struct {
 	DryRun bool
 	// DryRunFrom indicates snapshot version already applied when DryRun is true (0 = from beginning).
 	DryRunFrom int
+	// TLSConfig applies to all HTTP requests executed during migrations
+	TLSConfig *tls.Config
 }
 
 // MigrateUp applies pending migrations up to targetVersion (0 = all) using this Migrator's Store and Env.
@@ -94,7 +97,7 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 		}
 	}
 
-	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody, RenderBodyDefault: m.RenderBodyDefault, DryRun: m.DryRun, DryRunFrom: m.DryRunFrom}
+	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody, RenderBodyDefault: m.RenderBodyDefault, DryRun: m.DryRun, DryRunFrom: m.DryRunFrom, TLSConfig: m.TLSConfig}
 	return im.MigrateUp(ctx, targetVersion)
 }
 
@@ -132,7 +135,7 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 			return nil, err
 		}
 	}
-	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody, RenderBodyDefault: m.RenderBodyDefault, DryRun: m.DryRun, DryRunFrom: m.DryRunFrom}
+	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody, RenderBodyDefault: m.RenderBodyDefault, DryRun: m.DryRun, DryRunFrom: m.DryRunFrom, TLSConfig: m.TLSConfig}
 	return im.MigrateDown(ctx, targetVersion)
 }
 

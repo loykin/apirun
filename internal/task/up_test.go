@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -58,7 +59,7 @@ func TestUp_Execute_OverrideMethodURL_ExtractEnv(t *testing.T) {
 
 func TestUp_TLS_Insecure_AllowsSelfSigned(t *testing.T) {
 	// HTTPS server with self-signed cert
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
@@ -72,8 +73,15 @@ func TestUp_TLS_Insecure_AllowsSelfSigned(t *testing.T) {
 		},
 		Response: ResponseSpec{ResultCode: []string{"200"}},
 	}
-	if _, err := u.Execute(context.Background(), http.MethodGet, srv.URL); err != nil {
-		t.Fatalf("unexpected error with HTTP server: %v", err)
+	// First, with default TLS (no insecure), request to self-signed server should fail
+	SetTLSConfig(nil)
+	if _, err := u.Execute(context.Background(), http.MethodGet, srv.URL); err == nil {
+		t.Fatalf("expected TLS verification error without insecure, got nil")
+	}
+	// Now enable insecure and expect success
+	SetTLSConfig(&tls.Config{InsecureSkipVerify: true})
+	if res, err := u.Execute(context.Background(), http.MethodGet, srv.URL); err != nil || res == nil || res.StatusCode != 200 {
+		t.Fatalf("expected success with insecure TLS, got res=%v err=%v", res, err)
 	}
 }
 

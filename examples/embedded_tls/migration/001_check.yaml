@@ -1,0 +1,16 @@
+up:
+  name: check-https
+  env: { }
+  request:
+    method: GET
+    # The URL is rendered with a Go template. Uses .env.URL set in main.go
+    url: "{{ .env.URL }}"
+  response:
+    result_code: ["200"]
+
+down:
+  name: noop
+  env: { }
+  method: DELETE
+  # In a real service example, put the actual cleanup endpoint. Here we use a non-existent path.
+  url: "{{ .env.URL }}/_not_exists"
