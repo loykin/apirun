@@ -158,6 +158,7 @@ func init() {
 	rootCmd.AddCommand(upCmd)
 	rootCmd.AddCommand(downCmd)
 	rootCmd.AddCommand(statusCmd)
+	rootCmd.AddCommand(createCmd)
 }
 
 func main() {
