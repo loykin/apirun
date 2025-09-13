@@ -18,18 +18,25 @@ repeatable way.
 
 > Recent changes (2025-09)
 > - New struct-based authentication API: type Auth { Type, Name, Methods } with method Acquire(ctx, env *env.Env).
-> - Migrator now supports multiple auth entries: Migrator.Auth []auth.Auth. It auto-acquires tokens once at the start of MigrateUp/Down and injects them into templates under {{.auth.<name>}}.
-> - Legacy helpers removed from public API: AcquireAuthAndSetEnv, AcquireAuthByProviderSpecWithName, and AuthSpec. Use the Auth struct and MethodConfig instead (e.g., BasicAuthConfig, OAuth2* configs, or NewAuthSpecFromMap).
+> - Migrator now supports multiple auth entries: Migrator.Auth []auth.Auth. It auto-acquires tokens once at the start of
+    MigrateUp/Down and injects them into templates under {{.auth.<name>}}.
+> - Legacy helpers removed from public API: AcquireAuthAndSetEnv, AcquireAuthByProviderSpecWithName, and AuthSpec. Use
+    the Auth struct and MethodConfig instead (e.g., BasicAuthConfig, OAuth2* configs, or NewAuthSpecFromMap).
 > - Template variables are grouped: use {{.env.key}} for your variables and {{.auth.name}} for acquired tokens.
-> - YAML headers must be a list of name/value objects (not a map). Example: headers: [ { name: Authorization, value: "Basic {{.auth.basic}}" } ].
+> - YAML headers must be a list of name/value objects (not a map). Example:
+    headers: [ { name: Authorization, value: "Basic {{.auth.basic}}" } ].
 > - Added examples demonstrating both embedded multi-auth and decoupled flows:
->   - examples/auth_embedded: single embedded auth.
+    >
+- examples/auth_embedded: single embedded auth.
 >   - examples/auth_embedded_multi_registry: multiple embedded auths.
 >   - examples/auth_embedded_multi_registry_type2: decoupled (acquire first, then migrate).
-> - Dry-run execution mode for planning and validation without persisting state. Use CLI flags `--dry-run` and `--dry-run-from` or set `Migrator.DryRun=true` and `Migrator.DryRunFrom` in library usage. Dry-run supports two modes: from the beginning (0) and from a snapshot version (N).
 > - Dry-run execution mode for planning and validation without persisting state. Use CLI flags `--dry-run` and
->   `--dry-run-from` or set `Migrator.DryRun=true` and `Migrator.DryRunFrom` in library usage. Dry-run supports two modes:
->   from the beginning (0) and from a snapshot version (N).
+    `--dry-run-from` or set `Migrator.DryRun=true` and `Migrator.DryRunFrom` in library usage. Dry-run supports two
+    modes: from the beginning (0) and from a snapshot version (N).
+> - Dry-run execution mode for planning and validation without persisting state. Use CLI flags `--dry-run` and
+    > `--dry-run-from` or set `Migrator.DryRun=true` and `Migrator.DryRunFrom` in library usage. Dry-run supports two
+    modes:
+    > from the beginning (0) and from a snapshot version (N).
 
 > Recent changes (2025-09)
 > - New struct-based authentication API: type Auth { Type, Name, Methods } with method Acquire(ctx, env *env.Env).
@@ -41,7 +48,8 @@ repeatable way.
 > - YAML headers must be a list of name/value objects (not a map). Example:
     headers: [ { name: Authorization, value: "Basic {{.auth.basic}}" } ].
 > - Added examples demonstrating both embedded multi-auth and decoupled flows:
->   - examples/auth_embedded: single embedded auth.
+    >
+- examples/auth_embedded: single embedded auth.
 >   - examples/auth_embedded_multi_registry: multiple embedded auths.
 >   - examples/auth_embedded_multi_registry_type2: decoupled (acquire first, then migrate).
 >   - examples/auth_embedded_lazy: multiple embedded auths acquired lazily on first use per auth.
@@ -214,6 +222,7 @@ Notes:
 ### Body templating default
 
 By default, request bodies are rendered as Go templates when they contain {{...}}. You can disable this by:
+
 - Setting request.render_body: false in a specific YAML request; or
 - Setting the programmatic Migrator.RenderBodyDefault = false to make unannotated requests send the raw body as-is.
 
@@ -490,18 +499,80 @@ go run ./examples/auth_registry
 
 Each example directory contains its own README or config and migration files.
 
-## Run history and failure flag
+## Run history and status (CLI and library)
 
 - Each Up/Down execution is recorded in the migration_runs table with:
-    - version, direction (up|down), status_code, ran_at, and optionally the response body (when configured).
+    - version, direction (up|down), status_code, ran_at (RFC3339), and optionally the response body (when configured).
     - env_json: JSON of variables extracted by env_from.
     - failed: boolean indicating whether the operation returned an error (e.g., disallowed status or env_missing=fail).
-- You can query this table directly (SQLite or Postgres) for auditing or troubleshooting. The CLI currently provides a
-  high-level status command:
+- You can query this table directly (SQLite or Postgres) for auditing or troubleshooting.
+- New: A high-level status command and helper allow you to see the current version, the list of applied versions, and
+  optionally the execution history.
+
+### CLI: status
+
+- Show current and applied versions only:
 
 ```bash
 apimigrate status --config <path/to/config.yaml>
 ```
+
+Example output (no history):
+
+```
+current: 1
+applied: [1]
+```
+
+- Include run history as well:
+
+```bash
+apimigrate status --config <path/to/config.yaml> --history
+```
+
+Example output (with history):
+
+```
+current: 2
+applied: [1 2]
+history:
+#2 v=2 dir=up code=200 failed=false at=2025-09-13T12:01:00Z
+#1 v=1 dir=up code=200 failed=false at=2025-09-13T12:00:00Z
+```
+
+Notes:
+
+- By default, when you pass --history the CLI shows up to 10 latest entries in newest-first order.
+- Use --history-all to print all entries (still newest-first), or --history-limit N to show a specific number.
+- The --config file can specify migrate_dir and store settings; when omitted, the CLI defaults to ./config/migration and
+  a local SQLite store at ./config/migration/apimigrate.db.
+- The history lines include the run id, version, direction, HTTP status code, whether it failed, and the timestamp.
+
+### Library: pkg/status helper
+
+You can obtain the same information from your Go code using the pkg/status helper:
+
+```go
+info, err := status.FromOptions("./config/migration", nil) // nil => default SQLite at <dir>/apimigrate.db
+if err != nil { /* handle */ }
+fmt.Print(info.FormatHuman(false)) // or true to include history
+```
+
+- FormatHuman(false) prints just current/applied; FormatHuman(true) appends a formatted history section.
+- If you already have an opened store via apimigrate.OpenStoreFromOptions, use status.FromStore(store).
+
+### Example: examples/status_embedded
+
+- A runnable example that first applies pending migrations and then prints the status, so the history section shows real
+  entries.
+- Run it from the repo root:
+
+```bash
+go run ./examples/status_embedded            # no history
+go run ./examples/status_embedded --history  # with history
+```
+
+The example defaults to the directory examples/status_embedded/migration and uses a local SQLite database file there.
 
 ## Development
 

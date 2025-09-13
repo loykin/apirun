@@ -237,6 +237,43 @@ func (p *PostgresStore) DeleteStoredEnv(th TableNames, version int) error {
 	return err
 }
 
+func (p *PostgresStore) ListRuns(th TableNames) ([]Run, error) {
+	// #nosec G201 -- only the sanitized table name is interpolated; values are scanned safely
+	q := fmt.Sprintf("SELECT id, version, direction, status_code, body, env_json, failed, ran_at FROM %s ORDER BY id ASC", th.MigrationRuns)
+	rows, err := p.db.Query(q)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []Run
+	for rows.Next() {
+		var (
+			id      int
+			ver     int
+			dir     string
+			status  int
+			body    sql.NullString
+			envJSON sql.NullString
+			failed  bool
+			ranAt   time.Time
+		)
+		if err := rows.Scan(&id, &ver, &dir, &status, &body, &envJSON, &failed, &ranAt); err != nil {
+			return nil, err
+		}
+		var bptr *string
+		if body.Valid {
+			bv := body.String
+			bptr = &bv
+		}
+		m := map[string]string{}
+		if envJSON.Valid && envJSON.String != "" {
+			_ = json.Unmarshal([]byte(envJSON.String), &m)
+		}
+		out = append(out, Run{ID: id, Version: ver, Direction: dir, StatusCode: status, Body: bptr, Env: m, Failed: failed, RanAt: ranAt.UTC().Format(time.RFC3339Nano)})
+	}
+	return out, rows.Err()
+}
+
 func (p *PostgresStore) Connect() (*sql.DB, error) {
 	db, err := sql.Open("pgx", p.DSN)
 	if err != nil {

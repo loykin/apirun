@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"testing"
 	"time"
 
@@ -163,6 +164,80 @@ func TestPostgresStore_BasicCRUD(t *testing.T) {
 		t.Fatalf("IsApplied(3) after remove => %v,%v; want false,nil", ap, err)
 	}
 
+	// Record multiple runs and verify ListRuns mapping (including env_json and ran_at)
+	body := "ok"
+	if err := st.RecordRun(1, "up", 200, &body, map[string]string{"a": "1"}, false); err != nil {
+		t.Fatalf("RecordRun #1: %v", err)
+	}
+	if err := st.RecordRun(2, "up", 500, nil, nil, true); err != nil {
+		t.Fatalf("RecordRun #2: %v", err)
+	}
+
+	runs, err := st.ListRuns()
+	if err != nil {
+		t.Fatalf("ListRuns: %v", err)
+	}
+	if len(runs) < 2 {
+		t.Fatalf("expected at least 2 runs, got %d -> %#v", len(runs), runs)
+	}
+	// Validate last two inserted entries are present in order (by id ASC overall)
+	r1 := runs[len(runs)-2]
+	r2 := runs[len(runs)-1]
+	if r1.Version != 1 || r1.Direction != "up" || r1.StatusCode != 200 || r1.Failed {
+		t.Fatalf("unexpected r1: %#v", r1)
+	}
+	if r1.Body == nil || *r1.Body != "ok" {
+		t.Fatalf("r1 body mismatch: %#v", r1.Body)
+	}
+	if r1.Env["a"] != "1" {
+		t.Fatalf("r1 env mismatch: %#v", r1.Env)
+	}
+	if r2.Version != 2 || r2.Direction != "up" || r2.StatusCode != 500 || !r2.Failed {
+		t.Fatalf("unexpected r2: %#v", r2)
+	}
+	if r2.Body != nil {
+		t.Fatalf("r2 body should be nil, got %#v", r2.Body)
+	}
+	// ran_at should be RFC3339-ish string
+	re := regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T`)
+	if !re.MatchString(r1.RanAt) || !re.MatchString(r2.RanAt) {
+		t.Fatalf("ran_at not RFC3339-like: r1=%q r2=%q", r1.RanAt, r2.RanAt)
+	}
+	// LoadEnv should return the env saved for version 1 up
+	m2, err := st.LoadEnv(1, "up")
+	if err != nil {
+		t.Fatalf("LoadEnv: %v", err)
+	}
+	if m2["a"] != "1" {
+		t.Fatalf("LoadEnv mismatch: %#v", m2)
+	}
+
 	// Small sleep to ensure async operations flushed (timestamps etc.)
 	time.Sleep(100 * time.Millisecond)
+}
+
+func TestPostgresConfig_ToMapAndLoadAndValidate(t *testing.T) {
+	// ToMap should build DSN from components when DSN empty
+	pc := &PostgresConfig{Host: "h", Port: 0, User: "u", Password: "p", DBName: "d", SSLMode: ""}
+	m := pc.ToMap()
+	dsn, _ := m["dsn"].(string)
+	if dsn != "postgres://u:p@h:5432/d?sslmode=disable" {
+		t.Fatalf("unexpected built DSN: %q", dsn)
+	}
+	// Load should set DSN on the store when provided
+	ps := &PostgresStore{}
+	if err := ps.Load(map[string]interface{}{"dsn": "postgres://u:p@h:5432/d?sslmode=disable"}); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if ps.DSN == "" {
+		t.Fatalf("expected DSN to be set after Load")
+	}
+	// Validate currently returns nil
+	if err := ps.Validate(); err != nil {
+		t.Fatalf("Validate returned error: %v", err)
+	}
+	// NewPostgresConnector returns a Connector
+	if NewPostgresConnector() == nil {
+		t.Fatalf("NewPostgresConnector returned nil")
+	}
 }

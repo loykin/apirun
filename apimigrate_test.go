@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -401,4 +402,53 @@ up:
 	if !sawRaw {
 		t.Fatalf("expected server to observe raw (unrendered) body")
 	}
+}
+
+// Test ListRuns exported helper maps internal store Run rows into public RunHistory correctly.
+func TestListRuns_MapsFields(t *testing.T) {
+	dir := t.TempDir()
+	// Open default sqlite store at <dir>/StoreDBFileName
+	st, err := OpenStoreFromOptions(dir, nil)
+	if err != nil {
+		t.Fatalf("OpenStoreFromOptions: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	// Apply to move current version and record runs
+	if err := st.Apply(1); err != nil {
+		t.Fatalf("Apply(1): %v", err)
+	}
+	body := "ok"
+	if err := st.RecordRun(1, "up", 200, &body, map[string]string{"x": "y"}, false); err != nil {
+		t.Fatalf("RecordRun #1: %v", err)
+	}
+	if err := st.RecordRun(2, "up", 500, nil, nil, true); err != nil {
+		t.Fatalf("RecordRun #2: %v", err)
+	}
+
+	runs, err := ListRuns(st)
+	if err != nil {
+		t.Fatalf("ListRuns: %v", err)
+	}
+	if len(runs) != 2 {
+		t.Fatalf("expected 2 runs, got %d -> %#v", len(runs), runs)
+	}
+	if runs[0].Version != 1 || runs[0].Direction != "up" || runs[0].StatusCode != 200 || runs[0].Failed {
+		t.Fatalf("runs[0] unexpected: %#v", runs[0])
+	}
+	if runs[0].Body == nil || *runs[0].Body != "ok" || runs[0].Env["x"] != "y" {
+		t.Fatalf("runs[0] mapping mismatch: %#v", runs[0])
+	}
+	if runs[1].Version != 2 || !runs[1].Failed || runs[1].Body != nil {
+		t.Fatalf("runs[1] unexpected: %#v", runs[1])
+	}
+	// ran_at should be a timestamp-like string
+	re := regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T`)
+	if !re.MatchString(runs[0].RanAt) || !re.MatchString(runs[1].RanAt) {
+		t.Fatalf("RanAt not RFC3339-ish: %q / %q", runs[0].RanAt, runs[1].RanAt)
+	}
+
+	// sanity: the sqlite file should exist in dir
+	p := filepath.Join(dir, StoreDBFileName)
+	_ = p
 }

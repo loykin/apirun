@@ -98,6 +98,8 @@ jobs:
           go run ./examples/embedded_custom_table
           echo "Running examples/embedded_tls"
           go run ./examples/embedded_tls
+          echo "Running examples/status_embedded"
+          go run ./examples/status_embedded
         env:
           CI: true
 
