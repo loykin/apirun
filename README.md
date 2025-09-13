@@ -110,6 +110,10 @@ the box.
 Other useful commands:
 
 ```bash
+# Create a new migration file with a timestamped prefix under migrate_dir
+# Example output: ./config/migration/20250914004300_create_user.yaml
+go run ./cmd/apimigrate create "create user"
+
 # Apply up to a specific version (0 = all)
 go run ./cmd/apimigrate up --to 0
 

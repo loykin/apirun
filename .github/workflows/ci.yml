@@ -100,6 +100,8 @@ jobs:
           go run ./examples/embedded_tls
           echo "Running examples/status_embedded"
           go run ./examples/status_embedded
+          echo "Running examples/embedded_create"
+          go run ./examples/embedded_create
         env:
           CI: true
 
