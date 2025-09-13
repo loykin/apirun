@@ -187,3 +187,8 @@ func (s *Store) LoadStoredEnv(version int) (map[string]string, error) {
 func (s *Store) DeleteStoredEnv(version int) error {
 	return s.connector.DeleteStoredEnv(s.safeTableNames(), version)
 }
+
+// ListRuns returns the migration_runs history records.
+func (s *Store) ListRuns() ([]Run, error) {
+	return s.connector.ListRuns(s.safeTableNames())
+}

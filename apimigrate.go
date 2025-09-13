@@ -150,6 +150,40 @@ type ExecWithVersion = imig.ExecWithVersion
 // Store is an alias to the internal store type.
 type Store = store.Store
 
+// RunHistory is a public representation of a migration run entry.
+type RunHistory struct {
+	ID         int
+	Version    int
+	Direction  string
+	StatusCode int
+	Failed     bool
+	RanAt      string
+	Body       *string
+	Env        map[string]string
+}
+
+// ListRuns returns the migration run history for the provided store.
+func ListRuns(st *Store) ([]RunHistory, error) {
+	r, err := st.ListRuns()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]RunHistory, 0, len(r))
+	for _, it := range r {
+		out = append(out, RunHistory{
+			ID:         it.ID,
+			Version:    it.Version,
+			Direction:  it.Direction,
+			StatusCode: it.StatusCode,
+			Failed:     it.Failed,
+			RanAt:      it.RanAt,
+			Body:       it.Body,
+			Env:        it.Env,
+		})
+	}
+	return out, nil
+}
+
 // StoreDBFileName is the default sqlite filename used for migration history.
 const StoreDBFileName = store.DbFileName
 

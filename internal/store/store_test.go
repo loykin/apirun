@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 )
 
@@ -322,5 +323,58 @@ func TestSafeTableNames_MixedValidity(t *testing.T) {
 	def := defaultTableNames()
 	if tn.MigrationRuns != def.MigrationRuns || tn.StoredEnv != def.StoredEnv {
 		t.Fatalf("expected fallbacks for invalid/empty, got %+v", tn)
+	}
+}
+
+// Test ListRuns returns rows recorded via RecordRun, with proper ordering and fields.
+func TestListRuns_Sqlite(t *testing.T) {
+	st := openTempStore(t)
+	// Record three runs with varying data
+	body1 := "ok"
+	if err := st.RecordRun(1, "up", 200, &body1, map[string]string{"a": "1"}, false); err != nil {
+		t.Fatalf("RecordRun #1: %v", err)
+	}
+	// second without body/env, but failed
+	if err := st.RecordRun(2, "up", 500, nil, nil, true); err != nil {
+		t.Fatalf("RecordRun #2: %v", err)
+	}
+	body3 := "down-body"
+	if err := st.RecordRun(1, "down", 204, &body3, map[string]string{"b": "2"}, false); err != nil {
+		t.Fatalf("RecordRun #3: %v", err)
+	}
+
+	runs, err := st.ListRuns()
+	if err != nil {
+		t.Fatalf("ListRuns: %v", err)
+	}
+	if len(runs) != 3 {
+		t.Fatalf("expected 3 runs, got %d -> %#v", len(runs), runs)
+	}
+	// Check ordering by ID ASC and basic field correctness
+	if runs[0].Version != 1 || runs[0].Direction != "up" || runs[0].StatusCode != 200 || runs[0].Failed {
+		t.Fatalf("run[0] unexpected: %#v", runs[0])
+	}
+	if runs[0].Body == nil || *runs[0].Body != "ok" {
+		t.Fatalf("run[0] body mismatch: %+v", runs[0].Body)
+	}
+	if runs[1].Version != 2 || runs[1].Direction != "up" || runs[1].StatusCode != 500 || !runs[1].Failed {
+		t.Fatalf("run[1] unexpected: %#v", runs[1])
+	}
+	if runs[1].Body != nil {
+		t.Fatalf("run[1] should have nil body, got %#v", runs[1].Body)
+	}
+	if runs[2].Version != 1 || runs[2].Direction != "down" || runs[2].StatusCode != 204 || runs[2].Failed {
+		t.Fatalf("run[2] unexpected: %#v", runs[2])
+	}
+	if runs[2].Body == nil || *runs[2].Body != "down-body" {
+		t.Fatalf("run[2] body mismatch: %+v", runs[2].Body)
+	}
+
+	// ran_at should be non-empty RFC3339-ish string (sqlite uses RFC3339Nano)
+	re := regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}`)
+	for i, r := range runs {
+		if r.RanAt == "" || !re.MatchString(r.RanAt) {
+			t.Fatalf("run[%d] invalid ran_at: %q", i, r.RanAt)
+		}
 	}
 }

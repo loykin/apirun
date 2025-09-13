@@ -7,13 +7,20 @@ import (
 	"strings"
 
 	"github.com/loykin/apimigrate"
+	"github.com/loykin/apimigrate/pkg/status"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
+var (
+	statusHistory      bool
+	statusHistoryAll   bool
+	statusHistoryLimit int
+)
+
 var statusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Show current migration version and applied versions",
+	Short: "Show current migration version, applied versions, and optionally history",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		v := viper.GetViper()
 		configPath := v.GetString("config")
@@ -50,15 +57,22 @@ var statusCmd = &cobra.Command{
 			return err
 		}
 		defer func() { _ = st.Close() }()
-		cur, err := st.CurrentVersion()
+
+		info, err := status.FromStore(st)
 		if err != nil {
 			return err
 		}
-		applied, err := st.ListApplied()
-		if err != nil {
-			return err
+		if statusHistory {
+			fmt.Print(info.FormatHumanWithLimit(true, statusHistoryLimit, statusHistoryAll))
+		} else {
+			fmt.Print(info.FormatHuman(false))
 		}
-		fmt.Printf("current: %d\napplied: %v\n", cur, applied)
 		return nil
 	},
+}
+
+func init() {
+	statusCmd.Flags().BoolVar(&statusHistory, "history", false, "show migration run history as well")
+	statusCmd.Flags().BoolVar(&statusHistoryAll, "history-all", false, "when used with --history, show all history entries (newest first)")
+	statusCmd.Flags().IntVar(&statusHistoryLimit, "history-limit", 10, "when used with --history, show up to N latest entries (default 10)")
 }

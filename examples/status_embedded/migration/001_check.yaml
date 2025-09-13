@@ -1,0 +1,14 @@
+up:
+  name: httpbin-200
+  env: {}
+  request:
+    method: GET
+    url: https://httpbin.org/status/200
+  response:
+    result_code: ["200"]
+
+down:
+  name: noop
+  env: {}
+  method: GET
+  url: https://httpbin.org/status/200

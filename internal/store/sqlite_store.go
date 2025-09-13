@@ -213,6 +213,43 @@ func (s *SqliteStore) DeleteStoredEnv(th TableNames, version int) error {
 	return err
 }
 
+func (s *SqliteStore) ListRuns(th TableNames) ([]Run, error) {
+	// #nosec G201 -- only validated table name is interpolated; values scanned are plain
+	q := fmt.Sprintf("SELECT id, version, direction, status_code, body, env_json, failed, ran_at FROM %s ORDER BY id ASC", th.MigrationRuns)
+	rows, err := s.db.Query(q)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []Run
+	for rows.Next() {
+		var (
+			id        int
+			ver       int
+			dir       string
+			status    int
+			body      sql.NullString
+			envJSON   sql.NullString
+			failedInt int
+			ranAt     string
+		)
+		if err := rows.Scan(&id, &ver, &dir, &status, &body, &envJSON, &failedInt, &ranAt); err != nil {
+			return nil, err
+		}
+		var bptr *string
+		if body.Valid {
+			bv := body.String
+			bptr = &bv
+		}
+		m := map[string]string{}
+		if envJSON.Valid && envJSON.String != "" {
+			_ = json.Unmarshal([]byte(envJSON.String), &m)
+		}
+		out = append(out, Run{ID: id, Version: ver, Direction: dir, StatusCode: status, Body: bptr, Env: m, Failed: failedInt != 0, RanAt: ranAt})
+	}
+	return out, rows.Err()
+}
+
 func (s *SqliteStore) Connect() (*sql.DB, error) {
 	if s.DSN == "" {
 		// fallback to in-memory if not set explicitly (for safety)
