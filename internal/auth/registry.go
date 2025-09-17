@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -52,12 +53,16 @@ func AcquireAndStoreWithName(ctx context.Context, typ string, spec map[string]in
 	}
 	m, err := f(spec)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create auth method for provider %q: %w", typ, err)
 	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return m.Acquire(ctx)
+	token, err := m.Acquire(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to acquire auth token from provider %q: %w", typ, err)
+	}
+	return token, nil
 }
 
 // Built-in provider registrations
@@ -66,11 +71,11 @@ func init() {
 	Register(common.AuthTypeOAuth2, func(spec map[string]interface{}) (Method, error) {
 		var c oauth2.Auth2Config
 		if err := mapstructure.Decode(spec, &c); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to decode OAuth2 configuration: %w", err)
 		}
 		m, err := c.GetGrantMethod()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get OAuth2 grant method: %w", err)
 		}
 		return oauth2.Adapter{M: m}, nil
 	})
@@ -79,7 +84,7 @@ func init() {
 	Register(common.AuthTypeBasic, func(spec map[string]interface{}) (Method, error) {
 		var c basic.Config
 		if err := mapstructure.Decode(spec, &c); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to decode basic auth configuration: %w", err)
 		}
 		return basic.Adapter{C: c}, nil
 	})
@@ -88,7 +93,7 @@ func init() {
 	Register(common.AuthTypePocketBase, func(spec map[string]interface{}) (Method, error) {
 		var c pocketbase.Config
 		if err := mapstructure.Decode(spec, &c); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to decode PocketBase auth configuration: %w", err)
 		}
 		return pocketbase.Adapter{C: c}, nil
 	})

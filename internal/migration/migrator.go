@@ -174,7 +174,7 @@ func (m *Migrator) ensureAuth(ctx context.Context) error {
 func (m *Migrator) runUpForFile(ctx context.Context, f vfile, sessionStored map[string]string) (*ExecWithVersion, map[string]string, error) {
 	var t task.Task
 	if err := m.initTaskAndEnv(&t, f, f.index, sessionStored, "up"); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to initialize task for migration version %d: %w", f.index, err)
 	}
 	res, err := t.Up.Execute(ctx, "", "")
 	ewv := &ExecWithVersion{Version: f.index, Result: res}
@@ -193,9 +193,15 @@ func (m *Migrator) runUpForFile(ctx context.Context, f vfile, sessionStored map[
 			_ = m.Store.RecordRun(f.index, "up", res.StatusCode, bodyPtr, toStore, err != nil)
 			_ = m.Store.InsertStoredEnv(f.index, toStore)
 		}
-		return ewv, toStore, err
+		if err != nil {
+			return ewv, toStore, fmt.Errorf("migration version %d execution failed: %w", f.index, err)
+		}
+		return ewv, toStore, nil
 	}
-	return ewv, nil, err
+	if err != nil {
+		return ewv, nil, fmt.Errorf("migration version %d failed with no result: %w", f.index, err)
+	}
+	return ewv, nil, nil
 }
 
 // MigrateDown rolls back down to targetVersion (not including target): it will
@@ -237,11 +243,11 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 	acommon.SetTLSConfig(m.TLSConfig)
 	// Perform automatic auth once if configured
 	if err := m.ensureAuth(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to ensure authentication: %w", err)
 	}
 	files, err := listMigrationFiles(m.Dir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list migration files in directory %q: %w", m.Dir, err)
 	}
 
 	var cur int
@@ -251,7 +257,7 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 		var err error
 		cur, err = m.Store.CurrentVersion()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get current migration version from store: %w", err)
 		}
 	}
 	// plan versions to run
@@ -286,11 +292,11 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 	acommon.SetTLSConfig(m.TLSConfig)
 	// Perform automatic auth once if configured
 	if err := m.ensureAuth(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to ensure authentication for down migration: %w", err)
 	}
 	files, err := listMigrationFiles(m.Dir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list migration files in directory %q for down migration: %w", m.Dir, err)
 	}
 
 	var cur int
@@ -300,7 +306,7 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 		var err error
 		cur, err = m.Store.CurrentVersion()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get current migration version from store for down migration: %w", err)
 		}
 	}
 	if targetVersion < 0 {

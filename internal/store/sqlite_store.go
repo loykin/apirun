@@ -53,9 +53,9 @@ func (s *SqliteStore) Ensure(th TableNames) error {
 		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY AUTOINCREMENT, version INTEGER NOT NULL, direction TEXT NOT NULL, status_code INTEGER NOT NULL, body TEXT NULL, env_json TEXT NULL, failed INTEGER NOT NULL DEFAULT 0, ran_at TEXT NOT NULL)", th.MigrationRuns),
 		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(version, name))", th.StoredEnv),
 	}
-	for _, q := range stmts {
+	for i, q := range stmts {
 		if _, err := s.db.Exec(q); err != nil {
-			return err
+			return fmt.Errorf("failed to create table %d in schema setup: %w", i+1, err)
 		}
 	}
 	return nil
@@ -65,7 +65,10 @@ func (s *SqliteStore) Apply(th TableNames, v int) error {
 	// #nosec G201 -- table name is validated via Store.safeTableNames (regex), values use placeholders
 	q := fmt.Sprintf("INSERT OR IGNORE INTO %s(version) VALUES(?)", th.SchemaMigrations)
 	_, err := s.db.Exec(q, v)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to apply migration version %d: %w", v, err)
+	}
+	return nil
 }
 
 func (s *SqliteStore) IsApplied(th TableNames, v int) (bool, error) {
@@ -77,7 +80,10 @@ func (s *SqliteStore) IsApplied(th TableNames, v int) (bool, error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
-	return err == nil, err
+	if err != nil {
+		return false, fmt.Errorf("failed to check if migration version %d is applied: %w", v, err)
+	}
+	return true, nil
 }
 
 func (s *SqliteStore) CurrentVersion(th TableNames) (int, error) {
@@ -86,7 +92,7 @@ func (s *SqliteStore) CurrentVersion(th TableNames) (int, error) {
 	row := s.db.QueryRow(q)
 	var v int
 	if err := row.Scan(&v); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to get current migration version: %w", err)
 	}
 	return v, nil
 }
@@ -96,48 +102,60 @@ func (s *SqliteStore) ListApplied(th TableNames) ([]int, error) {
 	q := fmt.Sprintf("SELECT version FROM %s ORDER BY version ASC", th.SchemaMigrations)
 	rows, err := s.db.Query(q)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list applied migrations: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 	var out []int
 	for rows.Next() {
 		var v int
 		if err := rows.Scan(&v); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan migration version from database: %w", err)
 		}
 		out = append(out, v)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error occurred while iterating over applied migrations: %w", err)
+	}
+	return out, nil
 }
 
 func (s *SqliteStore) Remove(th TableNames, v int) error {
 	// #nosec G201 -- validated table name; deletion predicate uses parameter placeholder
 	q := fmt.Sprintf("DELETE FROM %s WHERE version = ?", th.SchemaMigrations)
 	_, err := s.db.Exec(q, v)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to remove migration version %d: %w", v, err)
+	}
+	return nil
 }
 
 func (s *SqliteStore) SetVersion(th TableNames, target int) error {
 	cur, err := s.CurrentVersion(th)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get current version for SetVersion operation: %w", err)
 	}
 	if target == cur {
 		return nil
 	}
 	if target > cur {
-		return errors.New("cannot set version up; apply migrations instead")
+		return fmt.Errorf("cannot set version up from %d to %d; apply migrations instead", cur, target)
 	}
 	// #nosec G201 -- table identifier validated via safeTableNames; comparison value is a bind parameter
 	q := fmt.Sprintf("DELETE FROM %s WHERE version > ?", th.SchemaMigrations)
 	_, err = s.db.Exec(q, target)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to set version to %d (was %d): %w", target, cur, err)
+	}
+	return nil
 }
 
 func (s *SqliteStore) RecordRun(th TableNames, version int, direction string, status int, body *string, env map[string]string, failed bool) error {
 	var envJSON *string
 	if len(env) > 0 {
-		b, _ := json.Marshal(env)
+		b, err := json.Marshal(env)
+		if err != nil {
+			return fmt.Errorf("failed to marshal environment for migration run record (version %d, direction %s): %w", version, direction, err)
+		}
 		s := string(b)
 		envJSON = &s
 	}
@@ -149,7 +167,10 @@ func (s *SqliteStore) RecordRun(th TableNames, version int, direction string, st
 		failedInt = 1
 	}
 	_, err := s.db.Exec(q, version, direction, status, body, envJSON, failedInt, ranAt)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to record migration run (version %d, direction %s, status %d): %w", version, direction, status, err)
+	}
+	return nil
 }
 
 func (s *SqliteStore) LoadEnv(th TableNames, version int, direction string) (map[string]string, error) {
@@ -161,13 +182,14 @@ func (s *SqliteStore) LoadEnv(th TableNames, version int, direction string) (map
 		if errors.Is(err, sql.ErrNoRows) {
 			return map[string]string{}, nil
 		}
-		return map[string]string{}, err
+		return map[string]string{}, fmt.Errorf("failed to load environment for migration version %d direction %s: %w", version, direction, err)
 	}
 	if !envJSON.Valid || len(envJSON.String) == 0 {
 		return map[string]string{}, nil
 	}
 	var out map[string]string
 	if err := json.Unmarshal([]byte(envJSON.String), &out); err != nil {
+		// Log warning but don't fail - return empty map for compatibility
 		return map[string]string{}, nil
 	}
 	return out, nil
@@ -181,7 +203,7 @@ func (s *SqliteStore) InsertStoredEnv(th TableNames, version int, kv map[string]
 	q := fmt.Sprintf("INSERT INTO %s(version,name,value) VALUES(?,?,?) ON CONFLICT(version,name) DO UPDATE SET value=excluded.value", th.StoredEnv)
 	for k, v := range kv {
 		if _, err := s.db.Exec(q, version, k, v); err != nil {
-			return err
+			return fmt.Errorf("failed to insert stored environment variable %q for version %d: %w", k, version, err)
 		}
 	}
 	return nil
@@ -192,25 +214,31 @@ func (s *SqliteStore) LoadStoredEnv(th TableNames, version int) (map[string]stri
 	q := fmt.Sprintf("SELECT name, value FROM %s WHERE version = ?", th.StoredEnv)
 	rows, err := s.db.Query(q, version)
 	if err != nil {
-		return map[string]string{}, err
+		return map[string]string{}, fmt.Errorf("failed to load stored environment for version %d: %w", version, err)
 	}
 	defer func() { _ = rows.Close() }()
 	out := map[string]string{}
 	for rows.Next() {
 		var k, v string
 		if err := rows.Scan(&k, &v); err != nil {
-			return map[string]string{}, err
+			return map[string]string{}, fmt.Errorf("failed to scan stored environment variable for version %d: %w", version, err)
 		}
 		out[k] = v
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return map[string]string{}, fmt.Errorf("error occurred while reading stored environment for version %d: %w", version, err)
+	}
+	return out, nil
 }
 
 func (s *SqliteStore) DeleteStoredEnv(th TableNames, version int) error {
 	// #nosec G201 -- validated table identifier; predicate value is parameterized
 	q := fmt.Sprintf("DELETE FROM %s WHERE version = ?", th.StoredEnv)
 	_, err := s.db.Exec(q, version)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to delete stored environment for version %d: %w", version, err)
+	}
+	return nil
 }
 
 func (s *SqliteStore) ListRuns(th TableNames) ([]Run, error) {
@@ -218,7 +246,7 @@ func (s *SqliteStore) ListRuns(th TableNames) ([]Run, error) {
 	q := fmt.Sprintf("SELECT id, version, direction, status_code, body, env_json, failed, ran_at FROM %s ORDER BY id ASC", th.MigrationRuns)
 	rows, err := s.db.Query(q)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query migration runs: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 	var out []Run
@@ -234,7 +262,7 @@ func (s *SqliteStore) ListRuns(th TableNames) ([]Run, error) {
 			ranAt     string
 		)
 		if err := rows.Scan(&id, &ver, &dir, &status, &body, &envJSON, &failedInt, &ranAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan migration run record: %w", err)
 		}
 		var bptr *string
 		if body.Valid {
@@ -247,7 +275,10 @@ func (s *SqliteStore) ListRuns(th TableNames) ([]Run, error) {
 		}
 		out = append(out, Run{ID: id, Version: ver, Direction: dir, StatusCode: status, Body: bptr, Env: m, Failed: failedInt != 0, RanAt: ranAt})
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error occurred while reading migration runs: %w", err)
+	}
+	return out, nil
 }
 
 func (s *SqliteStore) Connect() (*sql.DB, error) {
@@ -257,7 +288,7 @@ func (s *SqliteStore) Connect() (*sql.DB, error) {
 	}
 	db, err := sql.Open("sqlite", s.DSN)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open SQLite database with DSN %q: %w", s.DSN, err)
 	}
 
 	db.SetMaxOpenConns(1)
