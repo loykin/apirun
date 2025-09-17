@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -255,70 +254,37 @@ func OpenStoreFromOptions(dir string, storeConfig *StoreConfig) (*Store, error) 
 }
 
 // Logging API - Public interface for structured logging
+// Re-export common logging types for public use
 
 // LogLevel represents logging verbosity levels
-type LogLevel int
+type LogLevel = common.LogLevel
 
 const (
-	LogLevelError LogLevel = iota
-	LogLevelWarn
-	LogLevelInfo
-	LogLevelDebug
+	LogLevelError = common.LogLevelError
+	LogLevelWarn  = common.LogLevelWarn
+	LogLevelInfo  = common.LogLevelInfo
+	LogLevelDebug = common.LogLevelDebug
 )
 
 // Logger provides structured logging interface
-type Logger struct {
-	*slog.Logger
-}
+type Logger = common.Logger
 
 // NewLogger creates a new structured logger with the specified level
 func NewLogger(level LogLevel) *Logger {
-	var internalLevel common.LogLevel
-	switch level {
-	case LogLevelError:
-		internalLevel = common.LogLevelError
-	case LogLevelWarn:
-		internalLevel = common.LogLevelWarn
-	case LogLevelInfo:
-		internalLevel = common.LogLevelInfo
-	case LogLevelDebug:
-		internalLevel = common.LogLevelDebug
-	default:
-		internalLevel = common.LogLevelInfo
-	}
-
-	internalLogger := common.NewLogger(internalLevel)
-	return &Logger{Logger: internalLogger.Logger}
+	return common.NewLogger(level)
 }
 
 // NewJSONLogger creates a structured logger with JSON output
 func NewJSONLogger(level LogLevel) *Logger {
-	var internalLevel common.LogLevel
-	switch level {
-	case LogLevelError:
-		internalLevel = common.LogLevelError
-	case LogLevelWarn:
-		internalLevel = common.LogLevelWarn
-	case LogLevelInfo:
-		internalLevel = common.LogLevelInfo
-	case LogLevelDebug:
-		internalLevel = common.LogLevelDebug
-	default:
-		internalLevel = common.LogLevelInfo
-	}
-
-	internalLogger := common.NewJSONLogger(internalLevel)
-	return &Logger{Logger: internalLogger.Logger}
+	return common.NewJSONLogger(level)
 }
 
 // SetDefaultLogger sets the global default logger for apimigrate
 func SetDefaultLogger(logger *Logger) {
-	internalLogger := &common.Logger{Logger: logger.Logger}
-	common.SetDefaultLogger(internalLogger)
+	common.SetDefaultLogger(logger)
 }
 
 // GetLogger returns the default logger
 func GetLogger() *Logger {
-	internalLogger := common.GetLogger()
-	return &Logger{Logger: internalLogger.Logger}
+	return common.GetLogger()
 }

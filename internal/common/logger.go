@@ -15,86 +15,117 @@ const (
 	LogLevelDebug
 )
 
+// String returns the string representation of the log level
+func (l LogLevel) String() string {
+	switch l {
+	case LogLevelError:
+		return "error"
+	case LogLevelWarn:
+		return "warn"
+	case LogLevelInfo:
+		return "info"
+	case LogLevelDebug:
+		return "debug"
+	default:
+		return "info"
+	}
+}
+
+// ToSlogLevel converts LogLevel to slog.Level
+func (l LogLevel) ToSlogLevel() slog.Level {
+	switch l {
+	case LogLevelError:
+		return slog.LevelError
+	case LogLevelWarn:
+		return slog.LevelWarn
+	case LogLevelInfo:
+		return slog.LevelInfo
+	case LogLevelDebug:
+		return slog.LevelDebug
+	default:
+		return slog.LevelInfo
+	}
+}
+
 // Logger provides a centralized logging interface for apimigrate
 type Logger struct {
 	*slog.Logger
+	level LogLevel
 }
 
 // NewLogger creates a new structured logger with the specified level
 func NewLogger(level LogLevel) *Logger {
-	var slogLevel slog.Level
-	switch level {
-	case LogLevelError:
-		slogLevel = slog.LevelError
-	case LogLevelWarn:
-		slogLevel = slog.LevelWarn
-	case LogLevelInfo:
-		slogLevel = slog.LevelInfo
-	case LogLevelDebug:
-		slogLevel = slog.LevelDebug
-	default:
-		slogLevel = slog.LevelInfo
-	}
-
 	opts := &slog.HandlerOptions{
-		Level: slogLevel,
+		Level: level.ToSlogLevel(),
 	}
 
 	handler := slog.NewTextHandler(os.Stdout, opts)
 	logger := slog.New(handler)
 
-	return &Logger{Logger: logger}
+	return &Logger{
+		Logger: logger,
+		level:  level,
+	}
 }
 
 // NewJSONLogger creates a structured logger with JSON output
 func NewJSONLogger(level LogLevel) *Logger {
-	var slogLevel slog.Level
-	switch level {
-	case LogLevelError:
-		slogLevel = slog.LevelError
-	case LogLevelWarn:
-		slogLevel = slog.LevelWarn
-	case LogLevelInfo:
-		slogLevel = slog.LevelInfo
-	case LogLevelDebug:
-		slogLevel = slog.LevelDebug
-	default:
-		slogLevel = slog.LevelInfo
-	}
-
 	opts := &slog.HandlerOptions{
-		Level: slogLevel,
+		Level: level.ToSlogLevel(),
 	}
 
 	handler := slog.NewJSONHandler(os.Stdout, opts)
 	logger := slog.New(handler)
 
-	return &Logger{Logger: logger}
+	return &Logger{
+		Logger: logger,
+		level:  level,
+	}
+}
+
+// Level returns the current log level
+func (l *Logger) Level() LogLevel {
+	return l.level
 }
 
 // WithComponent returns a logger with component context
 func (l *Logger) WithComponent(component string) *Logger {
-	return &Logger{Logger: l.Logger.With("component", component)}
+	return &Logger{
+		Logger: l.Logger.With("component", component),
+		level:  l.level,
+	}
 }
 
 // WithVersion returns a logger with migration version context
 func (l *Logger) WithVersion(version int) *Logger {
-	return &Logger{Logger: l.Logger.With("version", version)}
+	return &Logger{
+		Logger: l.Logger.With("version", version),
+		level:  l.level,
+	}
 }
 
 // WithAuth returns a logger with authentication context
 func (l *Logger) WithAuth(authName string) *Logger {
-	return &Logger{Logger: l.Logger.With("auth", authName)}
+	return &Logger{
+		Logger: l.Logger.With("auth", authName),
+		level:  l.level,
+	}
 }
 
 // WithStore returns a logger with store context
 func (l *Logger) WithStore(storeType string) *Logger {
-	return &Logger{Logger: l.Logger.With("store", storeType)}
+	return &Logger{
+		Logger: l.Logger.With("store", storeType),
+		level:  l.level,
+	}
 }
 
 // WithRequest returns a logger with HTTP request context
 func (l *Logger) WithRequest(method, url string) *Logger {
-	return &Logger{Logger: l.Logger.With("method", method, "url", url)}
+	return &Logger{
+		Logger: l.Logger.With("method", method, "url", url),
+		level:  l.level,
+	}
 }
 
 // Global default logger instance
