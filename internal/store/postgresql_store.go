@@ -9,6 +9,7 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/loykin/apimigrate/internal/common"
 )
 
 const DriverPostgresql = "postgresql"
@@ -312,10 +313,15 @@ func (p *PostgresStore) ListRuns(th TableNames) ([]Run, error) {
 }
 
 func (p *PostgresStore) Connect() (*sql.DB, error) {
+	logger := common.GetLogger().WithStore("postgresql")
+	logger.Debug("connecting to PostgreSQL database", "dsn", p.DSN)
+
 	db, err := sql.Open("pgx", p.DSN)
 	if err != nil {
+		logger.Error("failed to open PostgreSQL database", err, "dsn", p.DSN)
 		return nil, fmt.Errorf("failed to open PostgreSQL database with DSN %q: %w", p.DSN, err)
 	}
 	p.db = db
+	logger.Info("PostgreSQL database connection established successfully")
 	return db, nil
 }

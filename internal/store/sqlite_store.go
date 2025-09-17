@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/loykin/apimigrate/internal/common"
 )
 
 const DriverSqlite = "sqlite"
@@ -56,41 +58,58 @@ func (s *SqliteStore) Load(config map[string]interface{}) error {
 }
 
 func (s *SqliteStore) Ensure(th TableNames) error {
+	logger := common.GetLogger().WithStore("sqlite")
+	logger.Debug("ensuring SQLite database schema", "tables", []string{th.SchemaMigrations, th.MigrationRuns, th.StoredEnv})
+
 	stmts := []string{
 		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER PRIMARY KEY)", th.SchemaMigrations),
 		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY AUTOINCREMENT, version INTEGER NOT NULL, direction TEXT NOT NULL, status_code INTEGER NOT NULL, body TEXT NULL, env_json TEXT NULL, failed INTEGER NOT NULL DEFAULT 0, ran_at TEXT NOT NULL)", th.MigrationRuns),
 		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(version, name))", th.StoredEnv),
 	}
 	for i, q := range stmts {
+		logger.Debug("executing schema creation statement", "table_index", i+1, "sql", q)
 		if _, err := s.db.Exec(q); err != nil {
+			logger.Error("failed to create table in schema setup", err, "table_index", i+1, "sql", q)
 			return fmt.Errorf("failed to create table %d in schema setup: %w", i+1, err)
 		}
 	}
+	logger.Info("SQLite database schema ensured successfully")
 	return nil
 }
 
 func (s *SqliteStore) Apply(th TableNames, v int) error {
+	logger := common.GetLogger().WithStore("sqlite").WithVersion(v)
+	logger.Debug("applying migration version")
+
 	// #nosec G201 -- table name is validated via Store.safeTableNames (regex), values use placeholders
 	q := fmt.Sprintf("INSERT OR IGNORE INTO %s(version) VALUES(?)", th.SchemaMigrations)
 	_, err := s.db.Exec(q, v)
 	if err != nil {
+		logger.Error("failed to apply migration version", err)
 		return fmt.Errorf("failed to apply migration version %d: %w", v, err)
 	}
+	logger.Info("migration version applied successfully")
 	return nil
 }
 
 func (s *SqliteStore) IsApplied(th TableNames, v int) (bool, error) {
+	logger := common.GetLogger().WithStore("sqlite").WithVersion(v)
+	logger.Debug("checking if migration version is applied")
+
 	// #nosec G201 -- table name is a validated identifier from safeTableNames; values are parameterized
 	q := fmt.Sprintf("SELECT 1 FROM %s WHERE version = ?", th.SchemaMigrations)
 	row := s.db.QueryRow(q, v)
 	var one int
 	err := row.Scan(&one)
 	if errors.Is(err, sql.ErrNoRows) {
+		logger.Debug("migration version not found (not applied)")
 		return false, nil
 	}
 	if err != nil {
+		logger.Error("failed to check if migration version is applied", err)
 		return false, fmt.Errorf("failed to check if migration version %d is applied: %w", v, err)
 	}
+	logger.Debug("migration version is applied")
 	return true, nil
 }
 
@@ -290,17 +309,26 @@ func (s *SqliteStore) ListRuns(th TableNames) ([]Run, error) {
 }
 
 func (s *SqliteStore) Connect() (*sql.DB, error) {
+	logger := common.GetLogger().WithStore("sqlite")
+
 	if s.DSN == "" {
 		// fallback to in-memory if not set explicitly (for safety)
 		s.DSN = fmt.Sprintf("file::memory:?%s&_busy_timeout=%d&%s", sqliteCacheSharedParam, sqliteBusyTimeoutMS, sqliteForeignKeysParam)
+		logger.Debug("using in-memory SQLite database", "dsn", s.DSN)
+	} else {
+		logger.Debug("connecting to SQLite database", "dsn", s.DSN)
 	}
+
 	db, err := sql.Open("sqlite", s.DSN)
 	if err != nil {
+		logger.Error("failed to open SQLite database", err, "dsn", s.DSN)
 		return nil, fmt.Errorf("failed to open SQLite database with DSN %q: %w", s.DSN, err)
 	}
 
 	db.SetMaxOpenConns(sqliteMaxOpenConns)
+	logger.Debug("configured SQLite connection", "max_open_conns", sqliteMaxOpenConns, "busy_timeout_ms", sqliteBusyTimeoutMS)
 
 	s.db = db
+	logger.Info("SQLite database connection established successfully")
 	return db, nil
 }

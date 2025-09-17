@@ -46,6 +46,11 @@ type EnvConfig struct {
 	ValueFromEnv string `mapstructure:"valueFromEnv" yaml:"valueFromEnv"`
 }
 
+type LoggingConfig struct {
+	Level  string `mapstructure:"level" yaml:"level"`   // error, warn, info, debug
+	Format string `mapstructure:"format" yaml:"format"` // text, json
+}
+
 type StoreConfig struct {
 	SaveResponseBody bool                `mapstructure:"save_response_body" yaml:"save_response_body"`
 	Type             string              `mapstructure:"type" yaml:"type"`
@@ -153,12 +158,13 @@ type WaitConfig struct {
 }
 
 type ConfigDoc struct {
-	Auth       []AuthConfig `mapstructure:"auth" yaml:"auth"`
-	MigrateDir string       `mapstructure:"migrate_dir" yaml:"migrate_dir"`
-	Wait       WaitConfig   `mapstructure:"wait" yaml:"wait"`
-	Env        []EnvConfig  `mapstructure:"env" yaml:"env"`
-	Store      StoreConfig  `mapstructure:"store" yaml:"store"`
-	Client     ClientConfig `mapstructure:"client" yaml:"client"`
+	Auth       []AuthConfig  `mapstructure:"auth" yaml:"auth"`
+	MigrateDir string        `mapstructure:"migrate_dir" yaml:"migrate_dir"`
+	Wait       WaitConfig    `mapstructure:"wait" yaml:"wait"`
+	Env        []EnvConfig   `mapstructure:"env" yaml:"env"`
+	Store      StoreConfig   `mapstructure:"store" yaml:"store"`
+	Client     ClientConfig  `mapstructure:"client" yaml:"client"`
+	Logging    LoggingConfig `mapstructure:"logging" yaml:"logging"`
 	// Optional: control default rendering of request bodies with templates
 	RenderBody *bool `mapstructure:"render_body" yaml:"render_body"`
 }
@@ -239,4 +245,55 @@ func (c *ConfigDoc) Load(path string) error {
 	defer func() { _ = f.Close() }()
 	dec := yaml.NewDecoder(f)
 	return dec.Decode(c)
+}
+
+// SetupLogging configures the global logger based on config settings
+func (c *ConfigDoc) SetupLogging(verbose bool) error {
+	// Determine log level from config or verbose flag
+	var level apimigrate.LogLevel
+
+	// Verbose flag takes precedence
+	if verbose {
+		level = apimigrate.LogLevelDebug
+	} else {
+		switch strings.ToLower(strings.TrimSpace(c.Logging.Level)) {
+		case "error":
+			level = apimigrate.LogLevelError
+		case "warn", "warning":
+			level = apimigrate.LogLevelWarn
+		case "info":
+			level = apimigrate.LogLevelInfo
+		case "debug":
+			level = apimigrate.LogLevelDebug
+		case "":
+			// Default to info if not specified
+			level = apimigrate.LogLevelInfo
+		default:
+			return fmt.Errorf("invalid logging level: %s (valid: error, warn, info, debug)", c.Logging.Level)
+		}
+	}
+
+	// Determine format
+	var logger *apimigrate.Logger
+	format := strings.ToLower(strings.TrimSpace(c.Logging.Format))
+	switch format {
+	case "json":
+		logger = apimigrate.NewJSONLogger(level)
+	case "text", "":
+		// Default to text format
+		logger = apimigrate.NewLogger(level)
+	default:
+		return fmt.Errorf("invalid logging format: %s (valid: text, json)", c.Logging.Format)
+	}
+
+	// Set as global logger
+	apimigrate.SetDefaultLogger(logger)
+
+	// Log configuration info
+	logger.Info("logging configured",
+		"level", c.Logging.Level,
+		"format", format,
+		"verbose_override", verbose)
+
+	return nil
 }

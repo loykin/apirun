@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/loykin/apimigrate/internal/auth"
+	"github.com/loykin/apimigrate/internal/common"
 	imig "github.com/loykin/apimigrate/internal/migration"
 	"github.com/loykin/apimigrate/internal/store"
 	"github.com/loykin/apimigrate/internal/task"
@@ -250,4 +252,73 @@ func OpenStoreFromOptions(dir string, storeConfig *StoreConfig) (*Store, error) 
 		return nil, err
 	}
 	return st, nil
+}
+
+// Logging API - Public interface for structured logging
+
+// LogLevel represents logging verbosity levels
+type LogLevel int
+
+const (
+	LogLevelError LogLevel = iota
+	LogLevelWarn
+	LogLevelInfo
+	LogLevelDebug
+)
+
+// Logger provides structured logging interface
+type Logger struct {
+	*slog.Logger
+}
+
+// NewLogger creates a new structured logger with the specified level
+func NewLogger(level LogLevel) *Logger {
+	var internalLevel common.LogLevel
+	switch level {
+	case LogLevelError:
+		internalLevel = common.LogLevelError
+	case LogLevelWarn:
+		internalLevel = common.LogLevelWarn
+	case LogLevelInfo:
+		internalLevel = common.LogLevelInfo
+	case LogLevelDebug:
+		internalLevel = common.LogLevelDebug
+	default:
+		internalLevel = common.LogLevelInfo
+	}
+
+	internalLogger := common.NewLogger(internalLevel)
+	return &Logger{Logger: internalLogger.Logger}
+}
+
+// NewJSONLogger creates a structured logger with JSON output
+func NewJSONLogger(level LogLevel) *Logger {
+	var internalLevel common.LogLevel
+	switch level {
+	case LogLevelError:
+		internalLevel = common.LogLevelError
+	case LogLevelWarn:
+		internalLevel = common.LogLevelWarn
+	case LogLevelInfo:
+		internalLevel = common.LogLevelInfo
+	case LogLevelDebug:
+		internalLevel = common.LogLevelDebug
+	default:
+		internalLevel = common.LogLevelInfo
+	}
+
+	internalLogger := common.NewJSONLogger(internalLevel)
+	return &Logger{Logger: internalLogger.Logger}
+}
+
+// SetDefaultLogger sets the global default logger for apimigrate
+func SetDefaultLogger(logger *Logger) {
+	internalLogger := &common.Logger{Logger: logger.Logger}
+	common.SetDefaultLogger(internalLogger)
+}
+
+// GetLogger returns the default logger
+func GetLogger() *Logger {
+	internalLogger := common.GetLogger()
+	return &Logger{Logger: internalLogger.Logger}
 }

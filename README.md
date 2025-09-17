@@ -13,6 +13,7 @@ repeatable way.
 - Library: import and run migrations programmatically.
 - CLI: run versioned migrations from a directory and record versions in a local SQLite store.
 - Auth: built-in providers (oauth2, basic, pocketbase) and pluggable registry for custom providers.
+- Logging: structured logging with slog, configurable levels and formats (text/JSON).
 
 ## Features
 
@@ -27,9 +28,12 @@ repeatable way.
     headers: [ { name: Authorization, value: "Basic {{.auth.basic}}" } ].
 > - Added examples demonstrating both embedded multi-auth and decoupled flows:
     >
+
 - examples/auth_embedded: single embedded auth.
->   - examples/auth_embedded_multi_registry: multiple embedded auths.
->   - examples/auth_embedded_multi_registry_type2: decoupled (acquire first, then migrate).
+
+> - examples/auth_embedded_multi_registry: multiple embedded auths.
+    >
+- examples/auth_embedded_multi_registry_type2: decoupled (acquire first, then migrate).
 > - Dry-run execution mode for planning and validation without persisting state. Use CLI flags `--dry-run` and
     `--dry-run-from` or set `Migrator.DryRun=true` and `Migrator.DryRunFrom` in library usage. Dry-run supports two
     modes: from the beginning (0) and from a snapshot version (N).
@@ -49,9 +53,12 @@ repeatable way.
     headers: [ { name: Authorization, value: "Basic {{.auth.basic}}" } ].
 > - Added examples demonstrating both embedded multi-auth and decoupled flows:
     >
+
 - examples/auth_embedded: single embedded auth.
->   - examples/auth_embedded_multi_registry: multiple embedded auths.
->   - examples/auth_embedded_multi_registry_type2: decoupled (acquire first, then migrate).
+
+> - examples/auth_embedded_multi_registry: multiple embedded auths.
+    >
+- examples/auth_embedded_multi_registry_type2: decoupled (acquire first, then migrate).
 >   - examples/auth_embedded_lazy: multiple embedded auths acquired lazily on first use per auth.
 
 - Versioned up/down migrations with persisted history (SQLite, `apimigrate.db`).
@@ -208,6 +215,11 @@ client:
 # insecure: false
 # min_tls_version: "1.2"   # or "tls1.2"
 # max_tls_version: "1.3"   # or "tls1.3"
+
+# Structured logging configuration (optional)
+logging:
+  level: info     # error, warn, info, debug
+  format: text    # text, json
 ```
 
 Notes:

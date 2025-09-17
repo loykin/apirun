@@ -9,6 +9,7 @@ import (
 
 	"github.com/loykin/apimigrate/internal/auth"
 	acommon "github.com/loykin/apimigrate/internal/auth/common"
+	"github.com/loykin/apimigrate/internal/common"
 	"github.com/loykin/apimigrate/internal/store"
 	"github.com/loykin/apimigrate/internal/task"
 	"github.com/loykin/apimigrate/pkg/env"
@@ -238,28 +239,37 @@ func (m *Migrator) runDownForVersion(ctx context.Context, ver int, f vfile) (*Ex
 }
 
 func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
+	logger := common.GetLogger().WithComponent("migrator")
+	logger.Info("starting migration up", "target_version", targetVersion, "dir", m.Dir, "dry_run", m.DryRun)
+
 	// Apply TLS settings for task HTTP requests and auth providers
 	task.SetTLSConfig(m.TLSConfig)
 	acommon.SetTLSConfig(m.TLSConfig)
 	// Perform automatic auth once if configured
 	if err := m.ensureAuth(ctx); err != nil {
+		logger.Error("failed to ensure authentication", err)
 		return nil, fmt.Errorf("failed to ensure authentication: %w", err)
 	}
 	files, err := listMigrationFiles(m.Dir)
 	if err != nil {
+		logger.Error("failed to list migration files", err, "dir", m.Dir)
 		return nil, fmt.Errorf("failed to list migration files in directory %q: %w", m.Dir, err)
 	}
+	logger.Debug("found migration files", "count", len(files), "files", files)
 
 	var cur int
 	if m.DryRun {
 		cur = m.DryRunFrom
+		logger.Debug("dry run mode enabled", "dry_run_from", cur)
 	} else {
 		var err error
 		cur, err = m.Store.CurrentVersion()
 		if err != nil {
+			logger.Error("failed to get current migration version from store", err)
 			return nil, fmt.Errorf("failed to get current migration version from store: %w", err)
 		}
 	}
+	logger.Debug("current migration version", "version", cur)
 	// plan versions to run
 	plan := planUp(files, cur, targetVersion)
 

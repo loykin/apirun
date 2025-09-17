@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/loykin/apimigrate"
+	"github.com/loykin/apimigrate/internal/common"
 	ienv "github.com/loykin/apimigrate/pkg/env"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -25,6 +26,18 @@ var rootCmd = &cobra.Command{
 		configPath := v.GetString("config")
 		verbose := v.GetBool("v")
 
+		// Initialize logging based on verbose flag
+		var logLevel common.LogLevel
+		if verbose {
+			logLevel = common.LogLevelDebug
+		} else {
+			logLevel = common.LogLevelInfo
+		}
+		logger := common.NewLogger(logLevel)
+		common.SetDefaultLogger(logger)
+
+		logger.Info("starting apimigrate", "config_path", configPath, "verbose", verbose)
+
 		ctx := context.Background()
 		be := ienv.New()
 		baseEnv := be
@@ -34,6 +47,7 @@ var rootCmd = &cobra.Command{
 		var clientTLS *tls.Config
 
 		if strings.TrimSpace(configPath) != "" {
+			logger.Debug("loading configuration file", "path", configPath)
 			if verbose {
 				log.Printf("loading config from %s", configPath)
 			}
@@ -41,6 +55,15 @@ var rootCmd = &cobra.Command{
 			if err := doc.Load(configPath); err != nil {
 				return err
 			}
+
+			// Setup logging from config (this may override the initial logger)
+			if err := doc.SetupLogging(verbose); err != nil {
+				return fmt.Errorf("failed to setup logging from config: %w", err)
+			}
+
+			// Get updated logger after potential reconfiguration
+			logger = common.GetLogger().WithComponent("main")
+
 			mDir := strings.TrimSpace(doc.MigrateDir)
 			envFromCfg, err := doc.GetEnv(verbose)
 			if err != nil {

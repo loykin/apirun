@@ -59,6 +59,15 @@ env:
 #  - name: example_from_os
 #    valueFromEnv: EXAMPLE_FROM_OS
 
+# Logging configuration
+logging:
+  # Log level: error, warn, info, debug (default: info)
+  # Note: --verbose/-v flag overrides this to debug level
+  level: info
+  # Log format: text, json (default: text)
+  # Use 'json' for production/log aggregation systems
+  format: text
+
 # Store settings
 store:
   # Whether to record response bodies alongside status codes in migration history

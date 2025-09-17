@@ -102,6 +102,8 @@ jobs:
           go run ./examples/status_embedded
           echo "Running examples/embedded_create"
           go run ./examples/embedded_create
+          echo "Running examples/embedded_logging"
+          go run ./examples/embedded_logging
         env:
           CI: true
 
