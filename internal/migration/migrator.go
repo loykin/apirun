@@ -9,6 +9,7 @@ import (
 
 	"github.com/loykin/apimigrate/internal/auth"
 	acommon "github.com/loykin/apimigrate/internal/auth/common"
+	"github.com/loykin/apimigrate/internal/common"
 	"github.com/loykin/apimigrate/internal/store"
 	"github.com/loykin/apimigrate/internal/task"
 	"github.com/loykin/apimigrate/pkg/env"
@@ -174,7 +175,7 @@ func (m *Migrator) ensureAuth(ctx context.Context) error {
 func (m *Migrator) runUpForFile(ctx context.Context, f vfile, sessionStored map[string]string) (*ExecWithVersion, map[string]string, error) {
 	var t task.Task
 	if err := m.initTaskAndEnv(&t, f, f.index, sessionStored, "up"); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to initialize task for migration version %d: %w", f.index, err)
 	}
 	res, err := t.Up.Execute(ctx, "", "")
 	ewv := &ExecWithVersion{Version: f.index, Result: res}
@@ -193,9 +194,15 @@ func (m *Migrator) runUpForFile(ctx context.Context, f vfile, sessionStored map[
 			_ = m.Store.RecordRun(f.index, "up", res.StatusCode, bodyPtr, toStore, err != nil)
 			_ = m.Store.InsertStoredEnv(f.index, toStore)
 		}
-		return ewv, toStore, err
+		if err != nil {
+			return ewv, toStore, fmt.Errorf("migration version %d execution failed: %w", f.index, err)
+		}
+		return ewv, toStore, nil
 	}
-	return ewv, nil, err
+	if err != nil {
+		return ewv, nil, fmt.Errorf("migration version %d failed with no result: %w", f.index, err)
+	}
+	return ewv, nil, nil
 }
 
 // MigrateDown rolls back down to targetVersion (not including target): it will
@@ -232,28 +239,41 @@ func (m *Migrator) runDownForVersion(ctx context.Context, ver int, f vfile) (*Ex
 }
 
 func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
+	logger := common.GetLogger().WithComponent("migrator")
+	startTime := time.Now()
+	logger.Info("starting migration up",
+		"target_version", targetVersion,
+		"dir", m.Dir,
+		"dry_run", m.DryRun)
+
 	// Apply TLS settings for task HTTP requests and auth providers
 	task.SetTLSConfig(m.TLSConfig)
 	acommon.SetTLSConfig(m.TLSConfig)
 	// Perform automatic auth once if configured
 	if err := m.ensureAuth(ctx); err != nil {
-		return nil, err
+		logger.Error("failed to ensure authentication", "error", err)
+		return nil, fmt.Errorf("failed to ensure authentication: %w", err)
 	}
 	files, err := listMigrationFiles(m.Dir)
 	if err != nil {
-		return nil, err
+		logger.Error("failed to list migration files", "error", err, "dir", m.Dir)
+		return nil, fmt.Errorf("failed to list migration files in directory %q: %w", m.Dir, err)
 	}
+	logger.Debug("found migration files", "count", len(files), "files", files)
 
 	var cur int
 	if m.DryRun {
 		cur = m.DryRunFrom
+		logger.Debug("dry run mode enabled", "dry_run_from", cur)
 	} else {
 		var err error
 		cur, err = m.Store.CurrentVersion()
 		if err != nil {
-			return nil, err
+			logger.Error("failed to get current migration version from store", "error", err)
+			return nil, fmt.Errorf("failed to get current migration version from store: %w", err)
 		}
 	}
+	logger.Debug("current migration version", "version", cur)
 	// plan versions to run
 	plan := planUp(files, cur, targetVersion)
 
@@ -261,6 +281,9 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 	// sessionStored accumulates stored env created during this run to be available to later versions
 	sessionStored := map[string]string{}
 	for _, f := range plan {
+		logger.Info("applying migration",
+			"version", f.index,
+			"file", f.name)
 		vr, toStore, err := m.runUpForFile(ctx, f, sessionStored)
 		results = append(results, vr)
 		for k, v := range toStore {
@@ -277,20 +300,33 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 			time.Sleep(1 * time.Second)
 		}
 	}
+
+	duration := time.Since(startTime)
+	logger.Info("migration up completed",
+		"applied_count", len(results),
+		"duration_ms", duration.Milliseconds(),
+		"dry_run", m.DryRun)
 	return results, nil
 }
 
 func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
+	logger := common.GetLogger().WithComponent("migrator")
+	startTime := time.Now()
+	logger.Info("starting migration down",
+		"target_version", targetVersion,
+		"dir", m.Dir,
+		"dry_run", m.DryRun)
+
 	// Apply TLS settings for task HTTP requests and auth providers
 	task.SetTLSConfig(m.TLSConfig)
 	acommon.SetTLSConfig(m.TLSConfig)
 	// Perform automatic auth once if configured
 	if err := m.ensureAuth(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to ensure authentication for down migration: %w", err)
 	}
 	files, err := listMigrationFiles(m.Dir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list migration files in directory %q for down migration: %w", m.Dir, err)
 	}
 
 	var cur int
@@ -300,7 +336,7 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 		var err error
 		cur, err = m.Store.CurrentVersion()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get current migration version from store for down migration: %w", err)
 		}
 	}
 	if targetVersion < 0 {
@@ -341,11 +377,20 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 		if !ok {
 			return results, fmt.Errorf("no migration file for version %d", v)
 		}
+		logger.Info("rolling back migration",
+			"version", v,
+			"file", f.name)
 		vr, err := m.runDownForVersion(ctx, v, f)
 		results = append(results, vr)
 		if err != nil {
 			return results, err
 		}
 	}
+
+	duration := time.Since(startTime)
+	logger.Info("migration down completed",
+		"rolled_back_count", len(results),
+		"duration_ms", duration.Milliseconds(),
+		"dry_run", m.DryRun)
 	return results, nil
 }

@@ -23,7 +23,7 @@ func TestConfigDoc_Load_NotRegularFile(t *testing.T) {
 func TestConfigDoc_GetEnv_ValueFromEnv(t *testing.T) {
 	_ = os.Setenv("TEST_VAL", "xyz")
 	doc := ConfigDoc{Env: []EnvConfig{{Name: "a", Value: "", ValueFromEnv: "TEST_VAL"}}}
-	base, err := doc.GetEnv(true)
+	base, err := doc.GetEnv()
 	if err != nil {
 		t.Fatalf("GetEnv: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestDecodeAuth_RendersTemplatesInAuthConfig(t *testing.T) {
 			},
 		}},
 	}
-	base, _ := doc.GetEnv(false)
+	base, _ := doc.GetEnv()
 	if err := doc.DecodeAuth(context.Background(), base); err != nil {
 		t.Fatalf("DecodeAuth: %v", err)
 	}

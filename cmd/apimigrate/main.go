@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/loykin/apimigrate"
+	"github.com/loykin/apimigrate/internal/common"
 	ienv "github.com/loykin/apimigrate/pkg/env"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -23,7 +24,12 @@ var rootCmd = &cobra.Command{
 		// Fetch values (viper already has defaults and env/flags bound)
 		dir := ""
 		configPath := v.GetString("config")
-		verbose := v.GetBool("v")
+
+		// Initialize basic logger - will be reconfigured from config file
+		logger := common.NewLogger(common.LogLevelInfo)
+		common.SetDefaultLogger(logger)
+
+		logger.Info("starting apimigrate", "config_path", configPath)
 
 		ctx := context.Background()
 		be := ienv.New()
@@ -34,22 +40,33 @@ var rootCmd = &cobra.Command{
 		var clientTLS *tls.Config
 
 		if strings.TrimSpace(configPath) != "" {
-			if verbose {
-				log.Printf("loading config from %s", configPath)
-			}
+			logger.Debug("loading configuration file", "path", configPath)
 			var doc ConfigDoc
 			if err := doc.Load(configPath); err != nil {
 				return err
 			}
+
+			// Setup logging from config (this may override the initial logger)
+			if err := doc.SetupLogging(); err != nil {
+				return fmt.Errorf("failed to setup logging from config: %w", err)
+			}
+
+			// Get updated logger after potential reconfiguration
+			logger = common.GetLogger().WithComponent("main")
+
 			mDir := strings.TrimSpace(doc.MigrateDir)
-			envFromCfg, err := doc.GetEnv(verbose)
+			logger.Debug("processing configuration", "migrate_dir", mDir)
+			envFromCfg, err := doc.GetEnv()
 			if err != nil {
+				logger.Error("failed to get environment from config", "error", err)
 				return err
 			}
-			if err := doWait(ctx, envFromCfg, doc.Wait, doc.Client, verbose); err != nil {
+			if err := doWait(ctx, envFromCfg, doc.Wait, doc.Client); err != nil {
+				logger.Error("wait check failed", "error", err)
 				return err
 			}
 			if err := doc.DecodeAuth(ctx, envFromCfg); err != nil {
+				logger.Error("failed to decode authentication", "error", err)
 				return err
 			}
 			_ = doc.Store.ToStorOptions()
@@ -88,35 +105,34 @@ var rootCmd = &cobra.Command{
 				cfg.InsecureSkipVerify = true
 			}
 			clientTLS = cfg
+			logger.Debug("TLS configuration applied", "insecure", doc.Client.Insecure, "min_version", minV, "max_version", maxV)
+		} else {
+			logger.Debug("using default configuration (no config file specified)")
 		}
 
 		// If dir wasn't set by config, fall back to the conventional example path
 		if strings.TrimSpace(dir) == "" {
 			dir = "./migration"
 		}
-		if verbose {
-			log.Printf("running migrations in %s (versioned, will be recorded)", dir)
-		}
+		logger.Debug("running migrations", "dir", dir, "versioned", true)
 		// Use versioned executor so applied versions are persisted to the store
 		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp, TLSConfig: clientTLS}
 		// Use default store behavior (sqlite under dir) unless programmatic StoreConfig is provided elsewhere
 		vres, err := m.MigrateUp(ctx, 0)
 		if err != nil {
-			if len(vres) > 0 && verbose {
+			if len(vres) > 0 {
 				for _, vr := range vres {
 					if vr != nil && vr.Result != nil {
-						log.Printf("migration v%03d: status=%d env=%v", vr.Version, vr.Result.StatusCode, vr.Result.ExtractedEnv)
+						logger.Debug("migration result", "version", vr.Version, "status_code", vr.Result.StatusCode, "env", vr.Result.ExtractedEnv)
 					}
 				}
 			}
 			return err
 		}
 
-		if verbose {
-			for _, vr := range vres {
-				if vr != nil && vr.Result != nil {
-					log.Printf("migration v%03d: status=%d env=%v", vr.Version, vr.Result.StatusCode, vr.Result.ExtractedEnv)
-				}
+		for _, vr := range vres {
+			if vr != nil && vr.Result != nil {
+				logger.Debug("migration result", "version", vr.Version, "status_code", vr.Result.StatusCode, "env", vr.Result.ExtractedEnv)
 			}
 		}
 		fmt.Println("migrations completed successfully")
@@ -128,7 +144,6 @@ func init() {
 	// Defaults
 	v := viper.GetViper()
 	v.SetDefault("config", "./config/config.yaml")
-	v.SetDefault("v", true)
 	v.SetDefault("to", 0)
 	v.SetDefault("dry_run", false)
 	v.SetDefault("dry_run_from", 0)
@@ -138,7 +153,6 @@ func init() {
 	v.AutomaticEnv()
 	// Bind flags via Cobra and then bind to Viper
 	rootCmd.PersistentFlags().String("config", v.GetString("config"), "path to a config yaml (like examples/keycloak_migration/config.yaml)")
-	rootCmd.PersistentFlags().BoolP("v", "v", v.GetBool("v"), "verbose output")
 	upCmd.Flags().Int("to", v.GetInt("to"), "target version to migrate up to (0 = all)")
 	upCmd.Flags().Bool("dry-run", v.GetBool("dry_run"), "simulate migrations without writing to the store")
 	upCmd.Flags().Int("dry-run-from", v.GetInt("dry_run_from"), "simulate as if versions up to N are already applied")
@@ -147,7 +161,6 @@ func init() {
 	downCmd.Flags().Int("dry-run-from", v.GetInt("dry_run_from"), "simulate as if versions up to N are already applied")
 
 	_ = v.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
-	_ = v.BindPFlag("v", rootCmd.PersistentFlags().Lookup("v"))
 	_ = v.BindPFlag("to", upCmd.Flags().Lookup("to"))
 	_ = v.BindPFlag("dry_run", upCmd.Flags().Lookup("dry-run"))
 	_ = v.BindPFlag("dry_run_from", upCmd.Flags().Lookup("dry-run-from"))

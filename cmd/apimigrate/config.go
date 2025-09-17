@@ -46,6 +46,13 @@ type EnvConfig struct {
 	ValueFromEnv string `mapstructure:"valueFromEnv" yaml:"valueFromEnv"`
 }
 
+type LoggingConfig struct {
+	Level         string `mapstructure:"level" yaml:"level"`                   // error, warn, info, debug
+	Format        string `mapstructure:"format" yaml:"format"`                 // text, json, color
+	MaskSensitive *bool  `mapstructure:"mask_sensitive" yaml:"mask_sensitive"` // enable/disable sensitive data masking
+	Color         *bool  `mapstructure:"color" yaml:"color"`                   // enable/disable colorized output
+}
+
 type StoreConfig struct {
 	SaveResponseBody bool                `mapstructure:"save_response_body" yaml:"save_response_body"`
 	Type             string              `mapstructure:"type" yaml:"type"`
@@ -153,12 +160,13 @@ type WaitConfig struct {
 }
 
 type ConfigDoc struct {
-	Auth       []AuthConfig `mapstructure:"auth" yaml:"auth"`
-	MigrateDir string       `mapstructure:"migrate_dir" yaml:"migrate_dir"`
-	Wait       WaitConfig   `mapstructure:"wait" yaml:"wait"`
-	Env        []EnvConfig  `mapstructure:"env" yaml:"env"`
-	Store      StoreConfig  `mapstructure:"store" yaml:"store"`
-	Client     ClientConfig `mapstructure:"client" yaml:"client"`
+	Auth       []AuthConfig  `mapstructure:"auth" yaml:"auth"`
+	MigrateDir string        `mapstructure:"migrate_dir" yaml:"migrate_dir"`
+	Wait       WaitConfig    `mapstructure:"wait" yaml:"wait"`
+	Env        []EnvConfig   `mapstructure:"env" yaml:"env"`
+	Store      StoreConfig   `mapstructure:"store" yaml:"store"`
+	Client     ClientConfig  `mapstructure:"client" yaml:"client"`
+	Logging    LoggingConfig `mapstructure:"logging" yaml:"logging"`
 	// Optional: control default rendering of request bodies with templates
 	RenderBody *bool `mapstructure:"render_body" yaml:"render_body"`
 }
@@ -201,7 +209,7 @@ func (c *ConfigDoc) DecodeAuth(ctx context.Context, e *env.Env) error {
 	return nil
 }
 
-func (c *ConfigDoc) GetEnv(verbose bool) (*env.Env, error) {
+func (c *ConfigDoc) GetEnv() (*env.Env, error) {
 	base := env.New()
 
 	// env (optional) - process before auth so templating can use it
@@ -212,8 +220,8 @@ func (c *ConfigDoc) GetEnv(verbose bool) (*env.Env, error) {
 		val := kv.Value
 		if val == "" && strings.TrimSpace(kv.ValueFromEnv) != "" {
 			val = os.Getenv(kv.ValueFromEnv)
-			if verbose && val == "" {
-				slog.Error("warning: env %s requested from %s but variable is empty or not set", kv.Name, kv.ValueFromEnv)
+			if val == "" {
+				slog.Warn("env variable requested but empty or not set", "name", kv.Name, "env_var", kv.ValueFromEnv)
 			}
 		}
 		_ = base.SetString("global", kv.Name, val)
@@ -239,4 +247,81 @@ func (c *ConfigDoc) Load(path string) error {
 	defer func() { _ = f.Close() }()
 	dec := yaml.NewDecoder(f)
 	return dec.Decode(c)
+}
+
+// SetupLogging configures the global logger based on config settings
+func (c *ConfigDoc) SetupLogging() error {
+	// Determine log level from config
+	var level apimigrate.LogLevel
+
+	switch strings.ToLower(strings.TrimSpace(c.Logging.Level)) {
+	case "error":
+		level = apimigrate.LogLevelError
+	case "warn", "warning":
+		level = apimigrate.LogLevelWarn
+	case "info":
+		level = apimigrate.LogLevelInfo
+	case "debug":
+		level = apimigrate.LogLevelDebug
+	case "":
+		// Default to info if not specified
+		level = apimigrate.LogLevelInfo
+	default:
+		return fmt.Errorf("invalid logging level: %s (valid: error, warn, info, debug)", c.Logging.Level)
+	}
+
+	// Determine format
+	var logger *apimigrate.Logger
+	format := strings.ToLower(strings.TrimSpace(c.Logging.Format))
+
+	// Check if color is explicitly requested or auto-detect
+	useColor := false
+	if c.Logging.Color != nil {
+		useColor = *c.Logging.Color
+	} else if format == "color" || format == "colour" {
+		useColor = true
+	}
+
+	switch format {
+	case "json":
+		logger = apimigrate.NewJSONLogger(level)
+	case "color", "colour":
+		logger = apimigrate.NewColorLogger(level)
+	case "text", "":
+		if useColor {
+			logger = apimigrate.NewColorLogger(level)
+		} else {
+			// Default to text format
+			logger = apimigrate.NewLogger(level)
+		}
+	default:
+		return fmt.Errorf("invalid logging format: %s (valid: text, json, color)", c.Logging.Format)
+	}
+
+	// Configure masking
+	maskingEnabled := true // Default to enabled
+	if c.Logging.MaskSensitive != nil {
+		maskingEnabled = *c.Logging.MaskSensitive
+	}
+	logger.EnableMasking(maskingEnabled)
+
+	// Set as global logger
+	apimigrate.SetDefaultLogger(logger)
+
+	// Also set global masking state
+	apimigrate.EnableMasking(maskingEnabled)
+
+	// Log configuration info with actual effective level
+	effectiveLevel := strings.ToLower(strings.TrimSpace(c.Logging.Level))
+	if effectiveLevel == "" {
+		effectiveLevel = "info"
+	}
+
+	logger.Info("logging configured",
+		"level", effectiveLevel,
+		"format", format,
+		"color", useColor,
+		"mask_sensitive", maskingEnabled)
+
+	return nil
 }

@@ -4,6 +4,12 @@ import (
 	"fmt"
 
 	"github.com/loykin/apimigrate"
+	"github.com/loykin/apimigrate/internal/common"
+)
+
+// Status display constants
+const (
+	defaultHistoryLimit = 10 // Default number of history entries to show
 )
 
 // HistoryItem is a single execution record of a migration version.
@@ -106,7 +112,7 @@ func (i Info) FormatHumanWithLimit(history bool, limit int, all bool) string {
 	items := rev
 	if !all {
 		if limit <= 0 {
-			limit = 10
+			limit = defaultHistoryLimit
 		}
 		if len(items) > limit {
 			items = items[:limit]
@@ -117,4 +123,126 @@ func (i Info) FormatHumanWithLimit(history bool, limit int, all bool) string {
 		out += fmt.Sprintf("#%d v=%d dir=%s code=%d failed=%t at=%s\n", h.ID, h.Version, h.Direction, h.StatusCode, h.Failed, h.RanAt)
 	}
 	return out
+}
+
+// FormatColorized returns a colorized version of the status information
+func (i Info) FormatColorized(history bool, enableColor bool) string {
+	if !enableColor {
+		return i.FormatHuman(history)
+	}
+
+	// Auto-detect terminal support if not explicitly disabled
+	if !common.IsStdoutTerminal() {
+		return i.FormatHuman(history)
+	}
+
+	base := fmt.Sprintf("%scurrent:%s %s%d%s\n%sapplied:%s %s%v%s\n",
+		common.Bold+common.Blue, common.Reset, common.Green, i.Version, common.Reset,
+		common.Bold+common.Blue, common.Reset, common.Cyan, i.Applied, common.Reset)
+
+	if !history {
+		return base
+	}
+
+	if len(i.History) == 0 {
+		return base + fmt.Sprintf("%shistory:%s \n", common.Bold+common.Blue, common.Reset)
+	}
+
+	out := base + fmt.Sprintf("%shistory:%s\n", common.Bold+common.Blue, common.Reset)
+	for _, h := range i.History {
+		statusColor := common.Green
+		if h.Failed {
+			statusColor = common.Red
+		} else if h.StatusCode >= 400 {
+			statusColor = common.Red
+		} else if h.StatusCode >= 300 {
+			statusColor = common.Yellow
+		}
+
+		dirColor := common.Green
+		if h.Direction == "down" {
+			dirColor = common.Yellow
+		}
+
+		out += fmt.Sprintf("%s#%d%s v=%s%d%s dir=%s%s%s code=%s%d%s failed=%s%t%s at=%s%s%s\n",
+			common.Gray, h.ID, common.Reset,
+			common.Magenta, h.Version, common.Reset,
+			dirColor, h.Direction, common.Reset,
+			statusColor, h.StatusCode, common.Reset,
+			colorBool(h.Failed), h.Failed, common.Reset,
+			common.Gray, h.RanAt, common.Reset)
+	}
+	return out
+}
+
+// FormatColorizedWithLimit is the colorized version of FormatHumanWithLimit
+func (i Info) FormatColorizedWithLimit(history bool, limit int, all bool, enableColor bool) string {
+	if !enableColor {
+		return i.FormatHumanWithLimit(history, limit, all)
+	}
+
+	// Auto-detect terminal support if not explicitly disabled
+	if !common.IsStdoutTerminal() {
+		return i.FormatHumanWithLimit(history, limit, all)
+	}
+
+	base := fmt.Sprintf("%scurrent:%s %s%d%s\n%sapplied:%s %s%v%s\n",
+		common.Bold+common.Blue, common.Reset, common.Green, i.Version, common.Reset,
+		common.Bold+common.Blue, common.Reset, common.Cyan, i.Applied, common.Reset)
+
+	if !history {
+		return base
+	}
+	if len(i.History) == 0 {
+		return base + fmt.Sprintf("%shistory:%s \n", common.Bold+common.Blue, common.Reset)
+	}
+
+	// reverse copy to make newest-first (assuming underlying history is oldest-first)
+	rev := make([]HistoryItem, len(i.History))
+	for idx := range i.History {
+		rev[len(i.History)-1-idx] = i.History[idx]
+	}
+	items := rev
+	if !all {
+		if limit <= 0 {
+			limit = defaultHistoryLimit
+		}
+		if len(items) > limit {
+			items = items[:limit]
+		}
+	}
+
+	out := base + fmt.Sprintf("%shistory:%s\n", common.Bold+common.Blue, common.Reset)
+	for _, h := range items {
+		statusColor := common.Green
+		if h.Failed {
+			statusColor = common.Red
+		} else if h.StatusCode >= 400 {
+			statusColor = common.Red
+		} else if h.StatusCode >= 300 {
+			statusColor = common.Yellow
+		}
+
+		dirColor := common.Green
+		if h.Direction == "down" {
+			dirColor = common.Yellow
+		}
+
+		out += fmt.Sprintf("%s#%d%s v=%s%d%s dir=%s%s%s code=%s%d%s failed=%s%t%s at=%s%s%s\n",
+			common.Gray, h.ID, common.Reset,
+			common.Magenta, h.Version, common.Reset,
+			dirColor, h.Direction, common.Reset,
+			statusColor, h.StatusCode, common.Reset,
+			colorBool(h.Failed), h.Failed, common.Reset,
+			common.Gray, h.RanAt, common.Reset)
+	}
+	return out
+}
+
+// colorBool returns appropriate color for boolean values
+func colorBool(failed bool) string {
+	if failed {
+		return common.Red
+	}
+	return common.Green
 }

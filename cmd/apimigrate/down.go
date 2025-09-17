@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"path/filepath"
 	"strings"
 
@@ -18,7 +17,6 @@ var downCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		v := viper.GetViper()
 		configPath := v.GetString("config")
-		verbose := v.GetBool("v")
 		dry := v.GetBool("dry_run")
 		dryFrom := v.GetInt("dry_run_from")
 		to := v.GetInt("to")
@@ -29,9 +27,6 @@ var downCmd = &cobra.Command{
 		saveResp := false
 		var storeCfgFromDoc *apimigrate.StoreConfig
 		if strings.TrimSpace(configPath) != "" {
-			if verbose {
-				log.Printf("loading config from %s", configPath)
-			}
 			var doc ConfigDoc
 			if err := doc.Load(configPath); err != nil {
 				return err
@@ -41,11 +36,11 @@ var downCmd = &cobra.Command{
 				// Fallback: use the directory of the config file if migrate_dir is not set
 				mDir = filepath.Dir(configPath)
 			}
-			envFromCfg, err := doc.GetEnv(verbose)
+			envFromCfg, err := doc.GetEnv()
 			if err != nil {
 				return err
 			}
-			if err := doWait(ctx, envFromCfg, doc.Wait, doc.Client, verbose); err != nil {
+			if err := doWait(ctx, envFromCfg, doc.Wait, doc.Client); err != nil {
 				return err
 			}
 			if err := doc.DecodeAuth(ctx, envFromCfg); err != nil {
@@ -66,13 +61,6 @@ var downCmd = &cobra.Command{
 		// Normalize to absolute path to avoid working-directory surprises
 		if abs, err := filepath.Abs(dir); err == nil {
 			dir = abs
-		}
-		if verbose {
-			if dry {
-				log.Printf("[dry-run] down migrations in %s to %d (from=%d)", dir, to, dryFrom)
-			} else {
-				log.Printf("down migrations in %s to %d", dir, to)
-			}
 		}
 		m := apimigrate.Migrator{Env: *baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry, DryRunFrom: dryFrom}
 		// Set default render_body from config if provided

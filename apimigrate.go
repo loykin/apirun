@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/loykin/apimigrate/internal/auth"
+	"github.com/loykin/apimigrate/internal/common"
 	imig "github.com/loykin/apimigrate/internal/migration"
 	"github.com/loykin/apimigrate/internal/store"
 	"github.com/loykin/apimigrate/internal/task"
@@ -250,4 +251,88 @@ func OpenStoreFromOptions(dir string, storeConfig *StoreConfig) (*Store, error) 
 		return nil, err
 	}
 	return st, nil
+}
+
+// Logging API - Public interface for structured logging
+// Re-export common logging types for public use
+
+// LogLevel represents logging verbosity levels
+type LogLevel = common.LogLevel
+
+const (
+	LogLevelError = common.LogLevelError
+	LogLevelWarn  = common.LogLevelWarn
+	LogLevelInfo  = common.LogLevelInfo
+	LogLevelDebug = common.LogLevelDebug
+)
+
+// Logger provides structured logging interface
+type Logger = common.Logger
+
+// NewLogger creates a new structured logger with the specified level
+func NewLogger(level LogLevel) *Logger {
+	return common.NewLogger(level)
+}
+
+// NewJSONLogger creates a structured logger with JSON output
+func NewJSONLogger(level LogLevel) *Logger {
+	return common.NewJSONLogger(level)
+}
+
+// NewColorLogger creates a structured logger with colorized output
+func NewColorLogger(level LogLevel) *Logger {
+	return common.NewColorLogger(level)
+}
+
+// SetDefaultLogger sets the global default logger for apimigrate
+func SetDefaultLogger(logger *Logger) {
+	common.SetDefaultLogger(logger)
+}
+
+// GetLogger returns the default logger
+func GetLogger() *Logger {
+	return common.GetLogger()
+}
+
+// Masking API - Public interface for sensitive data masking
+
+// SensitivePattern represents a pattern to detect and mask sensitive information
+type SensitivePattern = common.SensitivePattern
+
+// Masker handles masking of sensitive information in logs
+type Masker = common.Masker
+
+// NewMasker creates a new masker with default patterns
+func NewMasker() *Masker {
+	return common.NewMasker()
+}
+
+// NewMaskerWithPatterns creates a new masker with custom patterns
+func NewMaskerWithPatterns(patterns []SensitivePattern) *Masker {
+	return common.NewMaskerWithPatterns(patterns)
+}
+
+// MaskSensitiveData masks sensitive data using the global masker
+func MaskSensitiveData(input string) string {
+	return common.MaskSensitiveData(input)
+}
+
+// EnableMasking enables/disables global masking
+func EnableMasking(enabled bool) {
+	common.EnableMasking(enabled)
+}
+
+// IsMaskingEnabled returns whether global masking is enabled
+func IsMaskingEnabled() bool {
+	return common.IsMaskingEnabled()
+}
+
+// SetGlobalMasker sets the global masker instance
+func SetGlobalMasker(masker *Masker) {
+	common.SetGlobalMasker(masker)
+}
+
+// GetGlobalMasker returns the global masker instance
+func GetGlobalMasker() *Masker {
+	return common.GetGlobalMasker()
 }

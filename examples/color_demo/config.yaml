@@ -1,0 +1,15 @@
+## Color Logging Configuration
+
+logging:
+  level: info
+  format: color  # Use colorized output for better readability
+  color: true    # Explicitly enable colors (auto-detected if not specified)  
+  mask_sensitive: true
+
+## Alternative formats:
+# logging:
+#   format: text   # Plain text (default)
+# logging:
+#   format: json   # JSON format for log aggregation
+# logging:
+#   color: false   # Force disable colors even in terminals

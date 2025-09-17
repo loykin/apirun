@@ -102,6 +102,14 @@ jobs:
           go run ./examples/status_embedded
           echo "Running examples/embedded_create"
           go run ./examples/embedded_create
+          echo "Running examples/embedded_logging"
+          go run ./examples/embedded_logging
+          echo "Running examples/masking_demo"
+          go run ./examples/masking_demo
+          echo "Running examples/color_demo"
+          go run ./examples/color_demo
+          echo "RUnning examples/metrics_demo"
+          go run ./examples/metrics_demo
         env:
           CI: true
 

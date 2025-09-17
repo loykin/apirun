@@ -24,18 +24,21 @@ var statusCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		v := viper.GetViper()
 		configPath := v.GetString("config")
-		verbose := v.GetBool("v")
 
 		dir := ""
 		var storeCfg *apimigrate.StoreConfig
+		var colorEnabled bool = false // Default to no color
+
 		if strings.TrimSpace(configPath) != "" {
-			if verbose {
-				log.Printf("loading config from %s", configPath)
-			}
 			var doc ConfigDoc
 			if err := doc.Load(configPath); err != nil {
 				log.Printf("warning: failed to load config: %v", err)
 			} else {
+				// Enable color from config if available
+				if doc.Logging.Color != nil {
+					colorEnabled = *doc.Logging.Color
+				}
+
 				mDir := strings.TrimSpace(doc.MigrateDir)
 				if mDir == "" {
 					// Fallback: use config file directory if migrate_dir not specified
@@ -63,9 +66,9 @@ var statusCmd = &cobra.Command{
 			return err
 		}
 		if statusHistory {
-			fmt.Print(info.FormatHumanWithLimit(true, statusHistoryLimit, statusHistoryAll))
+			fmt.Print(info.FormatColorizedWithLimit(true, statusHistoryLimit, statusHistoryAll, colorEnabled))
 		} else {
-			fmt.Print(info.FormatHuman(false))
+			fmt.Print(info.FormatColorized(false, colorEnabled))
 		}
 		return nil
 	},

@@ -1,6 +1,7 @@
 package status
 
 import (
+	"net/http"
 	"path/filepath"
 	"regexp"
 	"testing"
@@ -36,11 +37,11 @@ func TestFormatHumanWithLimit_NewestFirstAndLimit(t *testing.T) {
 		Version: 5,
 		Applied: []int{1, 2, 3, 4, 5},
 		History: []HistoryItem{
-			{ID: 1, Version: 1, Direction: "up", StatusCode: 200, RanAt: "2025-01-01T00:00:00Z"},
-			{ID: 2, Version: 2, Direction: "up", StatusCode: 200, RanAt: "2025-01-01T00:01:00Z"},
-			{ID: 3, Version: 3, Direction: "up", StatusCode: 200, RanAt: "2025-01-01T00:02:00Z"},
-			{ID: 4, Version: 4, Direction: "up", StatusCode: 200, RanAt: "2025-01-01T00:03:00Z"},
-			{ID: 5, Version: 5, Direction: "up", StatusCode: 200, RanAt: "2025-01-01T00:04:00Z"},
+			{ID: 1, Version: 1, Direction: "up", StatusCode: http.StatusOK, RanAt: "2025-01-01T00:00:00Z"},
+			{ID: 2, Version: 2, Direction: "up", StatusCode: http.StatusOK, RanAt: "2025-01-01T00:01:00Z"},
+			{ID: 3, Version: 3, Direction: "up", StatusCode: http.StatusOK, RanAt: "2025-01-01T00:02:00Z"},
+			{ID: 4, Version: 4, Direction: "up", StatusCode: http.StatusOK, RanAt: "2025-01-01T00:03:00Z"},
+			{ID: 5, Version: 5, Direction: "up", StatusCode: http.StatusOK, RanAt: "2025-01-01T00:04:00Z"},
 		},
 	}
 	got := i.FormatHumanWithLimit(true, 3, false)
@@ -55,7 +56,7 @@ func TestFormatHumanWithLimit_AllIgnoresLimit(t *testing.T) {
 	i := Info{
 		Version: 2,
 		Applied: []int{1, 2},
-		History: []HistoryItem{{ID: 1, Version: 1, Direction: "up", StatusCode: 200, RanAt: "t1"}, {ID: 2, Version: 2, Direction: "up", StatusCode: 200, RanAt: "t2"}},
+		History: []HistoryItem{{ID: 1, Version: 1, Direction: "up", StatusCode: http.StatusOK, RanAt: "t1"}, {ID: 2, Version: 2, Direction: "up", StatusCode: http.StatusOK, RanAt: "t2"}},
 	}
 	got := i.FormatHumanWithLimit(true, 1, true)
 	re := regexp.MustCompile(`(?s)^current: 2\napplied: \[1 2]\nhistory:\n#2 .*\n#1 .*\n$`)
@@ -88,10 +89,10 @@ func TestFromStore_WithRuns(t *testing.T) {
 	}
 	// Record a couple of runs
 	body := "ok"
-	if err := st.RecordRun(1, "up", 200, &body, map[string]string{"a": "1"}, false); err != nil {
+	if err := st.RecordRun(1, "up", http.StatusOK, &body, map[string]string{"a": "1"}, false); err != nil {
 		t.Fatalf("RecordRun #1: %v", err)
 	}
-	if err := st.RecordRun(2, "up", 500, nil, nil, true); err != nil {
+	if err := st.RecordRun(2, "up", http.StatusInternalServerError, nil, nil, true); err != nil {
 		t.Fatalf("RecordRun #2: %v", err)
 	}
 	info, err := FromStore(st)

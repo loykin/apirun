@@ -1,6 +1,7 @@
 package task
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -18,7 +19,7 @@ func (t *Task) decodeYAMLTo(r io.Reader) error {
 	dec := yaml.NewDecoder(r)
 	var tmp Task
 	if err := dec.Decode(&tmp); err != nil {
-		return err
+		return fmt.Errorf("failed to decode YAML task configuration: %w", err)
 	}
 	*t = tmp
 	return nil

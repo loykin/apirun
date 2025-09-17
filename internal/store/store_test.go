@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -273,7 +274,8 @@ func TestStoreConnect_UnknownDriver(t *testing.T) {
 // Cover Close() path when connector is nil but DB is set (closes DB)
 func TestStoreClose_DBOnly(t *testing.T) {
 	// Open a lightweight in-memory sqlite DB directly and attach to Store
-	db, err := sql.Open("sqlite", "file::memory:?cache=shared&_busy_timeout=5000&_fk=1")
+	dsn := fmt.Sprintf("file::memory:?%s&_busy_timeout=%d&%s", sqliteCacheSharedParam, sqliteBusyTimeoutMS, sqliteForeignKeysParam)
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		t.Fatalf("sql.Open sqlite: %v", err)
 	}
