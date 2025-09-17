@@ -37,7 +37,8 @@ func main() {
 	results, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		// Log the error with structured context
-		logger.Error("migration failed", err,
+		logger.Error("migration failed",
+			"error", err,
 			"dir", m.Dir,
 			"results_count", len(results))
 		log.Fatalf("Migration failed: %v", err)

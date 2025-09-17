@@ -65,14 +65,18 @@ var rootCmd = &cobra.Command{
 			logger = common.GetLogger().WithComponent("main")
 
 			mDir := strings.TrimSpace(doc.MigrateDir)
+			logger.Debug("processing configuration", "migrate_dir", mDir)
 			envFromCfg, err := doc.GetEnv(verbose)
 			if err != nil {
+				logger.Error("failed to get environment from config", "error", err)
 				return err
 			}
 			if err := doWait(ctx, envFromCfg, doc.Wait, doc.Client, verbose); err != nil {
+				logger.Error("wait check failed", "error", err)
 				return err
 			}
 			if err := doc.DecodeAuth(ctx, envFromCfg); err != nil {
+				logger.Error("failed to decode authentication", "error", err)
 				return err
 			}
 			_ = doc.Store.ToStorOptions()
@@ -111,6 +115,9 @@ var rootCmd = &cobra.Command{
 				cfg.InsecureSkipVerify = true
 			}
 			clientTLS = cfg
+			logger.Debug("TLS configuration applied", "insecure", doc.Client.Insecure, "min_version", minV, "max_version", maxV)
+		} else {
+			logger.Debug("using default configuration (no config file specified)")
 		}
 
 		// If dir wasn't set by config, fall back to the conventional example path

@@ -53,12 +53,12 @@ func AcquireAndStoreWithName(ctx context.Context, typ string, spec map[string]in
 
 	f, ok := providers[normalizeKey(typ)]
 	if !ok {
-		logger.Error("unsupported auth provider type", nil, "provider_type", typ)
+		logger.Error("unsupported auth provider type", "provider_type", typ)
 		return "", errors.New("auth: unsupported provider type: " + typ)
 	}
 	m, err := f(spec)
 	if err != nil {
-		logger.Error("failed to create auth method", err, "provider_type", typ)
+		logger.Error("failed to create auth method", "error", err, "provider_type", typ)
 		return "", fmt.Errorf("failed to create auth method for provider %q: %w", typ, err)
 	}
 	if ctx == nil {
@@ -66,7 +66,7 @@ func AcquireAndStoreWithName(ctx context.Context, typ string, spec map[string]in
 	}
 	token, err := m.Acquire(ctx)
 	if err != nil {
-		logger.Error("failed to acquire auth token", err, "provider_type", typ)
+		logger.Error("failed to acquire auth token", "error", err, "provider_type", typ)
 		return "", fmt.Errorf("failed to acquire auth token from provider %q: %w", typ, err)
 	}
 

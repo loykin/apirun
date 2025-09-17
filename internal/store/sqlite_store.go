@@ -69,7 +69,7 @@ func (s *SqliteStore) Ensure(th TableNames) error {
 	for i, q := range stmts {
 		logger.Debug("executing schema creation statement", "table_index", i+1, "sql", q)
 		if _, err := s.db.Exec(q); err != nil {
-			logger.Error("failed to create table in schema setup", err, "table_index", i+1, "sql", q)
+			logger.Error("failed to create table in schema setup", "error", err, "table_index", i+1, "sql", q)
 			return fmt.Errorf("failed to create table %d in schema setup: %w", i+1, err)
 		}
 	}
@@ -85,7 +85,7 @@ func (s *SqliteStore) Apply(th TableNames, v int) error {
 	q := fmt.Sprintf("INSERT OR IGNORE INTO %s(version) VALUES(?)", th.SchemaMigrations)
 	_, err := s.db.Exec(q, v)
 	if err != nil {
-		logger.Error("failed to apply migration version", err)
+		logger.Error("failed to apply migration version", "error", err)
 		return fmt.Errorf("failed to apply migration version %d: %w", v, err)
 	}
 	logger.Info("migration version applied successfully")
@@ -106,7 +106,7 @@ func (s *SqliteStore) IsApplied(th TableNames, v int) (bool, error) {
 		return false, nil
 	}
 	if err != nil {
-		logger.Error("failed to check if migration version is applied", err)
+		logger.Error("failed to check if migration version is applied", "error", err)
 		return false, fmt.Errorf("failed to check if migration version %d is applied: %w", v, err)
 	}
 	logger.Debug("migration version is applied")
@@ -321,7 +321,7 @@ func (s *SqliteStore) Connect() (*sql.DB, error) {
 
 	db, err := sql.Open("sqlite", s.DSN)
 	if err != nil {
-		logger.Error("failed to open SQLite database", err, "dsn", s.DSN)
+		logger.Error("failed to open SQLite database", "error", err, "dsn", s.DSN)
 		return nil, fmt.Errorf("failed to open SQLite database with DSN %q: %w", s.DSN, err)
 	}
 

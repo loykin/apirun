@@ -562,7 +562,7 @@ func TestLoggingIntegrationWithMigrator(t *testing.T) {
 	ctx := context.Background()
 
 	// Note: This may fail due to network connectivity, but it should test the logging integration
-	_, err = m.MigrateUp(ctx, 0)
+	_, _ = m.MigrateUp(ctx, 0)
 	// We don't assert on success here since it depends on network connectivity
 	// The important thing is that logging is integrated and doesn't break the functionality
 
@@ -600,7 +600,7 @@ func TestLoggerAPI(t *testing.T) {
 	logger.Error("test error message", "error_key", "error_value")
 
 	// Test with nil error (should not panic)
-	logger.Error("test error with nil", nil, "test_key", "test_value")
+	logger.Error("test error with nil error", "test_key", "test_value", "error", nil)
 }
 
 func TestLoggerCreationWithInvalidLevel(t *testing.T) {
@@ -782,7 +782,7 @@ func TestLoggingEdgeCases(t *testing.T) {
 	logger.Info("test with empty", "", "")
 
 	// Test with odd number of key-value pairs (should handle gracefully)
-	logger.Info("test with odd pairs", "key1", "value1", "key2")
+	logger.Info("test with odd pairs", "key1", "value1", "key2", "")
 
 	// Test with special characters in keys and values
 	logger.Info("test with special chars",

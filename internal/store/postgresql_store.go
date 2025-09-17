@@ -318,7 +318,7 @@ func (p *PostgresStore) Connect() (*sql.DB, error) {
 
 	db, err := sql.Open("pgx", p.DSN)
 	if err != nil {
-		logger.Error("failed to open PostgreSQL database", err, "dsn", p.DSN)
+		logger.Error("failed to open PostgreSQL database", "error", err, "dsn", p.DSN)
 		return nil, fmt.Errorf("failed to open PostgreSQL database with DSN %q: %w", p.DSN, err)
 	}
 	p.db = db

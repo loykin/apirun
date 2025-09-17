@@ -27,7 +27,7 @@ func (u *Up) Execute(ctx context.Context, method, url string) (*ExecResult, erro
 	// Build request components via RequestSpec method
 	hdrs, queries, body, rerr := u.Request.Render(u.Env)
 	if rerr != nil {
-		logger.Error("failed to render request template", rerr, "name", u.Name)
+		logger.Error("failed to render request template", "error", rerr, "name", u.Name)
 		return nil, fmt.Errorf("up request body template error: %v", rerr)
 	}
 
@@ -48,7 +48,7 @@ func (u *Up) Execute(ctx context.Context, method, url string) (*ExecResult, erro
 	req := buildRequest(ctx, hdrs, queries, body)
 	resp, err := execByMethod(req, methodToUse, urlToUse)
 	if err != nil {
-		logger.Error("HTTP request failed", err, "method", methodToUse, "url", urlToUse)
+		logger.Error("HTTP request failed", "error", err, "method", methodToUse, "url", urlToUse)
 		return nil, err
 	}
 

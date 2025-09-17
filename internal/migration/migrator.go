@@ -247,12 +247,12 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 	acommon.SetTLSConfig(m.TLSConfig)
 	// Perform automatic auth once if configured
 	if err := m.ensureAuth(ctx); err != nil {
-		logger.Error("failed to ensure authentication", err)
+		logger.Error("failed to ensure authentication", "error", err)
 		return nil, fmt.Errorf("failed to ensure authentication: %w", err)
 	}
 	files, err := listMigrationFiles(m.Dir)
 	if err != nil {
-		logger.Error("failed to list migration files", err, "dir", m.Dir)
+		logger.Error("failed to list migration files", "error", err, "dir", m.Dir)
 		return nil, fmt.Errorf("failed to list migration files in directory %q: %w", m.Dir, err)
 	}
 	logger.Debug("found migration files", "count", len(files), "files", files)
@@ -265,7 +265,7 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 		var err error
 		cur, err = m.Store.CurrentVersion()
 		if err != nil {
-			logger.Error("failed to get current migration version from store", err)
+			logger.Error("failed to get current migration version from store", "error", err)
 			return nil, fmt.Errorf("failed to get current migration version from store: %w", err)
 		}
 	}
