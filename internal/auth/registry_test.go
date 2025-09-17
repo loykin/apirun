@@ -31,7 +31,7 @@ func makeFactory(_ string, _ string, value string) Factory {
 func TestRegistry_RegisterAndAcquire_CustomProvider(t *testing.T) {
 	Register("UnitTestDemo", makeFactory("demo", "X-Demo", "ok"))
 
-	v, err := AcquireAndStoreWithName(context.TODO(), "unittestdemo", map[string]interface{}{"value": "val"})
+	v, err := AcquireAndStoreWithName(context.Background(), "unittestdemo", map[string]interface{}{"value": "val"})
 	if err != nil {
 		t.Fatalf("AcquireAndStoreWithName err: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestAcquireAndStoreWithName_ReturnsValueForCustomProvider(t *testing.T) {
 func TestAcquireAndStoreWithName_NilContextHandled(t *testing.T) {
 	key := "dummy-nilctx"
 	Register(key, dummyFactoryOK)
-	v, err := AcquireAndStoreWithName(context.TODO(), key, map[string]interface{}{"value": "x"})
+	v, err := AcquireAndStoreWithName(context.Background(), key, map[string]interface{}{"value": "x"})
 	if err != nil || v != "x" {
 		t.Fatalf("nil ctx path failed: v=%q err=%v", v, err)
 	}
