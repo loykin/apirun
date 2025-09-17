@@ -3,6 +3,7 @@ package common
 import (
 	"log/slog"
 	"os"
+	"sync"
 )
 
 // LogLevel represents logging verbosity levels
@@ -212,15 +213,22 @@ func (l *Logger) WithRequest(method, url string) *Logger {
 }
 
 // Global default logger instance
-var defaultLogger = NewLogger(LogLevelInfo)
+var (
+	defaultLogger   = NewLogger(LogLevelInfo)
+	defaultLoggerMu sync.RWMutex
+)
 
 // SetDefaultLogger sets the global default logger
 func SetDefaultLogger(logger *Logger) {
+	defaultLoggerMu.Lock()
+	defer defaultLoggerMu.Unlock()
 	defaultLogger = logger
 }
 
 // GetLogger returns the default logger
 func GetLogger() *Logger {
+	defaultLoggerMu.RLock()
+	defer defaultLoggerMu.RUnlock()
 	return defaultLogger
 }
 
