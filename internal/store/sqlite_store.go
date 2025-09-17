@@ -259,6 +259,9 @@ func (s *SqliteStore) Connect() (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	db.SetMaxOpenConns(1)
+
 	s.db = db
 	return db, nil
 }
