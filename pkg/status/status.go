@@ -6,6 +6,11 @@ import (
 	"github.com/loykin/apimigrate"
 )
 
+// Status display constants
+const (
+	defaultHistoryLimit = 10 // Default number of history entries to show
+)
+
 // HistoryItem is a single execution record of a migration version.
 // RanAt is an RFC3339 timestamp in UTC.
 // Body may be nil when response body saving was disabled.
@@ -106,7 +111,7 @@ func (i Info) FormatHumanWithLimit(history bool, limit int, all bool) string {
 	items := rev
 	if !all {
 		if limit <= 0 {
-			limit = 10
+			limit = defaultHistoryLimit
 		}
 		if len(items) > limit {
 			items = items[:limit]

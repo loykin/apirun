@@ -13,6 +13,8 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
+const TestDefaultTimeoutSeconds = 30
+
 // waitForPostgresDSN pings the DSN until it responds or timeout elapses (pgx stdlib).
 func waitForPostgresDSN(dsn string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
@@ -76,7 +78,7 @@ func TestPostgresStore_BasicCRUD(t *testing.T) {
 	dsn := fmt.Sprintf("postgres://test:test@%s:%s/apimigrate_test?sslmode=disable", host, port.Port())
 
 	// Ensure DB is accepting connections before opening the store
-	if err := waitForPostgresDSN(dsn, 30*time.Second); err != nil {
+	if err := waitForPostgresDSN(dsn, TestDefaultTimeoutSeconds*time.Second); err != nil {
 		_ = pg.Terminate(ctx)
 		t.Fatalf("postgres not ready: %v", err)
 	}

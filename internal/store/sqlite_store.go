@@ -10,6 +10,14 @@ import (
 
 const DriverSqlite = "sqlite"
 
+// SQLite configuration constants
+const (
+	sqliteBusyTimeoutMS    = 5000 // 5 seconds in milliseconds
+	sqliteMaxOpenConns     = 1    // Maximum open connections for SQLite
+	sqliteForeignKeysParam = "_fk=1"
+	sqliteCacheSharedParam = "cache=shared"
+)
+
 type SqliteConfig struct {
 	Path string
 }
@@ -42,7 +50,7 @@ func (s *SqliteStore) Load(config map[string]interface{}) error {
 		return nil
 	}
 	if path, ok := config["path"].(string); ok && path != "" {
-		s.DSN = "file:" + path + "?_busy_timeout=5000&_fk=1"
+		s.DSN = fmt.Sprintf("file:%s?_busy_timeout=%d&%s", path, sqliteBusyTimeoutMS, sqliteForeignKeysParam)
 	}
 	return nil
 }
@@ -284,14 +292,14 @@ func (s *SqliteStore) ListRuns(th TableNames) ([]Run, error) {
 func (s *SqliteStore) Connect() (*sql.DB, error) {
 	if s.DSN == "" {
 		// fallback to in-memory if not set explicitly (for safety)
-		s.DSN = "file::memory:?cache=shared&_busy_timeout=5000&_fk=1"
+		s.DSN = fmt.Sprintf("file::memory:?%s&_busy_timeout=%d&%s", sqliteCacheSharedParam, sqliteBusyTimeoutMS, sqliteForeignKeysParam)
 	}
 	db, err := sql.Open("sqlite", s.DSN)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open SQLite database with DSN %q: %w", s.DSN, err)
 	}
 
-	db.SetMaxOpenConns(1)
+	db.SetMaxOpenConns(sqliteMaxOpenConns)
 
 	s.db = db
 	return db, nil

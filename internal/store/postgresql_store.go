@@ -13,6 +13,12 @@ import (
 
 const DriverPostgresql = "postgresql"
 
+// PostgreSQL configuration constants
+const (
+	postgresDefaultPort    = 5432
+	postgresDefaultSSLMode = "disable"
+)
+
 type PostgresConfig struct {
 	DSN      string `mapstructure:"dsn"`
 	Host     string `mapstructure:"host"`
@@ -30,11 +36,11 @@ func (p *PostgresConfig) ToMap() map[string]interface{} {
 	if dsn == "" && strings.TrimSpace(p.Host) != "" {
 		port := p.Port
 		if port == 0 {
-			port = 5432
+			port = postgresDefaultPort
 		}
 		ssl := strings.TrimSpace(p.SSLMode)
 		if ssl == "" {
-			ssl = "disable"
+			ssl = postgresDefaultSSLMode
 		}
 		// Build DSN in the common form accepted by pgx stdlib.
 		dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
