@@ -67,6 +67,9 @@ logging:
   # Log format: text, json (default: text)
   # Use 'json' for production/log aggregation systems
   format: text
+  # Mask sensitive information in logs (default: true)
+  # When enabled, passwords, API keys, tokens, etc. are automatically masked
+  mask_sensitive: true
 
 # Store settings
 store:

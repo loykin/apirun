@@ -47,8 +47,9 @@ type EnvConfig struct {
 }
 
 type LoggingConfig struct {
-	Level  string `mapstructure:"level" yaml:"level"`   // error, warn, info, debug
-	Format string `mapstructure:"format" yaml:"format"` // text, json
+	Level         string `mapstructure:"level" yaml:"level"`                   // error, warn, info, debug
+	Format        string `mapstructure:"format" yaml:"format"`                 // text, json
+	MaskSensitive *bool  `mapstructure:"mask_sensitive" yaml:"mask_sensitive"` // enable/disable sensitive data masking
 }
 
 type StoreConfig struct {
@@ -286,13 +287,24 @@ func (c *ConfigDoc) SetupLogging(verbose bool) error {
 		return fmt.Errorf("invalid logging format: %s (valid: text, json)", c.Logging.Format)
 	}
 
+	// Configure masking
+	maskingEnabled := true // Default to enabled
+	if c.Logging.MaskSensitive != nil {
+		maskingEnabled = *c.Logging.MaskSensitive
+	}
+	logger.EnableMasking(maskingEnabled)
+
 	// Set as global logger
 	apimigrate.SetDefaultLogger(logger)
+
+	// Also set global masking state
+	apimigrate.EnableMasking(maskingEnabled)
 
 	// Log configuration info
 	logger.Info("logging configured",
 		"level", c.Logging.Level,
 		"format", format,
+		"mask_sensitive", maskingEnabled,
 		"verbose_override", verbose)
 
 	return nil

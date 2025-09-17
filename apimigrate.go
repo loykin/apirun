@@ -288,3 +288,46 @@ func SetDefaultLogger(logger *Logger) {
 func GetLogger() *Logger {
 	return common.GetLogger()
 }
+
+// Masking API - Public interface for sensitive data masking
+
+// SensitivePattern represents a pattern to detect and mask sensitive information
+type SensitivePattern = common.SensitivePattern
+
+// Masker handles masking of sensitive information in logs
+type Masker = common.Masker
+
+// NewMasker creates a new masker with default patterns
+func NewMasker() *Masker {
+	return common.NewMasker()
+}
+
+// NewMaskerWithPatterns creates a new masker with custom patterns
+func NewMaskerWithPatterns(patterns []SensitivePattern) *Masker {
+	return common.NewMaskerWithPatterns(patterns)
+}
+
+// MaskSensitiveData masks sensitive data using the global masker
+func MaskSensitiveData(input string) string {
+	return common.MaskSensitiveData(input)
+}
+
+// EnableMasking enables/disables global masking
+func EnableMasking(enabled bool) {
+	common.EnableMasking(enabled)
+}
+
+// IsMaskingEnabled returns whether global masking is enabled
+func IsMaskingEnabled() bool {
+	return common.IsMaskingEnabled()
+}
+
+// SetGlobalMasker sets the global masker instance
+func SetGlobalMasker(masker *Masker) {
+	common.SetGlobalMasker(masker)
+}
+
+// GetGlobalMasker returns the global masker instance
+func GetGlobalMasker() *Masker {
+	return common.GetGlobalMasker()
+}

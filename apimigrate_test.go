@@ -907,3 +907,128 @@ func TestLoggingConfigurationParsing(t *testing.T) {
 		})
 	}
 }
+
+// TestMaskingAPI tests the public masking API functions
+func TestMaskingAPI(t *testing.T) {
+	// Test NewMasker
+	t.Run("NewMasker", func(t *testing.T) {
+		masker := NewMasker()
+		if masker == nil {
+			t.Error("NewMasker() should return a valid masker")
+		}
+
+		if !masker.IsEnabled() {
+			t.Error("NewMasker() should return an enabled masker by default")
+		}
+	})
+
+	// Test NewMaskerWithPatterns
+	t.Run("NewMaskerWithPatterns", func(t *testing.T) {
+		patterns := []SensitivePattern{
+			{
+				Name: "test_pattern",
+				Keys: []string{"test_key"},
+			},
+		}
+		masker := NewMaskerWithPatterns(patterns)
+		if masker == nil {
+			t.Error("NewMaskerWithPatterns() should return a valid masker")
+		}
+	})
+
+	// Test global masking functions
+	t.Run("GlobalMasking", func(t *testing.T) {
+		// Save original state
+		originalState := IsMaskingEnabled()
+		defer EnableMasking(originalState)
+
+		// Test EnableMasking/IsMaskingEnabled
+		EnableMasking(true)
+		if !IsMaskingEnabled() {
+			t.Error("IsMaskingEnabled() should return true after EnableMasking(true)")
+		}
+
+		EnableMasking(false)
+		if IsMaskingEnabled() {
+			t.Error("IsMaskingEnabled() should return false after EnableMasking(false)")
+		}
+
+		// Test MaskSensitiveData with masking enabled
+		EnableMasking(true)
+		input := "password=secret123"
+		masked := MaskSensitiveData(input)
+		if masked == input {
+			t.Error("MaskSensitiveData() should mask sensitive data when enabled")
+		}
+
+		// Test MaskSensitiveData with masking disabled
+		EnableMasking(false)
+		masked2 := MaskSensitiveData(input)
+		if masked2 != input {
+			t.Error("MaskSensitiveData() should not mask data when disabled")
+		}
+	})
+
+	// Test SetGlobalMasker/GetGlobalMasker
+	t.Run("GlobalMaskerAPI", func(t *testing.T) {
+		// Save original masker
+		originalMasker := GetGlobalMasker()
+		defer SetGlobalMasker(originalMasker)
+
+		// Create and set new masker
+		customMasker := NewMasker()
+		SetGlobalMasker(customMasker)
+
+		// Check if it was set correctly
+		retrieved := GetGlobalMasker()
+		if retrieved != customMasker {
+			t.Error("SetGlobalMasker/GetGlobalMasker should work correctly")
+		}
+	})
+
+	// Test Logger methods added for masking
+	t.Run("LoggerMaskingMethods", func(t *testing.T) {
+		logger := NewLogger(LogLevelInfo)
+
+		// Test EnableMasking/IsMaskingEnabled on logger
+		logger.EnableMasking(false)
+		if logger.IsMaskingEnabled() {
+			t.Error("Logger.IsMaskingEnabled() should return false after EnableMasking(false)")
+		}
+
+		logger.EnableMasking(true)
+		if !logger.IsMaskingEnabled() {
+			t.Error("Logger.IsMaskingEnabled() should return true after EnableMasking(true)")
+		}
+
+		// Test SetMasker/GetMasker
+		customMasker := NewMasker()
+		logger.SetMasker(customMasker)
+		retrieved := logger.GetMasker()
+		if retrieved != customMasker {
+			t.Error("Logger.SetMasker/GetMasker should work correctly")
+		}
+	})
+}
+
+// TestLoggerIntegration tests the integration between Logger and masking
+func TestLoggerIntegration(t *testing.T) {
+	logger := NewLogger(LogLevelInfo)
+
+	// We can't easily test the actual masking output without capturing logs,
+	// but we can test that the methods don't panic and work correctly
+	logger.Info("test message",
+		"username", "admin",
+		"password", "secret123",
+		"api_key", "sk_test_123")
+
+	logger.EnableMasking(false)
+	logger.Info("test message with masking disabled",
+		"username", "admin",
+		"password", "visible_password")
+
+	logger.EnableMasking(true)
+	logger.Error("error with sensitive data",
+		"error", "authentication failed",
+		"token", "jwt_token_123")
+}

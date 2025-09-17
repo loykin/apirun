@@ -50,7 +50,8 @@ func (l LogLevel) ToSlogLevel() slog.Level {
 // Logger provides a centralized logging interface for apimigrate
 type Logger struct {
 	*slog.Logger
-	level LogLevel
+	level  LogLevel
+	masker *Masker
 }
 
 // NewLogger creates a new structured logger with the specified level
@@ -65,6 +66,7 @@ func NewLogger(level LogLevel) *Logger {
 	return &Logger{
 		Logger: logger,
 		level:  level,
+		masker: NewMasker(),
 	}
 }
 
@@ -80,6 +82,7 @@ func NewJSONLogger(level LogLevel) *Logger {
 	return &Logger{
 		Logger: logger,
 		level:  level,
+		masker: NewMasker(),
 	}
 }
 
@@ -88,11 +91,66 @@ func (l *Logger) Level() LogLevel {
 	return l.level
 }
 
+// SetMasker sets the masker for this logger
+func (l *Logger) SetMasker(masker *Masker) {
+	l.masker = masker
+}
+
+// GetMasker returns the current masker
+func (l *Logger) GetMasker() *Masker {
+	return l.masker
+}
+
+// EnableMasking enables/disables masking for this logger
+func (l *Logger) EnableMasking(enabled bool) {
+	if l.masker != nil {
+		l.masker.SetEnabled(enabled)
+	}
+}
+
+// IsMaskingEnabled returns whether masking is enabled for this logger
+func (l *Logger) IsMaskingEnabled() bool {
+	return l.masker != nil && l.masker.IsEnabled()
+}
+
+// maskArgs applies masking to logging arguments
+func (l *Logger) maskArgs(args ...any) []any {
+	if l.masker == nil || !l.masker.IsEnabled() {
+		return args
+	}
+	return l.masker.MaskKeyValuePairs(args...)
+}
+
+// Info logs an info message with optional masking
+func (l *Logger) Info(msg string, args ...any) {
+	maskedArgs := l.maskArgs(args...)
+	l.Logger.Info(msg, maskedArgs...)
+}
+
+// Error logs an error message with optional masking
+func (l *Logger) Error(msg string, args ...any) {
+	maskedArgs := l.maskArgs(args...)
+	l.Logger.Error(msg, maskedArgs...)
+}
+
+// Debug logs a debug message with optional masking
+func (l *Logger) Debug(msg string, args ...any) {
+	maskedArgs := l.maskArgs(args...)
+	l.Logger.Debug(msg, maskedArgs...)
+}
+
+// Warn logs a warning message with optional masking
+func (l *Logger) Warn(msg string, args ...any) {
+	maskedArgs := l.maskArgs(args...)
+	l.Logger.Warn(msg, maskedArgs...)
+}
+
 // WithComponent returns a logger with component context
 func (l *Logger) WithComponent(component string) *Logger {
 	return &Logger{
 		Logger: l.Logger.With("component", component),
 		level:  l.level,
+		masker: l.masker,
 	}
 }
 
@@ -101,6 +159,7 @@ func (l *Logger) WithVersion(version int) *Logger {
 	return &Logger{
 		Logger: l.Logger.With("version", version),
 		level:  l.level,
+		masker: l.masker,
 	}
 }
 
@@ -109,6 +168,7 @@ func (l *Logger) WithAuth(authName string) *Logger {
 	return &Logger{
 		Logger: l.Logger.With("auth", authName),
 		level:  l.level,
+		masker: l.masker,
 	}
 }
 
@@ -117,6 +177,7 @@ func (l *Logger) WithStore(storeType string) *Logger {
 	return &Logger{
 		Logger: l.Logger.With("store", storeType),
 		level:  l.level,
+		masker: l.masker,
 	}
 }
 
@@ -125,6 +186,7 @@ func (l *Logger) WithRequest(method, url string) *Logger {
 	return &Logger{
 		Logger: l.Logger.With("method", method, "url", url),
 		level:  l.level,
+		masker: l.masker,
 	}
 }
 
