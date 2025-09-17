@@ -64,9 +64,15 @@ logging:
   # Log level: error, warn, info, debug (default: info)
   # Note: --verbose/-v flag overrides this to debug level
   level: info
-  # Log format: text, json (default: text)
-  # Use 'json' for production/log aggregation systems
+  # Log format: text, json, color (default: text)
+  # - text: Plain text format (suitable for embedded usage)
+  # - json: JSON format (suitable for log aggregation systems)
+  # - color: Colorized text format (suitable for CLI/interactive usage)
   format: text
+  # Enable colorized output (default: auto-detected based on terminal)
+  # When format is 'color', colors are automatically enabled
+  # Set to true/false to explicitly control color usage
+  # color: true
   # Mask sensitive information in logs (default: true)
   # When enabled, passwords, API keys, tokens, etc. are automatically masked
   mask_sensitive: true

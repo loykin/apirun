@@ -240,7 +240,11 @@ func (m *Migrator) runDownForVersion(ctx context.Context, ver int, f vfile) (*Ex
 
 func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
 	logger := common.GetLogger().WithComponent("migrator")
-	logger.Info("starting migration up", "target_version", targetVersion, "dir", m.Dir, "dry_run", m.DryRun)
+	startTime := time.Now()
+	logger.Info("starting migration up",
+		"target_version", targetVersion,
+		"dir", m.Dir,
+		"dry_run", m.DryRun)
 
 	// Apply TLS settings for task HTTP requests and auth providers
 	task.SetTLSConfig(m.TLSConfig)
@@ -277,6 +281,9 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 	// sessionStored accumulates stored env created during this run to be available to later versions
 	sessionStored := map[string]string{}
 	for _, f := range plan {
+		logger.Info("applying migration",
+			"version", f.index,
+			"file", f.name)
 		vr, toStore, err := m.runUpForFile(ctx, f, sessionStored)
 		results = append(results, vr)
 		for k, v := range toStore {
@@ -293,10 +300,23 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 			time.Sleep(1 * time.Second)
 		}
 	}
+
+	duration := time.Since(startTime)
+	logger.Info("migration up completed",
+		"applied_count", len(results),
+		"duration_ms", duration.Milliseconds(),
+		"dry_run", m.DryRun)
 	return results, nil
 }
 
 func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecWithVersion, error) {
+	logger := common.GetLogger().WithComponent("migrator")
+	startTime := time.Now()
+	logger.Info("starting migration down",
+		"target_version", targetVersion,
+		"dir", m.Dir,
+		"dry_run", m.DryRun)
+
 	// Apply TLS settings for task HTTP requests and auth providers
 	task.SetTLSConfig(m.TLSConfig)
 	acommon.SetTLSConfig(m.TLSConfig)
@@ -357,11 +377,20 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 		if !ok {
 			return results, fmt.Errorf("no migration file for version %d", v)
 		}
+		logger.Info("rolling back migration",
+			"version", v,
+			"file", f.name)
 		vr, err := m.runDownForVersion(ctx, v, f)
 		results = append(results, vr)
 		if err != nil {
 			return results, err
 		}
 	}
+
+	duration := time.Since(startTime)
+	logger.Info("migration down completed",
+		"rolled_back_count", len(results),
+		"duration_ms", duration.Milliseconds(),
+		"dry_run", m.DryRun)
 	return results, nil
 }

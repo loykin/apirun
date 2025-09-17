@@ -86,6 +86,27 @@ func NewJSONLogger(level LogLevel) *Logger {
 	}
 }
 
+// NewColorLogger creates a structured logger with colorized output
+func NewColorLogger(level LogLevel) *Logger {
+	opts := &slog.HandlerOptions{
+		Level: level.ToSlogLevel(),
+	}
+
+	handler := NewColorHandler(os.Stdout, opts)
+	logger := slog.New(handler)
+
+	colorLogger := &Logger{
+		Logger: logger,
+		level:  level,
+		masker: NewMasker(),
+	}
+
+	// Set masker on the color handler
+	handler.SetMasker(colorLogger.masker)
+
+	return colorLogger
+}
+
 // Level returns the current log level
 func (l *Logger) Level() LogLevel {
 	return l.level

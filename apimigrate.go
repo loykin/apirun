@@ -279,6 +279,11 @@ func NewJSONLogger(level LogLevel) *Logger {
 	return common.NewJSONLogger(level)
 }
 
+// NewColorLogger creates a structured logger with colorized output
+func NewColorLogger(level LogLevel) *Logger {
+	return common.NewColorLogger(level)
+}
+
 // SetDefaultLogger sets the global default logger for apimigrate
 func SetDefaultLogger(logger *Logger) {
 	common.SetDefaultLogger(logger)

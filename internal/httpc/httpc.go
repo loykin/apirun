@@ -18,6 +18,24 @@ func (h *Httpc) New() *resty.Client {
 	logger.Debug("creating new HTTP client")
 
 	c := resty.New()
+
+	// Add request/response logging middleware
+	c.OnBeforeRequest(func(c *resty.Client, req *resty.Request) error {
+		logger.Debug("HTTP request",
+			"method", req.Method,
+			"url", req.URL)
+		return nil
+	})
+
+	c.OnAfterResponse(func(c *resty.Client, resp *resty.Response) error {
+		logger.Info("HTTP response",
+			"method", resp.Request.Method,
+			"url", resp.Request.URL,
+			"status_code", resp.StatusCode(),
+			"duration_ms", resp.Time().Milliseconds())
+		return nil
+	})
+
 	cfg := h.TlsConfig
 	if cfg == nil {
 		logger.Debug("using default HTTP client configuration (no TLS config)")

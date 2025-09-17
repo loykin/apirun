@@ -106,6 +106,10 @@ jobs:
           go run ./examples/embedded_logging
           echo "Running examples/masking_demo"
           go run ./examples/masking_demo
+          echo "Running examples/color_demo"
+          go run ./examples/color_demo
+          echo "RUnning examples/metrics_demo"
+          go run ./examples/metrics_demo
         env:
           CI: true
 

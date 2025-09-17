@@ -13,7 +13,9 @@ repeatable way.
 - Library: import and run migrations programmatically.
 - CLI: run versioned migrations from a directory and record versions in a local SQLite store.
 - Auth: built-in providers (oauth2, basic, pocketbase) and pluggable registry for custom providers.
-- Logging: structured logging with slog, configurable levels and formats (text/JSON).
+- Logging: structured logging with slog, configurable levels and formats (text/JSON/color).
+- Security: automatic masking of sensitive information in logs (passwords, tokens, secrets).
+- Enhanced monitoring: migration progress tracking with timing and HTTP request monitoring.
 
 ## Features
 
@@ -33,7 +35,9 @@ repeatable way.
 
 > - examples/auth_embedded_multi_registry: multiple embedded auths.
     >
+
 - examples/auth_embedded_multi_registry_type2: decoupled (acquire first, then migrate).
+
 > - Dry-run execution mode for planning and validation without persisting state. Use CLI flags `--dry-run` and
     `--dry-run-from` or set `Migrator.DryRun=true` and `Migrator.DryRunFrom` in library usage. Dry-run supports two
     modes: from the beginning (0) and from a snapshot version (N).
@@ -58,8 +62,10 @@ repeatable way.
 
 > - examples/auth_embedded_multi_registry: multiple embedded auths.
     >
+
 - examples/auth_embedded_multi_registry_type2: decoupled (acquire first, then migrate).
->   - examples/auth_embedded_lazy: multiple embedded auths acquired lazily on first use per auth.
+
+> - examples/auth_embedded_lazy: multiple embedded auths acquired lazily on first use per auth.
 
 - Versioned up/down migrations with persisted history (SQLite, `apimigrate.db`).
 - Request templating with simple Go templates using layered environment variables.
@@ -219,7 +225,13 @@ client:
 # Structured logging configuration (optional)
 logging:
   level: info     # error, warn, info, debug
-  format: text    # text, json
+  format: text    # text, json, color (color auto-detects terminal capability)
+  color: true     # enable/disable colors for format=color (optional, auto-detected if not set)
+
+  # Sensitive data masking (optional, enabled by default)
+  masking:
+    enabled: true  # enable/disable masking of sensitive information
+    # Custom patterns can be added here (see masking section below)
 ```
 
 Notes:
@@ -243,6 +255,112 @@ By default, request bodies are rendered as Go templates when they contain {{...}
 - Setting the programmatic Migrator.RenderBodyDefault = false to make unannotated requests send the raw body as-is.
 
 This is useful when you want to post JSON that legitimately includes template-like braces.
+
+## Structured Logging and Security
+
+apimigrate provides comprehensive structured logging with security features:
+
+### Logging Formats
+
+Three logging formats are supported:
+
+1. **Text format** (default): Human-readable console output
+2. **JSON format**: Structured JSON logs for machine processing
+3. **Color format**: Enhanced text format with ANSI color codes for CLI readability
+
+The color format automatically detects terminal capabilities and adjusts accordingly:
+
+- Full colors in interactive terminals
+- No colors when redirected to files or non-terminal outputs
+- Configurable through the `logging.color` setting
+
+### Sensitive Data Masking
+
+apimigrate automatically masks sensitive information in logs to prevent credential exposure:
+
+- **Password fields**: `password`, `passwd`, `pwd`
+- **API keys**: `api_key`, `apikey`, `api-key`
+- **Tokens**: `token`, `access_token`, `auth_token`
+- **Secrets**: `secret`, `client_secret`, `client-secret`
+- **Authorization headers**: `Bearer` and `Basic` tokens
+- **Custom patterns**: Support for user-defined sensitive patterns
+
+Example of masked output:
+
+```
+2025-09-18T10:30:45Z [INFO ] Authenticating user username="admin" password="***MASKED***" api_key="***MASKED***"
+```
+
+### Enhanced Progress Monitoring
+
+The logging system includes detailed migration progress tracking:
+
+- **Step-by-step progress**: Each migration step with timing information
+- **HTTP request monitoring**: Method, URL, status code, and response time
+- **Success/failure indicators**: Clear visual feedback with appropriate colors
+- **Performance metrics**: Request latency and total execution time
+
+Example progress output:
+
+```
+2025-09-18T10:30:45Z [INFO ] Starting migration step=1 name="Create user account"
+2025-09-18T10:30:45Z [INFO ] HTTP request method=POST url="https://api.example.com/users" 
+2025-09-18T10:30:46Z [INFO ] HTTP response status=201 duration=890ms success=true
+2025-09-18T10:30:46Z [INFO ] Migration completed step=1 success=true duration=1.2s
+```
+
+### Programmatic Logging API
+
+Use the logging API in your Go applications:
+
+```go
+package main
+
+import (
+	"github.com/loykin/apimigrate"
+)
+
+func main() {
+	// Create different logger types
+	textLogger := apimigrate.NewLogger(apimigrate.LogLevelInfo)
+	jsonLogger := apimigrate.NewJSONLogger(apimigrate.LogLevelInfo)
+	colorLogger := apimigrate.NewColorLogger(apimigrate.LogLevelInfo)
+
+	// Set as default logger
+	apimigrate.SetDefaultLogger(colorLogger)
+
+	// Configure masking
+	masker := apimigrate.NewMasker()
+	apimigrate.SetGlobalMasker(masker)
+	apimigrate.EnableMasking(true)
+
+	logger := apimigrate.GetLogger()
+	logger.Info("Starting migration", "version", 1, "user", "admin")
+}
+```
+
+### Masking API
+
+Control sensitive data masking programmatically:
+
+```go
+// Create custom masker with patterns
+patterns := []apimigrate.SensitivePattern{
+{
+Name: "custom_secret",
+Keys: []string{"custom_key", "secret_data"},
+},
+}
+masker := apimigrate.NewMaskerWithPatterns(patterns)
+
+// Mask sensitive data directly
+cleaned := apimigrate.MaskSensitiveData(`{"password": "secret123", "username": "admin"}`)
+// Result: {"password": "***MASKED***", "username": "admin"}
+
+// Control global masking
+apimigrate.EnableMasking(false) // Disable masking
+enabled := apimigrate.IsMaskingEnabled() // Check status
+```
 
 ### Customizing store table names (rules)
 
@@ -512,8 +630,35 @@ go run ./examples/auth_registry
 - `examples/embedded_custom_table`: Programmatic example demonstrating custom table/index names for the store.
 - `examples/auth_registry`: Demonstrates custom auth provider registration.
 - `examples/auth_embedded`: Embed apimigrate and acquire auth via typed wrappers; uses a local test server.
+- `examples/color_demo`: Demonstrates different logging formats (text/JSON/color) for comparison.
 
 Each example directory contains its own README or config and migration files.
+
+### Color Logging Demo
+
+To see the different logging formats in action:
+
+```bash
+# Run with text format (default)
+go run ./examples/color_demo
+
+# Run with JSON format  
+go run ./examples/color_demo --format json
+
+# Run with color format
+go run ./examples/color_demo --format color
+
+# Run with colors disabled
+go run ./examples/color_demo --format color --no-color
+```
+
+The color demo shows:
+
+- Different log levels with appropriate colors
+- Sensitive data masking in action
+- HTTP request/response logging
+- Migration progress tracking
+- Error and success highlighting
 
 ## Run history and status (CLI and library)
 

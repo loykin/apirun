@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -189,8 +190,20 @@ func toString(v interface{}) string {
 		return string(val)
 	case error:
 		return val.Error()
+	case int:
+		return strconv.Itoa(val)
+	case int64:
+		return strconv.FormatInt(val, 10)
+	case int32:
+		return strconv.FormatInt(int64(val), 10)
+	case float64:
+		return strconv.FormatFloat(val, 'g', -1, 64)
+	case float32:
+		return strconv.FormatFloat(float64(val), 'g', -1, 32)
+	case bool:
+		return strconv.FormatBool(val)
 	default:
-		return ""
+		return fmt.Sprintf("%v", v)
 	}
 }
 

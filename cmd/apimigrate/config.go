@@ -48,8 +48,9 @@ type EnvConfig struct {
 
 type LoggingConfig struct {
 	Level         string `mapstructure:"level" yaml:"level"`                   // error, warn, info, debug
-	Format        string `mapstructure:"format" yaml:"format"`                 // text, json
+	Format        string `mapstructure:"format" yaml:"format"`                 // text, json, color
 	MaskSensitive *bool  `mapstructure:"mask_sensitive" yaml:"mask_sensitive"` // enable/disable sensitive data masking
+	Color         *bool  `mapstructure:"color" yaml:"color"`                   // enable/disable colorized output
 }
 
 type StoreConfig struct {
@@ -277,14 +278,29 @@ func (c *ConfigDoc) SetupLogging(verbose bool) error {
 	// Determine format
 	var logger *apimigrate.Logger
 	format := strings.ToLower(strings.TrimSpace(c.Logging.Format))
+
+	// Check if color is explicitly requested or auto-detect
+	useColor := false
+	if c.Logging.Color != nil {
+		useColor = *c.Logging.Color
+	} else if format == "color" || format == "colour" {
+		useColor = true
+	}
+
 	switch format {
 	case "json":
 		logger = apimigrate.NewJSONLogger(level)
+	case "color", "colour":
+		logger = apimigrate.NewColorLogger(level)
 	case "text", "":
-		// Default to text format
-		logger = apimigrate.NewLogger(level)
+		if useColor {
+			logger = apimigrate.NewColorLogger(level)
+		} else {
+			// Default to text format
+			logger = apimigrate.NewLogger(level)
+		}
 	default:
-		return fmt.Errorf("invalid logging format: %s (valid: text, json)", c.Logging.Format)
+		return fmt.Errorf("invalid logging format: %s (valid: text, json, color)", c.Logging.Format)
 	}
 
 	// Configure masking
@@ -304,6 +320,7 @@ func (c *ConfigDoc) SetupLogging(verbose bool) error {
 	logger.Info("logging configured",
 		"level", c.Logging.Level,
 		"format", format,
+		"color", useColor,
 		"mask_sensitive", maskingEnabled,
 		"verbose_override", verbose)
 
