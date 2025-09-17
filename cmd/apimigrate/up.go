@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,7 +22,6 @@ var upCmd = &cobra.Command{
 		if strings.TrimSpace(configPath) == "" {
 			configPath = os.Getenv("APIMIGRATE_CONFIG")
 		}
-		verbose := v.GetBool("v")
 		dry := v.GetBool("dry_run")
 		dryFrom := v.GetInt("dry_run_from")
 		to := v.GetInt("to")
@@ -34,9 +32,6 @@ var upCmd = &cobra.Command{
 		saveResp := false
 		var storeCfgFromDoc *apimigrate.StoreConfig
 		if strings.TrimSpace(configPath) != "" {
-			if verbose {
-				log.Printf("loading config from %s", configPath)
-			}
 			var doc ConfigDoc
 			if err := doc.Load(configPath); err != nil {
 				return err
@@ -72,13 +67,6 @@ var upCmd = &cobra.Command{
 		// Normalize to absolute path to avoid working-directory surprises
 		if abs, err := filepath.Abs(dir); err == nil {
 			dir = abs
-		}
-		if verbose {
-			if dry {
-				log.Printf("[dry-run] up migrations in %s to %d (from=%d)", dir, to, dryFrom)
-			} else {
-				log.Printf("up migrations in %s to %d", dir, to)
-			}
 		}
 		m := apimigrate.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry, DryRunFrom: dryFrom}
 		// Set default render_body from config if provided

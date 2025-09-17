@@ -18,14 +18,10 @@ var createCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		v := viper.GetViper()
 		configPath := v.GetString("config")
-		verbose := v.GetBool("v")
 
 		// Determine migration directory similar to status command
 		dir := ""
 		if strings.TrimSpace(configPath) != "" {
-			if verbose {
-				log.Printf("loading config from %s", configPath)
-			}
 			var doc ConfigDoc
 			if err := doc.Load(configPath); err != nil {
 				log.Printf("warning: failed to load config: %v", err)
