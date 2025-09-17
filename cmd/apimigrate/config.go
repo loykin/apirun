@@ -209,7 +209,7 @@ func (c *ConfigDoc) DecodeAuth(ctx context.Context, e *env.Env) error {
 	return nil
 }
 
-func (c *ConfigDoc) GetEnv(verbose bool) (*env.Env, error) {
+func (c *ConfigDoc) GetEnv() (*env.Env, error) {
 	base := env.New()
 
 	// env (optional) - process before auth so templating can use it
@@ -220,8 +220,8 @@ func (c *ConfigDoc) GetEnv(verbose bool) (*env.Env, error) {
 		val := kv.Value
 		if val == "" && strings.TrimSpace(kv.ValueFromEnv) != "" {
 			val = os.Getenv(kv.ValueFromEnv)
-			if verbose && val == "" {
-				slog.Error("warning: env %s requested from %s but variable is empty or not set", kv.Name, kv.ValueFromEnv)
+			if val == "" {
+				slog.Warn("env variable requested but empty or not set", "name", kv.Name, "env_var", kv.ValueFromEnv)
 			}
 		}
 		_ = base.SetString("global", kv.Name, val)
@@ -250,29 +250,24 @@ func (c *ConfigDoc) Load(path string) error {
 }
 
 // SetupLogging configures the global logger based on config settings
-func (c *ConfigDoc) SetupLogging(verbose bool) error {
-	// Determine log level from config or verbose flag
+func (c *ConfigDoc) SetupLogging() error {
+	// Determine log level from config
 	var level apimigrate.LogLevel
 
-	// Verbose flag takes precedence
-	if verbose {
+	switch strings.ToLower(strings.TrimSpace(c.Logging.Level)) {
+	case "error":
+		level = apimigrate.LogLevelError
+	case "warn", "warning":
+		level = apimigrate.LogLevelWarn
+	case "info":
+		level = apimigrate.LogLevelInfo
+	case "debug":
 		level = apimigrate.LogLevelDebug
-	} else {
-		switch strings.ToLower(strings.TrimSpace(c.Logging.Level)) {
-		case "error":
-			level = apimigrate.LogLevelError
-		case "warn", "warning":
-			level = apimigrate.LogLevelWarn
-		case "info":
-			level = apimigrate.LogLevelInfo
-		case "debug":
-			level = apimigrate.LogLevelDebug
-		case "":
-			// Default to info if not specified
-			level = apimigrate.LogLevelInfo
-		default:
-			return fmt.Errorf("invalid logging level: %s (valid: error, warn, info, debug)", c.Logging.Level)
-		}
+	case "":
+		// Default to info if not specified
+		level = apimigrate.LogLevelInfo
+	default:
+		return fmt.Errorf("invalid logging level: %s (valid: error, warn, info, debug)", c.Logging.Level)
 	}
 
 	// Determine format
@@ -316,13 +311,17 @@ func (c *ConfigDoc) SetupLogging(verbose bool) error {
 	// Also set global masking state
 	apimigrate.EnableMasking(maskingEnabled)
 
-	// Log configuration info
+	// Log configuration info with actual effective level
+	effectiveLevel := strings.ToLower(strings.TrimSpace(c.Logging.Level))
+	if effectiveLevel == "" {
+		effectiveLevel = "info"
+	}
+
 	logger.Info("logging configured",
-		"level", c.Logging.Level,
+		"level", effectiveLevel,
 		"format", format,
 		"color", useColor,
-		"mask_sensitive", maskingEnabled,
-		"verbose_override", verbose)
+		"mask_sensitive", maskingEnabled)
 
 	return nil
 }

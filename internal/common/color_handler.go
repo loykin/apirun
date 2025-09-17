@@ -17,10 +17,12 @@ const (
 	Red     = "\033[31m"
 	Green   = "\033[32m"
 	Yellow  = "\033[33m"
+	Blue    = "\033[34m"
 	Magenta = "\033[35m"
 	Cyan    = "\033[36m"
 	White   = "\033[37m"
 	Gray    = "\033[90m"
+	Bold    = "\033[1m"
 )
 
 // ColorHandler implements a colorized text handler for slog
@@ -73,6 +75,11 @@ func isTerminal(f *os.File) bool {
 		return false
 	}
 	return (stat.Mode() & os.ModeCharDevice) != 0
+}
+
+// IsStdoutTerminal checks if stdout is connected to a terminal
+func IsStdoutTerminal() bool {
+	return isTerminal(os.Stdout)
 }
 
 // Enabled reports whether the handler handles records at the given level

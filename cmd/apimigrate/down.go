@@ -41,11 +41,11 @@ var downCmd = &cobra.Command{
 				// Fallback: use the directory of the config file if migrate_dir is not set
 				mDir = filepath.Dir(configPath)
 			}
-			envFromCfg, err := doc.GetEnv(verbose)
+			envFromCfg, err := doc.GetEnv()
 			if err != nil {
 				return err
 			}
-			if err := doWait(ctx, envFromCfg, doc.Wait, doc.Client, verbose); err != nil {
+			if err := doWait(ctx, envFromCfg, doc.Wait, doc.Client); err != nil {
 				return err
 			}
 			if err := doc.DecodeAuth(ctx, envFromCfg); err != nil {

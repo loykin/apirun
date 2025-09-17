@@ -72,7 +72,7 @@ logging:
   # Enable colorized output (default: auto-detected based on terminal)
   # When format is 'color', colors are automatically enabled
   # Set to true/false to explicitly control color usage
-  # color: true
+  color: true
   # Mask sensitive information in logs (default: true)
   # When enabled, passwords, API keys, tokens, etc. are automatically masked
   mask_sensitive: true

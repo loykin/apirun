@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -20,7 +19,7 @@ import (
 // - timeout defaults to 60s; interval defaults to 2s
 // - url is rendered with Go template using provided env
 // - TLS client options are applied via clientCfg and attached to the polling context
-func doWait(ctx context.Context, env *env.Env, wc WaitConfig, clientCfg ClientConfig, verbose bool) error {
+func doWait(ctx context.Context, env *env.Env, wc WaitConfig, clientCfg ClientConfig) error {
 	urlRaw := strings.TrimSpace(wc.URL)
 	if urlRaw == "" {
 		return nil
@@ -81,9 +80,6 @@ func doWait(ctx context.Context, env *env.Env, wc WaitConfig, clientCfg ClientCo
 	}
 	hcfg := httpc.Httpc{TlsConfig: cfg}
 
-	if verbose {
-		log.Printf("waiting for %s %s to return %d (timeout=%s, interval=%s)", method, urlToHit, expected, timeout, interval)
-	}
 	deadline := time.Now().Add(timeout)
 	var lastStatus int
 	for {
@@ -112,9 +108,6 @@ func doWait(ctx context.Context, env *env.Env, wc WaitConfig, clientCfg ClientCo
 			}
 		}
 		if err == nil && status == expected {
-			if verbose {
-				log.Printf("wait condition met: %d", status)
-			}
 			return nil
 		}
 		lastStatus = status
