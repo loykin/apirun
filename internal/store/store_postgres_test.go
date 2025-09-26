@@ -50,7 +50,7 @@ func TestPostgresStore_BasicCRUD(t *testing.T) {
 		Env: map[string]string{
 			"POSTGRES_USER":     "test",
 			"POSTGRES_PASSWORD": "test",
-			"POSTGRES_DB":       "apimigrate_test",
+			"POSTGRES_DB":       "apirun_test",
 		},
 		WaitingFor: wait.ForAll(
 			wait.ForListeningPort("5432/tcp"),
@@ -75,7 +75,7 @@ func TestPostgresStore_BasicCRUD(t *testing.T) {
 		_ = pg.Terminate(ctx)
 		t.Fatalf("container port: %v", err)
 	}
-	dsn := fmt.Sprintf("postgres://test:test@%s:%s/apimigrate_test?sslmode=disable", host, port.Port())
+	dsn := fmt.Sprintf("postgres://test:test@%s:%s/apirun_test?sslmode=disable", host, port.Port())
 
 	// Ensure DB is accepting connections before opening the store
 	if err := waitForPostgresDSN(dsn, TestDefaultTimeoutSeconds*time.Second); err != nil {

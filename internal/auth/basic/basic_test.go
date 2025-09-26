@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/loykin/apimigrate/internal/auth"
-	"github.com/loykin/apimigrate/internal/auth/basic"
+	"github.com/loykin/apirun/internal/auth"
+	"github.com/loykin/apirun/internal/auth/basic"
 )
 
 func TestAcquireToken_Basic_Success_DefaultHeader(t *testing.T) {

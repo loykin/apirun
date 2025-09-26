@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/loykin/apimigrate"
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 // This example demonstrates how to configure TLS options in embedded mode.
@@ -39,7 +39,7 @@ func main() {
 	baseEnv := env.New()
 	_ = baseEnv.SetString("global", "URL", "https://httpbin.org/status/200")
 
-	m := apimigrate.Migrator{
+	m := apirun.Migrator{
 		Dir:              dir,
 		Env:              baseEnv,
 		SaveResponseBody: false,

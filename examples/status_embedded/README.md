@@ -22,10 +22,10 @@ From the repository root:
 
 Notes:
 - The example will first execute all pending migrations in the specified directory and then print the status.
-- The default uses SQLite under examples/status_embedded/migration/apimigrate.db and the sample migration file provided there.
+- The default uses SQLite under examples/status_embedded/migration/apirun.db and the sample migration file provided there.
 
 ## What it does
 - Runs embedded migrations up to the latest for the selected directory.
-- Opens the store for the directory using apimigrate.OpenStoreFromOptions (default SQLite).
+- Opens the store for the directory using apirun.OpenStoreFromOptions (default SQLite).
 - Retrieves status via pkg/status.FromOptions (current version, applied versions, and run history).
 - Prints human-friendly output; when --history is provided, the history section is appended.

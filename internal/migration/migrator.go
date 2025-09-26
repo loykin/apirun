@@ -7,12 +7,12 @@ import (
 	"sort"
 	"time"
 
-	"github.com/loykin/apimigrate/internal/auth"
-	acommon "github.com/loykin/apimigrate/internal/auth/common"
-	"github.com/loykin/apimigrate/internal/common"
-	"github.com/loykin/apimigrate/internal/store"
-	"github.com/loykin/apimigrate/internal/task"
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun/internal/auth"
+	acommon "github.com/loykin/apirun/internal/auth/common"
+	"github.com/loykin/apirun/internal/common"
+	"github.com/loykin/apirun/internal/store"
+	"github.com/loykin/apirun/internal/task"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 type Migrator struct {

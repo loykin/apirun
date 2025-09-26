@@ -48,7 +48,7 @@ func (l LogLevel) ToSlogLevel() slog.Level {
 	}
 }
 
-// Logger provides a centralized logging interface for apimigrate
+// Logger provides a centralized logging interface for apirun
 type Logger struct {
 	*slog.Logger
 	level  LogLevel

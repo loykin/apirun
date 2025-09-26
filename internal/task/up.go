@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/loykin/apimigrate/internal/common"
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun/internal/common"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 type Up struct {

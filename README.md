@@ -1,21 +1,21 @@
-# apimigrate
+# apirun
 
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/loykin/apimigrate/gh-pages/shields/coverage.json&cacheSeconds=60)](https://github.com/loykin/apimigrate/blob/gh-pages/shields/coverage.json)
-[![Go Report Card](https://goreportcard.com/badge/github.com/loykin/apimigrate)](https://goreportcard.com/report/github.com/loykin/apimigrate)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/loykin/apimigrate/badge)](https://securityscorecards.dev/viewer/?uri=github.com/loykin/apimigrate)
-![CodeQL](https://github.com/loykin/apimigrate/actions/workflows/codeql.yml/badge.svg)
-[![Trivy](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/loykin/apimigrate/gh-pages/shields/trivy.json&cacheSeconds=60)](https://raw.githubusercontent.com/loykin/apimigrate/gh-pages/shields/trivy.json)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/loykin/apirun/gh-pages/shields/coverage.json&cacheSeconds=60)](https://github.com/loykin/apirun/blob/gh-pages/shields/coverage.json)
+[![Go Report Card](https://goreportcard.com/badge/github.com/loykin/apirun)](https://goreportcard.com/report/github.com/loykin/apirun)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/loykin/apirun/badge)](https://securityscorecards.dev/viewer/?uri=github.com/loykin/apirun)
+![CodeQL](https://github.com/loykin/apirun/actions/workflows/codeql.yml/badge.svg)
+[![Trivy](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/loykin/apirun/gh-pages/shields/trivy.json&cacheSeconds=60)](https://raw.githubusercontent.com/loykin/apirun/gh-pages/shields/trivy.json)
 
-A lightweight Go library and CLI for running API-driven migrations defined in YAML files. It helps you automate
-provisioning or configuration tasks against HTTP APIs (e.g., create users/dashboards, import resources) in a versioned,
+A lightweight Go library and CLI for running API-driven automation workflows defined in YAML files. It helps you automate
+provisioning, configuration tasks, and E2E testing against HTTP APIs (e.g., create users/dashboards, import resources) in a versioned,
 repeatable way.
 
-- Library: import and run migrations programmatically.
-- CLI: run versioned migrations from a directory and record versions in a local SQLite store.
+- Library: import and run API workflows programmatically.
+- CLI: run versioned API workflows from a directory and record versions in a local SQLite store.
 - Auth: built-in providers (oauth2, basic, pocketbase) and pluggable registry for custom providers.
 - Logging: structured logging with slog, configurable levels and formats (text/JSON/color).
 - Security: automatic masking of sensitive information in logs (passwords, tokens, secrets).
-- Enhanced monitoring: migration progress tracking with timing and HTTP request monitoring.
+- Enhanced monitoring: workflow progress tracking with timing and HTTP request monitoring.
 
 ## Features
 
@@ -67,7 +67,7 @@ repeatable way.
 
 > - examples/auth_embedded_lazy: multiple embedded auths acquired lazily on first use per auth.
 
-- Versioned up/down migrations with persisted history (SQLite, `apimigrate.db`).
+- Versioned up/down workflows with persisted history (SQLite, `apirun.db`).
 - Request templating with simple Go templates using layered environment variables.
 - DriverConfig templating (Go templates {{.var}}) supported across requests, auth config, and wait checks.
 - Response validation via allowed HTTP status codes.
@@ -87,19 +87,19 @@ repeatable way.
 - Library:
 
 ```bash
-go get github.com/loykin/apimigrate
+go get github.com/loykin/apirun
 ```
 
 - CLI (from source):
 
 ```bash
-go build -o apimigrate ./cmd/apimigrate
+go build -o apirun ./cmd/apirun
 ```
 
 You can also run the CLI without building:
 
 ```bash
-go run ./cmd/apimigrate
+go run ./cmd/apirun
 ```
 
 ## Quick start (CLI)
@@ -108,14 +108,14 @@ Run immediately with the built-in example config and migration directory:
 
 ```bash
 # from the repo root
-go run ./cmd/apimigrate
+go run ./cmd/apirun
 ```
 
 What this does by default:
 
 - Loads config from ./config/config.yaml
 - Runs versioned migrations found under ./config/migration
-- Records migration history in ./config/migration/apimigrate.db
+- Records workflow history in ./config/migration/apirun.db
 
 There is a sample migration at config/migration/001_sample.yaml that calls https://example.com and should succeed out of
 the box.
@@ -125,16 +125,16 @@ Other useful commands:
 ```bash
 # Create a new migration file with a timestamped prefix under migrate_dir
 # Example output: ./config/migration/20250914004300_create_user.yaml
-go run ./cmd/apimigrate create "create user"
+go run ./cmd/apirun create "create user"
 
 # Apply up to a specific version (0 = all)
-go run ./cmd/apimigrate up --to 0
+go run ./cmd/apirun up --to 0
 
 # Roll back down to a target version (e.g., 0 to roll back all)
-go run ./cmd/apimigrate down --to 0
+go run ./cmd/apirun down --to 0
 
 # Show current and applied versions
-go run ./cmd/apimigrate status
+go run ./cmd/apirun status
 ```
 
 Customize:
@@ -142,7 +142,7 @@ Customize:
 - Use --config to point to a different YAML file (it must include migrate_dir):
 
 ```bash
-go run ./cmd/apimigrate --config examples/keycloak_migration/config.yaml -v
+go run ./cmd/apirun --config examples/keycloak_migration/config.yaml -v
 ```
 
 DriverConfig YAML supports:
@@ -201,19 +201,19 @@ store:
 
   # SQLite options (used when type is sqlite)
   sqlite:
-  # path: ./config/migration/apimigrate.db   # default: <migrate_dir>/apimigrate.db
+  # path: ./config/migration/apirun.db   # default: <migrate_dir>/apirun.db
 
   # PostgreSQL options (used when type is postgres)
   # postgres:
   #   # Option A: provide a full DSN
-  #   # dsn: postgres://user:pass@localhost:5432/apimigrate?sslmode=disable
+  #   # dsn: postgres://user:pass@localhost:5432/apirun?sslmode=disable
   #
   #   # Option B: or provide components to build the DSN
   #   host: localhost
   #   port: 5432
   #   user: postgres
   #   password: postgres
-  #   dbname: apimigrate
+  #   dbname: apirun
   #   sslmode: disable
 
 # HTTP client TLS settings (optional, default minimum TLS is 1.3)
@@ -236,8 +236,8 @@ logging:
 
 Notes:
 
-- If store.type is omitted or set to sqlite, apimigrate stores migration history in a local SQLite file under <
-  migrate_dir>/apimigrate.db by default. You can override the path via store.sqlite.path.
+- If store.type is omitted or set to sqlite, apirun stores workflow history in a local SQLite file under <
+  migrate_dir>/apirun.db by default. You can override the path via store.sqlite.path.
 - To use PostgreSQL, set store.type to postgres and either:
     - provide store.postgres.dsn directly, or
     - provide the component fields (host/port/user/password/dbname[/sslmode]) and a DSN will be constructed.
@@ -245,7 +245,7 @@ Notes:
 - Advanced: you can customize table names via store.table_prefix (derives three names automatically) or by setting
   store.table_schema_migrations, store.table_migration_runs, and store.table_stored_env individually (explicit names
   take precedence over the prefix).
-- You can inspect current/applied versions with: `apimigrate status --config <path>`.
+- You can inspect current/applied versions with: `apirun status --config <path>`.
 
 ### Body templating default
 
@@ -258,7 +258,7 @@ This is useful when you want to post JSON that legitimately includes template-li
 
 ## Structured Logging and Security
 
-apimigrate provides comprehensive structured logging with security features:
+apirun provides comprehensive structured logging with security features:
 
 ### Logging Formats
 
@@ -276,7 +276,7 @@ The color format automatically detects terminal capabilities and adjusts accordi
 
 ### Sensitive Data Masking
 
-apimigrate automatically masks sensitive information in logs to prevent credential exposure:
+apirun automatically masks sensitive information in logs to prevent credential exposure:
 
 - **Password fields**: `password`, `passwd`, `pwd`
 - **API keys**: `api_key`, `apikey`, `api-key`
@@ -317,24 +317,24 @@ Use the logging API in your Go applications:
 package main
 
 import (
-	"github.com/loykin/apimigrate"
+	"github.com/loykin/apirun"
 )
 
 func main() {
 	// Create different logger types
-	textLogger := apimigrate.NewLogger(apimigrate.LogLevelInfo)
-	jsonLogger := apimigrate.NewJSONLogger(apimigrate.LogLevelInfo)
-	colorLogger := apimigrate.NewColorLogger(apimigrate.LogLevelInfo)
+	textLogger := apirun.NewLogger(apirun.LogLevelInfo)
+	jsonLogger := apirun.NewJSONLogger(apirun.LogLevelInfo)
+	colorLogger := apirun.NewColorLogger(apirun.LogLevelInfo)
 
 	// Set as default logger
-	apimigrate.SetDefaultLogger(colorLogger)
+	apirun.SetDefaultLogger(colorLogger)
 
 	// Configure masking
-	masker := apimigrate.NewMasker()
-	apimigrate.SetGlobalMasker(masker)
-	apimigrate.EnableMasking(true)
+	masker := apirun.NewMasker()
+	apirun.SetGlobalMasker(masker)
+	apirun.EnableMasking(true)
 
-	logger := apimigrate.GetLogger()
+	logger := apirun.GetLogger()
 	logger.Info("Starting migration", "version", 1, "user", "admin")
 }
 ```
@@ -345,21 +345,21 @@ Control sensitive data masking programmatically:
 
 ```go
 // Create custom masker with patterns
-patterns := []apimigrate.SensitivePattern{
+patterns := []apirun.SensitivePattern{
 {
 Name: "custom_secret",
 Keys: []string{"custom_key", "secret_data"},
 },
 }
-masker := apimigrate.NewMaskerWithPatterns(patterns)
+masker := apirun.NewMaskerWithPatterns(patterns)
 
 // Mask sensitive data directly
-cleaned := apimigrate.MaskSensitiveData(`{"password": "secret123", "username": "admin"}`)
+cleaned := apirun.MaskSensitiveData(`{"password": "secret123", "username": "admin"}`)
 // Result: {"password": "***MASKED***", "username": "admin"}
 
 // Control global masking
-apimigrate.EnableMasking(false) // Disable masking
-enabled := apimigrate.IsMaskingEnabled() // Check status
+apirun.EnableMasking(false) // Disable masking
+enabled := apirun.IsMaskingEnabled() // Check status
 ```
 
 ### Customizing store table names (rules)
@@ -391,7 +391,7 @@ Validation and constraints:
 
 - Allowed identifier characters: only ASCII letters, digits and underscores, starting with a letter or underscore.
     - Regex: ^[a-zA-Z_][a-zA-Z0-9_]*$
-- If a provided name does not match the allowed pattern, apimigrate falls back to the safe default for that identifier.
+- If a provided name does not match the allowed pattern, apirun falls back to the safe default for that identifier.
 - Do not include quotes, dots, or schema qualifiers in names; use plain identifiers (e.g., my_schema_migrations, not
   public.my_schema_migrations). The default schema of your database connection will be used.
 - The same rules apply to both SQLite and PostgreSQL backends.
@@ -526,14 +526,14 @@ package main
 
 import (
 "context"
-"github.com/loykin/apimigrate"
+"github.com/loykin/apirun"
 )
 
 func main() {
 ctx := context.Background()
-base := apimigrate.Env{Global: map[string]string{"kc_base": "http://localhost:8080"}}
+base := apirun.Env{Global: map[string]string{"kc_base": "http://localhost:8080"}}
 // Apply all migrations in directory
-m := apimigrate.Migrator{Dir: "examples/keycloak_migration/migration", Env: base}
+m := apirun.Migrator{Dir: "examples/keycloak_migration/migration", Env: base}
 results, err := m.MigrateUp(ctx, 0)
 if err != nil { panic(err) }
 _ = results
@@ -559,14 +559,14 @@ migrations.
 
 ```go
 ctx := context.Background()
-base := apimigrate.Env{Global: map[string]string{"api_base": srvURL}}
+base := apirun.Env{Global: map[string]string{"api_base": srvURL}}
 
 // Configure two Basic providers under names a1 and a2
-auth1 := apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a1", Methods: apimigrate.BasicAuthConfig{Username: "u1", Password: "p1"}}
-auth2 := apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a2", Methods: apimigrate.BasicAuthConfig{Username: "u2", Password: "p2"}}
+auth1 := apirun.Auth{Type: apirun.AuthTypeBasic, Name: "a1", Methods: apirun.BasicAuthConfig{Username: "u1", Password: "p1"}}
+auth2 := apirun.Auth{Type: apirun.AuthTypeBasic, Name: "a2", Methods: apirun.BasicAuthConfig{Username: "u2", Password: "p2"}}
 
-m := apimigrate.Migrator{Dir: "./migs", Env: base, StoreConfig: &apimigrate.StoreConfig{}}
-m.Auth = []apimigrate.Auth{auth1, auth2}
+m := apirun.Migrator{Dir: "./migs", Env: base, StoreConfig: &apirun.StoreConfig{}}
+m.Auth = []apirun.Auth{auth1, auth2}
 _, err := m.MigrateUp(ctx, 0)
 ```
 
@@ -574,15 +574,15 @@ _, err := m.MigrateUp(ctx, 0)
 
 ```go
 ctx := context.Background()
-base := apimigrate.Env{Global: map[string]string{"api_base": srvURL}}
+base := apirun.Env{Global: map[string]string{"api_base": srvURL}}
 
-a := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "basic", Methods: apimigrate.BasicAuthConfig{Username: "admin", Password: "admin"}}
+a := &apirun.Auth{Type: apirun.AuthTypeBasic, Name: "basic", Methods: apirun.BasicAuthConfig{Username: "admin", Password: "admin"}}
 if v, err := a.Acquire(ctx, &base); err == nil {
 if base.Auth == nil { base.Auth = map[string]string{} }
 base.Auth["basic"] = v
 }
 
-m := apimigrate.Migrator{Dir: "./migs", Env: base, StoreConfig: &apimigrate.StoreConfig{}}
+m := apirun.Migrator{Dir: "./migs", Env: base, StoreConfig: &apirun.StoreConfig{}}
 _, err := m.MigrateUp(ctx, 0)
 ```
 
@@ -600,13 +600,13 @@ Use the re-exported API from the root package.
 - Register your factory:
 
 ```go
-apimigrate.RegisterAuthProvider("demo", func (spec map[string]interface{}) (apimigrate.AuthMethod, error) { /* ... */ })
+apirun.RegisterAuthProvider("demo", func (spec map[string]interface{}) (apirun.AuthMethod, error) { /* ... */ })
 ```
 
 - Acquire and store token by provider spec (store under a logical name):
 
 ```go
-v, err := apimigrate.AcquireAuthByProviderSpecWithName(ctx, "demo", "my-demo", map[string]interface{}{"value": "ok"})
+v, err := apirun.AcquireAuthByProviderSpecWithName(ctx, "demo", "my-demo", map[string]interface{}{"value": "ok"})
 _ = v; _ = err
 ```
 
@@ -629,7 +629,7 @@ go run ./examples/auth_registry
 - `examples/embedded_postgresql`: Programmatic example using a PostgreSQL store with versioned migrations.
 - `examples/embedded_custom_table`: Programmatic example demonstrating custom table/index names for the store.
 - `examples/auth_registry`: Demonstrates custom auth provider registration.
-- `examples/auth_embedded`: Embed apimigrate and acquire auth via typed wrappers; uses a local test server.
+- `examples/auth_embedded`: Embed apirun and acquire auth via typed wrappers; uses a local test server.
 - `examples/color_demo`: Demonstrates different logging formats (text/JSON/color) for comparison.
 
 Each example directory contains its own README or config and migration files.
@@ -675,7 +675,7 @@ The color demo shows:
 - Show current and applied versions only:
 
 ```bash
-apimigrate status --config <path/to/config.yaml>
+apirun status --config <path/to/config.yaml>
 ```
 
 Example output (no history):
@@ -688,7 +688,7 @@ applied: [1]
 - Include run history as well:
 
 ```bash
-apimigrate status --config <path/to/config.yaml> --history
+apirun status --config <path/to/config.yaml> --history
 ```
 
 Example output (with history):
@@ -706,7 +706,7 @@ Notes:
 - By default, when you pass --history the CLI shows up to 10 latest entries in newest-first order.
 - Use --history-all to print all entries (still newest-first), or --history-limit N to show a specific number.
 - The --config file can specify migrate_dir and store settings; when omitted, the CLI defaults to ./config/migration and
-  a local SQLite store at ./config/migration/apimigrate.db.
+  a local SQLite store at ./config/migration/apirun.db.
 - The history lines include the run id, version, direction, HTTP status code, whether it failed, and the timestamp.
 
 ### Library: pkg/status helper
@@ -714,13 +714,13 @@ Notes:
 You can obtain the same information from your Go code using the pkg/status helper:
 
 ```go
-info, err := status.FromOptions("./config/migration", nil) // nil => default SQLite at <dir>/apimigrate.db
+info, err := status.FromOptions("./config/migration", nil) // nil => default SQLite at <dir>/apirun.db
 if err != nil { /* handle */ }
 fmt.Print(info.FormatHuman(false)) // or true to include history
 ```
 
 - FormatHuman(false) prints just current/applied; FormatHuman(true) appends a formatted history section.
-- If you already have an opened store via apimigrate.OpenStoreFromOptions, use status.FromStore(store).
+- If you already have an opened store via apirun.OpenStoreFromOptions, use status.FromStore(store).
 
 ### Example: examples/status_embedded
 

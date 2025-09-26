@@ -1,6 +1,6 @@
 # Sensitive Data Masking Demo
 
-This example demonstrates the sensitive data masking capabilities of apimigrate, which automatically masks sensitive
+This example demonstrates the sensitive data masking capabilities of apirun, which automatically masks sensitive
 information in logs to enhance security.
 
 ## Overview
@@ -42,15 +42,15 @@ logger.EnableMasking(true) // Re-enable masking (for production)
 
 ```go
 sensitiveText := `{"password": "secret123", "api_key": "sk_test_1234"}`
-masked := apimigrate.MaskSensitiveData(sensitiveText)
+masked := apirun.MaskSensitiveData(sensitiveText)
 // Result: {"password":"***MASKED***", "api_key":"***MASKED***"}
 ```
 
 ### 5. Custom Masking Patterns
 
 ```go
-masker := apimigrate.NewMasker()
-customPattern := apimigrate.SensitivePattern{
+masker := apirun.NewMasker()
+customPattern := apirun.SensitivePattern{
 Name: "custom_token",
 Keys: []string{"custom_token", "my_secret"},
 }

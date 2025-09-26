@@ -24,5 +24,5 @@ Example:
 - Adjust MinVersion/MaxVersion as needed
 
 ## Files
-- `main.go` – minimal program configuring and running apimigrate.Migrator with TLS options
+- `main.go` – minimal program configuring and running apirun.Migrator with TLS options
 - `migration/001_check.yaml` – simple up migration that calls an HTTPS endpoint

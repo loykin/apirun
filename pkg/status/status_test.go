@@ -6,17 +6,17 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/loykin/apimigrate"
+	"github.com/loykin/apirun"
 )
 
 // helper to open a temp sqlite store under a temp dir for status tests
-func openTempStoreForStatus(t *testing.T) *apimigrate.Store {
+func openTempStoreForStatus(t *testing.T) *apirun.Store {
 	t.Helper()
 	dir := t.TempDir()
-	cfg := &apimigrate.StoreConfig{}
-	cfg.Config.Driver = apimigrate.DriverSqlite
-	cfg.Config.DriverConfig = &apimigrate.SqliteConfig{Path: filepath.Join(dir, apimigrate.StoreDBFileName)}
-	st, err := apimigrate.OpenStoreFromOptions(dir, cfg)
+	cfg := &apirun.StoreConfig{}
+	cfg.Config.Driver = apirun.DriverSqlite
+	cfg.Config.DriverConfig = &apirun.SqliteConfig{Path: filepath.Join(dir, apirun.StoreDBFileName)}
+	st, err := apirun.OpenStoreFromOptions(dir, cfg)
 	if err != nil {
 		t.Fatalf("OpenStoreFromOptions: %v", err)
 	}

@@ -1,4 +1,4 @@
-package apimigrate
+package apirun
 
 import (
 	"os"

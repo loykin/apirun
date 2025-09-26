@@ -1,6 +1,6 @@
 # Embedded (Library) Usage Example
 
-This example shows how to use `apimigrate` as a Go library inside your application (embedded mode), without invoking the CLI.
+This example shows how to use `apirun` as a Go library inside your application (embedded mode), without invoking the CLI.
 
 It demonstrates:
 - Constructing a base `Env` and passing it to `MigrateUp`.
@@ -18,5 +18,5 @@ You should see the output from the program indicating the migration results. The
 
 ## Files
 
-- `main.go` – a minimal program using the public `apimigrate` wrapper API.
+- `main.go` – a minimal program using the public `apirun` wrapper API.
 - `migration/001_check.yaml` – a simple migration with a single Up request.

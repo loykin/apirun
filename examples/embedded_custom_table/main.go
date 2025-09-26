@@ -6,11 +6,11 @@ import (
 	"log"
 	"path/filepath"
 
-	"github.com/loykin/apimigrate"
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/pkg/env"
 )
 
-// This example demonstrates how to run apimigrate programmatically (embedded)
+// This example demonstrates how to run apirun programmatically (embedded)
 // while customizing the table/index names used by the store. This is useful
 // if you want multiple, isolated sets of migration history in the same
 // database file (or schema) by giving each set unique table names.
@@ -33,16 +33,16 @@ func main() {
 	base := env.Env{Global: env.FromStringMap(map[string]string{})}
 
 	// Configure store via StoreConfig: sqlite with custom table names
-	storeConfig := apimigrate.StoreConfig{}
-	storeConfig.Config.Driver = apimigrate.DriverSqlite
-	storeConfig.Config.TableNames = apimigrate.TableNames{
+	storeConfig := apirun.StoreConfig{}
+	storeConfig.Config.Driver = apirun.DriverSqlite
+	storeConfig.Config.TableNames = apirun.TableNames{
 		SchemaMigrations: prefix + "_schema_migrations",
 		MigrationRuns:    prefix + "_migration_runs",
 		StoredEnv:        prefix + "_stored_env",
 	}
-	// Let path default to <migrateDir>/apimigrate.db by leaving it empty here; Migrator's default handles it
-	storeConfig.Config.DriverConfig = &apimigrate.SqliteConfig{Path: filepath.Join(migrateDir, apimigrate.StoreDBFileName)}
-	m := apimigrate.Migrator{Env: &base, Dir: migrateDir, StoreConfig: &storeConfig}
+	// Let path default to <migrateDir>/apirun.db by leaving it empty here; Migrator's default handles it
+	storeConfig.Config.DriverConfig = &apirun.SqliteConfig{Path: filepath.Join(migrateDir, apirun.StoreDBFileName)}
+	m := apirun.Migrator{Env: &base, Dir: migrateDir, StoreConfig: &storeConfig}
 	vres, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		log.Fatalf("migrate up failed: %v", err)

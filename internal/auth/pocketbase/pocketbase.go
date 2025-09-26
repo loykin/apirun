@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	acommon "github.com/loykin/apimigrate/internal/auth/common"
-	"github.com/loykin/apimigrate/internal/httpc"
+	acommon "github.com/loykin/apirun/internal/auth/common"
+	"github.com/loykin/apirun/internal/httpc"
 )
 
 // Config holds configuration for PocketBase admin login.

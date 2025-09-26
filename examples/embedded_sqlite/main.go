@@ -6,8 +6,8 @@ import (
 	"log"
 	"path/filepath"
 
-	"github.com/loykin/apimigrate"
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 // This example runs the versioned migrator programmatically using
@@ -17,7 +17,7 @@ import (
 //
 //	go run ./examples/embedded_sqlite
 //
-// The migration history database (apimigrate.db) will be created under
+// The migration history database (apirun.db) will be created under
 // the example's migration directory.
 func main() {
 	// Directory containing versioned migrations for this example
@@ -30,17 +30,17 @@ func main() {
 	base := env.Env{Global: env.FromStringMap(map[string]string{})}
 
 	// Open the default SQLite store under the migration directory and attach it to the migrator
-	st, err := apimigrate.OpenStoreFromOptions(migrateDir, nil)
+	st, err := apirun.OpenStoreFromOptions(migrateDir, nil)
 	if err != nil {
 		log.Fatalf("open store failed: %v", err)
 	}
 	defer func() { _ = st.Close() }()
 
-	storeConfig := apimigrate.StoreConfig{}
-	storeConfig.DriverConfig = &apimigrate.SqliteConfig{Path: filepath.Join(migrateDir, apimigrate.StoreDBFileName)}
+	storeConfig := apirun.StoreConfig{}
+	storeConfig.DriverConfig = &apirun.SqliteConfig{Path: filepath.Join(migrateDir, apirun.StoreDBFileName)}
 
 	// Apply all migrations in the directory
-	m := apimigrate.Migrator{Env: &base, Dir: migrateDir, StoreConfig: &storeConfig}
+	m := apirun.Migrator{Env: &base, Dir: migrateDir, StoreConfig: &storeConfig}
 	vres, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		log.Fatalf("migrate up failed: %v", err)

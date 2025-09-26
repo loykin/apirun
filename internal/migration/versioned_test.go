@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/loykin/apimigrate/internal/store"
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun/internal/store"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 func openTestStore(t *testing.T, dbPath string) *store.Store {

@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/loykin/apimigrate/internal/task"
+	"github.com/loykin/apirun/internal/task"
 )
 
 func planUp(files []vfile, cur, target int) []vfile {

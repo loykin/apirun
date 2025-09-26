@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 
 	"github.com/go-resty/resty/v2"
-	"github.com/loykin/apimigrate/internal/common"
+	"github.com/loykin/apirun/internal/common"
 )
 
 type Httpc struct {

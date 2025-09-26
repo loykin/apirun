@@ -1,6 +1,6 @@
 # Color Logging Demo
 
-This example demonstrates the colorized logging feature of apimigrate, which improves readability for CLI usage while
+This example demonstrates the colorized logging feature of apirun, which improves readability for CLI usage while
 maintaining compatibility with embedded usage.
 
 ## Features
@@ -100,10 +100,10 @@ go run ./examples/color_demo
 
 ```go
 // Automatically detects terminal and enables colors
-logger := apimigrate.NewColorLogger(apimigrate.LogLevelInfo)
+logger := apirun.NewColorLogger(apirun.LogLevelInfo)
 
 // Or via configuration
-migrator := apimigrate.Migrator{
+migrator := apirun.Migrator{
 Dir: "./migrations",
 }
 // Colors configured via config.yaml format: color
@@ -113,10 +113,10 @@ Dir: "./migrations",
 
 ```go
 // Use plain text for embedded/library usage
-logger := apimigrate.NewLogger(apimigrate.LogLevelInfo)
+logger := apirun.NewLogger(apirun.LogLevelInfo)
 
 // Or JSON for log aggregation  
-logger := apimigrate.NewJSONLogger(apimigrate.LogLevelInfo)
+logger := apirun.NewJSONLogger(apirun.LogLevelInfo)
 ```
 
 ### Smart Detection
@@ -126,7 +126,7 @@ logger := apimigrate.NewJSONLogger(apimigrate.LogLevelInfo)
 // - Is this a terminal? → Use colors
 // - Is output redirected? → No colors  
 // - Is this Windows? → No colors (by default)
-logger := apimigrate.NewColorLogger(apimigrate.LogLevelInfo)
+logger := apirun.NewColorLogger(apirun.LogLevelInfo)
 ```
 
 ## Color Examples

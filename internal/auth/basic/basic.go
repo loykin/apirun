@@ -12,7 +12,7 @@ type Config struct {
 	Password string `mapstructure:"password"`
 }
 
-// ToMap implements apimigrate.AuthSpec-like mapping for internal use/consistency.
+// ToMap implements apirun.AuthSpec-like mapping for internal use/consistency.
 func (c Config) ToMap() map[string]interface{} {
 	return map[string]interface{}{
 		"username": c.Username,

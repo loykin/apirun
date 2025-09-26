@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	env2 "github.com/loykin/apimigrate/pkg/env"
+	env2 "github.com/loykin/apirun/pkg/env"
 )
 
 func boolPtr(b bool) *bool { return &b }
@@ -120,7 +120,7 @@ func TestRequest_Render_PassThroughNoTemplates(t *testing.T) {
 }
 
 func TestRequest_Render_BodyFile(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "apimigrate_body_*.json")
+	tmpFile, err := os.CreateTemp("", "apirun_body_*.json")
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestRequest_Render_RenderBodyTrue_Renders(t *testing.T) {
 }
 
 func TestRequest_Render_BodyFile_RenderBodyFalse(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "apimigrate_body_literal_*.json")
+	tmpFile, err := os.CreateTemp("", "apirun_body_literal_*.json")
 	if err != nil {
 		t.Fatalf("tmp: %v", err)
 	}

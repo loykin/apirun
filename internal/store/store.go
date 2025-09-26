@@ -12,7 +12,7 @@ import (
 )
 
 // DbFileName is the default filename for the migration history database.
-const DbFileName = "apimigrate.db"
+const DbFileName = "apirun.db"
 
 type Store struct {
 	DB        *sql.DB

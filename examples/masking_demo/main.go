@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 
-	"github.com/loykin/apimigrate"
+	"github.com/loykin/apirun"
 )
 
 func main() {
 	// Create a logger with masking enabled
-	logger := apimigrate.NewLogger(apimigrate.LogLevelInfo)
+	logger := apirun.NewLogger(apirun.LogLevelInfo)
 
 	fmt.Println("=== Testing Sensitive Data Masking ===")
 
@@ -44,13 +44,13 @@ func main() {
 
 	// Test 6: Test global masking function
 	sensitiveText := `{"username": "admin", "password": "secret123", "api_key": "sk_test_1234"}`
-	masked := apimigrate.MaskSensitiveData(sensitiveText)
+	masked := apirun.MaskSensitiveData(sensitiveText)
 	fmt.Printf("\nOriginal: %s\n", sensitiveText)
 	fmt.Printf("Masked:   %s\n", masked)
 
 	// Test 7: Custom masking patterns
-	masker := apimigrate.NewMasker()
-	customPattern := apimigrate.SensitivePattern{
+	masker := apirun.NewMasker()
+	customPattern := apirun.SensitivePattern{
 		Name: "custom_token",
 		Keys: []string{"custom_token", "my_secret"},
 	}

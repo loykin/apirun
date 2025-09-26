@@ -6,8 +6,8 @@ import (
 	"log"
 	"path/filepath"
 
-	"github.com/loykin/apimigrate"
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 func main() {
@@ -21,7 +21,7 @@ func main() {
 	dir := filepath.Join("examples", "embedded", "migration")
 
 	fmt.Printf("running embedded migrations in %s...\n", dir)
-	m := apimigrate.Migrator{Env: &base, Dir: dir}
+	m := apirun.Migrator{Env: &base, Dir: dir}
 	vres, err := m.MigrateUp(ctx, 0)
 	if err != nil {
 		// Print partial results if any

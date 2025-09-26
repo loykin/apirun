@@ -1,6 +1,6 @@
 # Embedded example with custom store table names
 
-This example shows how to run apimigrate programmatically (embedded) while customizing the table/index names used by the store. This is useful when you want multiple, isolated sets of migration history in the same database file (or schema).
+This example shows how to run apirun programmatically (embedded) while customizing the table/index names used by the store. This is useful when you want multiple, isolated sets of migration history in the same database file (or schema).
 
 ## What it does
 - Uses the library directly (no CLI) to run versioned migrations from this example's `migration/` directory.
@@ -33,4 +33,4 @@ v001: status=200 env=map[]
 migrations completed successfully (custom table names, SQLite store)
 ```
 
-The SQLite database file (apimigrate.db) will be created under this example's `migration` directory, but the schema tables will use the custom names.
+The SQLite database file (apirun.db) will be created under this example's `migration` directory, but the schema tables will use the custom names.

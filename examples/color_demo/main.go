@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/loykin/apimigrate"
+	"github.com/loykin/apirun"
 )
 
 func main() {
@@ -13,11 +13,11 @@ func main() {
 	// Test different log formats
 	formats := []struct {
 		name   string
-		logger *apimigrate.Logger
+		logger *apirun.Logger
 	}{
-		{"Plain Text", apimigrate.NewLogger(apimigrate.LogLevelInfo)},
-		{"JSON", apimigrate.NewJSONLogger(apimigrate.LogLevelInfo)},
-		{"Color", apimigrate.NewColorLogger(apimigrate.LogLevelInfo)},
+		{"Plain Text", apirun.NewLogger(apirun.LogLevelInfo)},
+		{"JSON", apirun.NewJSONLogger(apirun.LogLevelInfo)},
+		{"Color", apirun.NewColorLogger(apirun.LogLevelInfo)},
 	}
 
 	for _, f := range formats {

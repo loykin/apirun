@@ -9,7 +9,7 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/loykin/apimigrate/internal/common"
+	"github.com/loykin/apirun/internal/common"
 )
 
 const DriverPostgresql = "postgresql"

@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/loykin/apimigrate/internal/auth"
-	"github.com/loykin/apimigrate/internal/auth/pocketbase"
+	"github.com/loykin/apirun/internal/auth"
+	"github.com/loykin/apirun/internal/auth/pocketbase"
 )
 
 func TestPocketBase_Success(t *testing.T) {

@@ -1,6 +1,6 @@
 # Embedded example with PostgreSQL store
 
-This example shows how to run apimigrate programmatically (embedded) while persisting migration history in PostgreSQL instead of the default SQLite file.
+This example shows how to run apirun programmatically (embedded) while persisting migration history in PostgreSQL instead of the default SQLite file.
 
 ## Prerequisites
 

@@ -1,6 +1,6 @@
 # Enhanced Migration Logging Demo
 
-This example demonstrates the enhanced logging capabilities of apimigrate, providing better visibility into migration progress and performance.
+This example demonstrates the enhanced logging capabilities of apirun, providing better visibility into migration progress and performance.
 
 ## Enhanced Logging Features
 
@@ -69,10 +69,10 @@ go run ./examples/metrics_demo
 
 ## Integration
 
-This enhanced logging is automatically available in all apimigrate operations:
+This enhanced logging is automatically available in all apirun operations:
 
 ```go
-migrator := apimigrate.Migrator{
+migrator := apirun.Migrator{
     Dir: "./migrations",
     Env: env,
 }
@@ -83,7 +83,7 @@ results, err := migrator.MigrateUp(ctx, 0)
 
 ## Comparison: When NOT to Use Prometheus
 
-| Use Case | apimigrate Enhanced Logging | Prometheus |
+| Use Case | apirun Enhanced Logging | Prometheus |
 |----------|----------------------------|------------|
 | **CLI Migration Tool** | ✅ Perfect fit | ❌ Overkill |
 | **One-time Operations** | ✅ Simple & effective | ❌ Unnecessary complexity |

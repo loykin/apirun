@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/loykin/apimigrate"
+	"github.com/loykin/apirun"
 )
 
 type demoConfig struct {
@@ -19,7 +19,7 @@ func (d demoMethod) Acquire(_ context.Context) (string, error) {
 	return d.c.Value, nil
 }
 
-func demoFactory(spec map[string]interface{}) (apimigrate.AuthMethod, error) {
+func demoFactory(spec map[string]interface{}) (apirun.AuthMethod, error) {
 	var c demoConfig
 	if err := mapstructure.Decode(spec, &c); err != nil {
 		return nil, err
@@ -29,7 +29,7 @@ func demoFactory(spec map[string]interface{}) (apimigrate.AuthMethod, error) {
 
 func main() {
 	// Register our custom provider under type key "demo".
-	apimigrate.RegisterAuthProvider("demo", demoFactory)
+	apirun.RegisterAuthProvider("demo", demoFactory)
 	fmt.Println("registered provider: demo")
 
 	// Prepare a spec map that would typically come from a migration config.
@@ -37,7 +37,7 @@ func main() {
 		"value": "hello",
 	}
 
-	a := &apimigrate.Auth{Type: "demo", Name: "my-demo", Methods: apimigrate.NewAuthSpecFromMap(spec)}
+	a := &apirun.Auth{Type: "demo", Name: "my-demo", Methods: apirun.NewAuthSpecFromMap(spec)}
 	v, err := a.Acquire(context.Background(), nil)
 	if err != nil {
 		panic(err)

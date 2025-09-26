@@ -13,10 +13,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/loykin/apimigrate/internal/auth"
-	"github.com/loykin/apimigrate/internal/store"
-	"github.com/loykin/apimigrate/internal/task"
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun/internal/auth"
+	"github.com/loykin/apirun/internal/store"
+	"github.com/loykin/apirun/internal/task"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 func TestDecodeTaskYAML_Valid(t *testing.T) {

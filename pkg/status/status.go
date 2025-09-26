@@ -3,8 +3,8 @@ package status
 import (
 	"fmt"
 
-	"github.com/loykin/apimigrate"
-	"github.com/loykin/apimigrate/internal/common"
+	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/internal/common"
 )
 
 // Status display constants
@@ -35,7 +35,7 @@ type Info struct {
 }
 
 // FromStore collects status information from an opened store.
-func FromStore(st *apimigrate.Store) (Info, error) {
+func FromStore(st *apirun.Store) (Info, error) {
 	cur, err := st.CurrentVersion()
 	if err != nil {
 		return Info{}, err
@@ -44,7 +44,7 @@ func FromStore(st *apimigrate.Store) (Info, error) {
 	if err != nil {
 		return Info{}, err
 	}
-	runs, err := apimigrate.ListRuns(st)
+	runs, err := apirun.ListRuns(st)
 	if err != nil {
 		return Info{}, err
 	}
@@ -65,8 +65,8 @@ func FromStore(st *apimigrate.Store) (Info, error) {
 }
 
 // FromOptions opens a store using the provided options, collects status, and closes it.
-func FromOptions(dir string, cfg *apimigrate.StoreConfig) (Info, error) {
-	st, err := apimigrate.OpenStoreFromOptions(dir, cfg)
+func FromOptions(dir string, cfg *apirun.StoreConfig) (Info, error) {
+	st, err := apirun.OpenStoreFromOptions(dir, cfg)
 	if err != nil {
 		return Info{}, err
 	}

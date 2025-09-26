@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 func TestUp_Execute_OverrideMethodURL_ExtractEnv(t *testing.T) {

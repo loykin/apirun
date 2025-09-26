@@ -1,11 +1,11 @@
 # Keycloak Migration Examples
 
-This example demonstrates how to use apimigrate to authenticate with a local Keycloak (admin/root), then create a sample realm and a sample user using the stored access token.
+This example demonstrates how to use apirun to authenticate with a local Keycloak (admin/root), then create a sample realm and a sample user using the stored access token.
 
 Prerequisites:
 - Keycloak running locally and reachable at http://localhost:8080
 - Admin user credentials: admin / root
-- apimigrate built (go build ./cmd/apimigrate)
+- apirun built (go build ./cmd/apirun)
 
 Auth configuration:
 - The config logs in to Keycloak using Resource Owner Password Credentials against the master realm and the built-in client_id admin-cli. The acquired token is stored under the logical auth name "keycloak" and is referenced in templates as {{.auth.keycloak}}. Note: the library does not auto-prefix Authorization; migrations explicitly set `Authorization: "{{.auth.keycloak}}"`. Base URLs are referenced via {{.env.kc_base}}.
@@ -15,16 +15,16 @@ How to run (single command):
 - Each migration file specifies its own HTTP method and full URL, so you can run them sequentially with one CLI invocation.
 
 Command (using the combined config with migrate_dir and env):
-SAMPLE_REALM=sample ./apimigrate \
+SAMPLE_REALM=sample ./apirun \
   --config examples/keycloak_migration/config.yaml \
   -v
 
 Rollback:
 - Show status:
-  ./apimigrate status \
+  ./apirun status \
     --config examples/keycloak-migration/config.yaml
 - Roll back all applied migrations (down to version 0):
-  ./apimigrate down \
+  ./apirun down \
     --config examples/keycloak-migration/config.yaml \
     --to 0
   This will delete the sample realm (and thus remove the sample user).

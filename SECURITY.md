@@ -3,7 +3,7 @@
 ## Reporting a Vulnerability
 This is a personal project.  
 If you find a security issue, please open a GitHub issue in this repository.
-Please report security issues via [GitHub Issues](https://github.com/loykin/apimigrate/issues).
+Please report security issues via [GitHub Issues](https://github.com/loykin/apirun/issues).
 
 ## Disclosure Policy
 - Coordinated disclosure is appreciated.

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 func TestAuth_Acquire_Errors(t *testing.T) {

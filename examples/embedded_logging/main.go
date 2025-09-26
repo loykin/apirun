@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/loykin/apimigrate"
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/pkg/env"
 )
 
-// Example demonstrating structured logging with apimigrate
+// Example demonstrating structured logging with apirun
 func main() {
 	// Initialize structured logging at debug level to see all log messages
-	logger := apimigrate.NewLogger(apimigrate.LogLevelDebug)
-	apimigrate.SetDefaultLogger(logger)
+	logger := apirun.NewLogger(apirun.LogLevelDebug)
+	apirun.SetDefaultLogger(logger)
 
-	logger.Info("apimigrate example with structured logging started")
+	logger.Info("apirun example with structured logging started")
 
 	// Create a base environment for migrations
 	base := env.New()
@@ -24,7 +24,7 @@ func main() {
 	ctx := context.Background()
 
 	// Configure migrator with logging
-	m := apimigrate.Migrator{
+	m := apirun.Migrator{
 		Dir: "examples/embedded_logging/migration",
 		Env: base,
 	}
@@ -64,5 +64,5 @@ func main() {
 		}
 	}
 
-	logger.Info("apimigrate example with structured logging completed")
+	logger.Info("apirun example with structured logging completed")
 }

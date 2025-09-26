@@ -4,7 +4,7 @@ This example demonstrates how values extracted from a response via env_from are 
 
 Key points:
 - Use `response.env_from` to extract values from JSON responses using gjson paths.
-- All values extracted via `response.env_from` are automatically persisted in the local SQLite store (`apimigrate.db`).
+- All values extracted via `response.env_from` are automatically persisted in the local SQLite store (`apirun.db`).
 - During `down`, the stored values for that version are automatically merged into the `down.env` so you can template URLs or headers.
 - Stored values are also available to subsequent `up` migrations applied in the same run and to future runs (until the version is rolled back).
 

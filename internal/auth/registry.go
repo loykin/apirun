@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/loykin/apimigrate/internal/auth/basic"
-	acommon "github.com/loykin/apimigrate/internal/auth/common"
-	"github.com/loykin/apimigrate/internal/auth/oauth2"
-	"github.com/loykin/apimigrate/internal/auth/pocketbase"
-	"github.com/loykin/apimigrate/internal/common"
+	"github.com/loykin/apirun/internal/auth/basic"
+	acommon "github.com/loykin/apirun/internal/auth/common"
+	"github.com/loykin/apirun/internal/auth/oauth2"
+	"github.com/loykin/apirun/internal/auth/pocketbase"
+	"github.com/loykin/apirun/internal/common"
 )
 
 // Method is the plugin interface for an authentication method.

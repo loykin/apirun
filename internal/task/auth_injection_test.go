@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 func TestRequest_Render_UsesAuthTokenFromEnvTemplate(t *testing.T) {

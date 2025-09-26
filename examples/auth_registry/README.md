@@ -1,11 +1,11 @@
 # Auth Registry Example
 
-This example demonstrates how a library user can register a custom authentication provider and use it via the public apimigrate API.
+This example demonstrates how a library user can register a custom authentication provider and use it via the public apirun API.
 
 What it shows:
 - Implementing a simple custom auth provider that returns a token value.
-- Registering the provider using apimigrate.RegisterAuthProvider.
-- Acquiring auth data using apimigrate.AcquireAuthByProviderSpecWithName and storing it under a logical name.
+- Registering the provider using apirun.RegisterAuthProvider.
+- Acquiring auth data using apirun.AcquireAuthByProviderSpecWithName and storing it under a logical name.
 
 ## Run
 

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/loykin/apimigrate/internal/common"
+	"github.com/loykin/apirun/internal/common"
 )
 
 const DriverSqlite = "sqlite"

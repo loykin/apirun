@@ -1,4 +1,4 @@
-module github.com/loykin/apimigrate
+module github.com/loykin/apirun
 
 go 1.24.6
 

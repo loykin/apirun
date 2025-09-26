@@ -1,7 +1,7 @@
 package util
 
 import (
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 // RenderAnyTemplate walks arbitrary structures (map[string]any, []any) and renders

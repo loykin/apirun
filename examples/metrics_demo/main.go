@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loykin/apimigrate"
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 func main() {
@@ -14,7 +14,7 @@ func main() {
 	ctx := context.Background()
 
 	// Create a simple migrator (this won't actually run migrations but will show logging)
-	m := apimigrate.Migrator{
+	m := apirun.Migrator{
 		Dir: "./migration", // This directory doesn't exist, that's OK for demo
 		Env: &env.Env{
 			Global: env.FromStringMap(map[string]string{"demo": "value"}),

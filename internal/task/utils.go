@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/go-resty/resty/v2"
-	"github.com/loykin/apimigrate/internal/httpc"
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun/internal/httpc"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 func isJSON(s string) bool {

@@ -12,7 +12,7 @@ Requirements:
 How to run:
 1. Start Grafana locally on port 3000.
 2. From the repository root, run:
-   apimigrate up --config examples/grafana_migration/config.yaml
+   apirun up --config examples/grafana_migration/config.yaml
 
 Notes:
 - The dashboard JSON body is loaded from a file using the new `body_file` field.

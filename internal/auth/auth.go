@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/loykin/apimigrate/internal/util"
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun/internal/util"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 type Auth struct {

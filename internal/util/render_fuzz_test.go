@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 // FuzzRenderAnyTemplate ensures RenderAnyTemplate never panics on arbitrary JSON-like inputs

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	acommon "github.com/loykin/apimigrate/internal/auth/common"
+	acommon "github.com/loykin/apirun/internal/auth/common"
 	"golang.org/x/oauth2"
 )
 

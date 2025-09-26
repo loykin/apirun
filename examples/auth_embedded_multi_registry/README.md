@@ -1,6 +1,6 @@
 # Auth Embedded Multi-Registry Example
 
-This example shows how to embed apimigrate into your Go program, acquire and store multiple auth tokens under different logical names, and run migrations where each task chooses a different auth via template variables.
+This example shows how to embed apirun into your Go program, acquire and store multiple auth tokens under different logical names, and run migrations where each task chooses a different auth via template variables.
 
 What it demonstrates:
 - Programmatic acquisition of two Basic tokens, stored as .auth.a1 and .auth.a2

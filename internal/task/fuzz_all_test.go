@@ -3,7 +3,7 @@ package task
 import (
 	"testing"
 
-	ienv "github.com/loykin/apimigrate/pkg/env"
+	ienv "github.com/loykin/apirun/pkg/env"
 )
 
 // FuzzTask is a single fuzz entry point for the internal/task package.

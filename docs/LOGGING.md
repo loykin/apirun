@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document summarizes the structured logging improvements made to the apimigrate codebase using Go's built-in `slog`
+This document summarizes the structured logging improvements made to the apirun codebase using Go's built-in `slog`
 package.
 
 ## New Logging Framework
@@ -66,7 +66,7 @@ package.
 - **Response Handling**: Logs status codes and response sizes
 - **Error Context**: Detailed error information for failed requests
 
-### Command Line Interface (`cmd/apimigrate/main.go`)
+### Command Line Interface (`cmd/apirun/main.go`)
 
 - **Logging Initialization**: Configures logging based on verbose flag
 - **Configuration Loading**: Logs config file loading and processing
@@ -78,8 +78,8 @@ package.
 
 ```go
 // Initialize logger with appropriate level
-logger := apimigrate.NewLogger(apimigrate.LogLevelInfo)
-apimigrate.SetDefaultLogger(logger)
+logger := apirun.NewLogger(apirun.LogLevelInfo)
+apirun.SetDefaultLogger(logger)
 
 // Use structured logging
 logger.Info("starting migration", "version", 123, "dir", "/migrations")
@@ -89,8 +89,8 @@ logger.Info("starting migration", "version", 123, "dir", "/migrations")
 
 ```go
 // Create JSON logger for log aggregation systems
-logger := apimigrate.NewJSONLogger(apimigrate.LogLevelInfo)
-apimigrate.SetDefaultLogger(logger)
+logger := apirun.NewJSONLogger(apirun.LogLevelInfo)
+apirun.SetDefaultLogger(logger)
 
 // All internal components will now use structured JSON logging
 ```
@@ -99,14 +99,14 @@ apimigrate.SetDefaultLogger(logger)
 
 ```go
 // The logging is automatically used by Migrator
-m := apimigrate.Migrator{
+m := apirun.Migrator{
 Dir: "./migrations",
 Env: env,
 }
 
 // Set logger before running migrations
-logger := apimigrate.NewLogger(apimigrate.LogLevelDebug)
-apimigrate.SetDefaultLogger(logger)
+logger := apirun.NewLogger(apirun.LogLevelDebug)
+apirun.SetDefaultLogger(logger)
 
 results, err := m.MigrateUp(ctx, 0)
 // Detailed structured logs will be automatically generated
@@ -143,15 +143,15 @@ results, err := m.MigrateUp(ctx, 0)
 
 ### Output Formats
 
-- **Text**: Human-readable format for development (`apimigrate.NewLogger()`)
-- **JSON**: Machine-readable format for production systems (`apimigrate.NewJSONLogger()`)
+- **Text**: Human-readable format for development (`apirun.NewLogger()`)
+- **JSON**: Machine-readable format for production systems (`apirun.NewJSONLogger()`)
 
 ### Environment Integration
 
 - **Verbose Flag**: CLI `--verbose` flag enables debug logging (overrides config)
 - **Configuration File**: Set logging level and format in `config.yaml`
 - **Programmatic Control**: Use public API to set log levels in code
-- **Global Configuration**: Set once with `apimigrate.SetDefaultLogger()`
+- **Global Configuration**: Set once with `apirun.SetDefaultLogger()`
 
 ## Configuration File Support
 
@@ -207,7 +207,7 @@ logging:
 
 ## Public API Reference
 
-The apimigrate package provides a clean public API for logging configuration:
+The apirun package provides a clean public API for logging configuration:
 
 ### Types and Constants
 
@@ -235,10 +235,10 @@ func GetLogger() *Logger
 
 ### Best Practices
 
-- Use `apimigrate.NewLogger()` for development/testing
-- Use `apimigrate.NewJSONLogger()` for production deployments
+- Use `apirun.NewLogger()` for development/testing
+- Use `apirun.NewJSONLogger()` for production deployments
 - Set logger once at application startup with `SetDefaultLogger()`
-- All internal apimigrate components will automatically use the configured logger
+- All internal apirun components will automatically use the configured logger
 
 ## Testing
 
@@ -284,5 +284,5 @@ func GetLogger() *Logger
 - **Conditional Logging**: Debug messages skipped when not enabled
 - **Efficient Serialization**: Optimized JSON and text output
 
-This logging implementation provides a solid foundation for debugging, monitoring, and operating the apimigrate system
+This logging implementation provides a solid foundation for debugging, monitoring, and operating the apirun system
 while maintaining backward compatibility and performance.

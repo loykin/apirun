@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/loykin/apimigrate/internal/task"
+	"github.com/loykin/apirun/internal/task"
 )
 
 // FuzzDecodeTaskYAML ensures the YAML decoder for Task never panics on arbitrary input.

@@ -10,8 +10,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/loykin/apimigrate"
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 func main() {
@@ -19,10 +19,10 @@ func main() {
 
 	// Use a temporary sqlite store within a temp dir so the example doesn't leave files around
 	var storePath string
-	tmpDir, err := os.MkdirTemp("", "apimigrate-example-*")
+	tmpDir, err := os.MkdirTemp("", "apirun-example-*")
 	if err == nil {
 		defer func() { _ = os.RemoveAll(tmpDir) }()
-		storePath = filepath.Join(tmpDir, "apimigrate.db")
+		storePath = filepath.Join(tmpDir, "apirun.db")
 	}
 
 	// Start a local HTTP test server that validates different Authorization headers
@@ -58,16 +58,16 @@ func main() {
 	})}
 
 	// Configure two different Basic tokens under different names via struct-based API
-	auth1 := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a1", Methods: apimigrate.BasicAuthConfig{Username: "u1", Password: "p1"}}
-	auth2 := &apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a2", Methods: apimigrate.BasicAuthConfig{Username: "u2", Password: "p2"}}
+	auth1 := &apirun.Auth{Type: apirun.AuthTypeBasic, Name: "a1", Methods: apirun.BasicAuthConfig{Username: "u1", Password: "p1"}}
+	auth2 := &apirun.Auth{Type: apirun.AuthTypeBasic, Name: "a2", Methods: apirun.BasicAuthConfig{Username: "u2", Password: "p2"}}
 
 	// Run migrations from this example's migration directory
 	migDir := "./examples/auth_embedded_multi_registry/migration"
 
-	storeConfig := apimigrate.StoreConfig{}
-	storeConfig.DriverConfig = &apimigrate.SqliteConfig{Path: storePath}
-	m := apimigrate.Migrator{Env: &base, Dir: migDir, StoreConfig: &storeConfig}
-	m.Auth = []apimigrate.Auth{*auth1, *auth2}
+	storeConfig := apirun.StoreConfig{}
+	storeConfig.DriverConfig = &apirun.SqliteConfig{Path: storePath}
+	m := apirun.Migrator{Env: &base, Dir: migDir, StoreConfig: &storeConfig}
+	m.Auth = []apirun.Auth{*auth1, *auth2}
 	if _, err := m.MigrateUp(ctx, 0); err != nil {
 		log.Fatalf("migrate up failed: %v", err)
 	}

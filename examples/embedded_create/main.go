@@ -6,7 +6,7 @@ import (
 	"log"
 	"path/filepath"
 
-	"github.com/loykin/apimigrate"
+	"github.com/loykin/apirun"
 )
 
 func main() {
@@ -19,7 +19,7 @@ func main() {
 		name = flag.Arg(0)
 	}
 
-	p, err := apimigrate.CreateMigration(apimigrate.CreateOptions{Name: name, Dir: *dir})
+	p, err := apirun.CreateMigration(apirun.CreateOptions{Name: name, Dir: *dir})
 	if err != nil {
 		log.Fatalf("create migration: %v", err)
 	}

@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
-	"github.com/loykin/apimigrate"
-	"github.com/loykin/apimigrate/pkg/env"
+	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/pkg/env"
 )
 
 // This example shows lazy acquisition of multiple embedded auth providers.
@@ -80,23 +80,23 @@ func main() {
 	base := env.Env{Global: env.FromStringMap(map[string]string{"api_base": baseURL})}
 
 	// Define 3 embedded auth providers (Basic) with names a1, a2, a3
-	// Using the public wrapper types from apimigrate
-	a1 := apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a1", Methods: apimigrate.BasicAuthConfig{Username: "u1", Password: "p1"}}
-	a2 := apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a2", Methods: apimigrate.BasicAuthConfig{Username: "u2", Password: "p2"}}
-	a3 := apimigrate.Auth{Type: apimigrate.AuthTypeBasic, Name: "a3", Methods: apimigrate.BasicAuthConfig{Username: "u3", Password: "p3"}}
+	// Using the public wrapper types from apirun
+	a1 := apirun.Auth{Type: apirun.AuthTypeBasic, Name: "a1", Methods: apirun.BasicAuthConfig{Username: "u1", Password: "p1"}}
+	a2 := apirun.Auth{Type: apirun.AuthTypeBasic, Name: "a2", Methods: apirun.BasicAuthConfig{Username: "u2", Password: "p2"}}
+	a3 := apirun.Auth{Type: apirun.AuthTypeBasic, Name: "a3", Methods: apirun.BasicAuthConfig{Username: "u3", Password: "p3"}}
 
 	// Open store under example directory
-	st, err := apimigrate.OpenStoreFromOptions(migrateDir, nil)
+	st, err := apirun.OpenStoreFromOptions(migrateDir, nil)
 	if err != nil {
 		log.Fatalf("open store: %v", err)
 	}
 	defer func() { _ = st.Close() }()
 
-	storeConfig := apimigrate.StoreConfig{}
-	storeConfig.DriverConfig = &apimigrate.SqliteConfig{Path: filepath.Join(migrateDir, apimigrate.StoreDBFileName)}
+	storeConfig := apirun.StoreConfig{}
+	storeConfig.DriverConfig = &apirun.SqliteConfig{Path: filepath.Join(migrateDir, apirun.StoreDBFileName)}
 
-	m := apimigrate.Migrator{Env: &base, Dir: migrateDir, StoreConfig: &storeConfig}
-	m.Auth = []apimigrate.Auth{a1, a2, a3}
+	m := apirun.Migrator{Env: &base, Dir: migrateDir, StoreConfig: &storeConfig}
+	m.Auth = []apirun.Auth{a1, a2, a3}
 
 	// Run all migrations
 	vres, err := m.MigrateUp(ctx, 0)
