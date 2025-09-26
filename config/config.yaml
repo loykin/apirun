@@ -79,6 +79,9 @@ logging:
 
 # Store settings
 store:
+  # Disable store operations entirely (stateless mode)
+  # When true, migrations run without persisting any state to database
+  # disabled: false
   # Whether to record response bodies alongside status codes in migration history
   save_response_body: false
   # Backend type: "sqlite" (default) or "postgres"

@@ -3,8 +3,14 @@
 logging:
   level: info
   format: color  # Use colorized output for better readability
-  color: true    # Explicitly enable colors (auto-detected if not specified)  
+  color: true    # Explicitly enable colors (auto-detected if not specified)
   mask_sensitive: true
+
+# Store settings (optional)
+store:
+  # Disable store operations entirely (stateless mode)
+  # disabled: false
+  save_response_body: false
 
 ## Alternative formats:
 # logging:

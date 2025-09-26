@@ -25,6 +25,7 @@ var upCmd = &cobra.Command{
 		dry := v.GetBool("dry_run")
 		dryFrom := v.GetInt("dry_run_from")
 		to := v.GetInt("to")
+		noStore := v.GetBool("no_store")
 		ctx := context.Background()
 		be := ienv.New()
 		baseEnv := be
@@ -50,6 +51,10 @@ var upCmd = &cobra.Command{
 			}
 			if err := doc.DecodeAuth(ctx, envFromCfg); err != nil {
 				return err
+			}
+			// Override store disabled setting with CLI flag if provided
+			if noStore {
+				doc.Store.Disabled = true
 			}
 			// Build store options now; we'll pass them to Migrator below
 			storeCfgFromDoc = doc.Store.ToStorOptions()
@@ -86,7 +91,7 @@ var upCmd = &cobra.Command{
 				scPtr = storeCfgFromDoc
 			}
 		}
-		if scPtr == nil {
+		if scPtr == nil && !noStore {
 			// default to sqlite under dir explicitly
 			tmp := &apirun.StoreConfig{}
 			tmp.Config.Driver = apirun.DriverSqlite

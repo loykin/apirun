@@ -28,3 +28,9 @@ env:
     value: alice123
   - name: realm
     valueFromEnv: SAMPLE_REALM
+
+# Store settings (optional)
+store:
+  # Disable store operations entirely (stateless mode)
+  # disabled: false
+  save_response_body: false

@@ -20,6 +20,7 @@ var downCmd = &cobra.Command{
 		dry := v.GetBool("dry_run")
 		dryFrom := v.GetInt("dry_run_from")
 		to := v.GetInt("to")
+		noStore := v.GetBool("no_store")
 		ctx := context.Background()
 		be := env.New()
 		baseEnv := &be
@@ -45,6 +46,10 @@ var downCmd = &cobra.Command{
 			}
 			if err := doc.DecodeAuth(ctx, envFromCfg); err != nil {
 				return err
+			}
+			// Override store disabled setting with CLI flag if provided
+			if noStore {
+				doc.Store.Disabled = true
 			}
 			storeCfgFromDoc = doc.Store.ToStorOptions()
 			saveBody := doc.Store.SaveResponseBody
@@ -79,7 +84,7 @@ var downCmd = &cobra.Command{
 				scPtr = storeCfgFromDoc
 			}
 		}
-		if scPtr == nil {
+		if scPtr == nil && !noStore {
 			// default to sqlite under dir explicitly
 			tmp := &apirun.StoreConfig{}
 			tmp.Config.Driver = apirun.DriverSqlite

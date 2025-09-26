@@ -15,3 +15,9 @@ env:
     value: sample@example.com
   - name: gf_user_password
     value: sample1234
+
+# Store settings (optional)
+store:
+  # Disable store operations entirely (stateless mode)
+  # disabled: false
+  save_response_body: false

@@ -54,6 +54,7 @@ type LoggingConfig struct {
 }
 
 type StoreConfig struct {
+	Disabled         bool                `mapstructure:"disabled" yaml:"disabled" json:"disabled"`
 	SaveResponseBody bool                `mapstructure:"save_response_body" yaml:"save_response_body"`
 	Type             string              `mapstructure:"type" yaml:"type"`
 	SQLite           SQLiteStoreConfig   `mapstructure:"sqlite" yaml:"sqlite"`
@@ -88,6 +89,9 @@ func (l *lazyVal) String() string {
 }
 
 func (c *StoreConfig) ToStorOptions() *apirun.StoreConfig {
+	if c.Disabled {
+		return nil
+	}
 	stType := strings.ToLower(strings.TrimSpace(c.Type))
 	if stType == "" {
 		return nil

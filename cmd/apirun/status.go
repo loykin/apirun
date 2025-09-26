@@ -24,6 +24,7 @@ var statusCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		v := viper.GetViper()
 		configPath := v.GetString("config")
+		noStore := v.GetBool("no_store")
 
 		dir := ""
 		var storeCfg *apirun.StoreConfig
@@ -44,6 +45,10 @@ var statusCmd = &cobra.Command{
 					// Fallback: use config file directory if migrate_dir not specified
 					mDir = filepath.Dir(configPath)
 				}
+				// Override store disabled setting with CLI flag if provided
+				if noStore {
+					doc.Store.Disabled = true
+				}
 				tmpStoreCfg := doc.Store.ToStorOptions()
 				if mDir != "" {
 					dir = mDir
@@ -54,6 +59,13 @@ var statusCmd = &cobra.Command{
 		if strings.TrimSpace(dir) == "" {
 			dir = "./config/migration"
 		}
+
+		// Check if store is disabled
+		if noStore || storeCfg == nil {
+			fmt.Println("Store is disabled - no migration status available")
+			return nil
+		}
+
 		// centralized store opening
 		st, err := apirun.OpenStoreFromOptions(dir, storeCfg)
 		if err != nil {

@@ -24,6 +24,7 @@ var rootCmd = &cobra.Command{
 		// Fetch values (viper already has defaults and env/flags bound)
 		dir := ""
 		configPath := v.GetString("config")
+		noStore := v.GetBool("no_store")
 
 		// Initialize basic logger - will be reconfigured from config file
 		logger := common.NewLogger(common.LogLevelInfo)
@@ -68,6 +69,10 @@ var rootCmd = &cobra.Command{
 			if err := doc.DecodeAuth(ctx, envFromCfg); err != nil {
 				logger.Error("failed to decode authentication", "error", err)
 				return err
+			}
+			// Override store disabled setting with CLI flag if provided
+			if noStore {
+				doc.Store.Disabled = true
 			}
 			_ = doc.Store.ToStorOptions()
 			saveBody := doc.Store.SaveResponseBody
@@ -147,12 +152,14 @@ func init() {
 	v.SetDefault("to", 0)
 	v.SetDefault("dry_run", false)
 	v.SetDefault("dry_run_from", 0)
+	v.SetDefault("no_store", false)
 
 	// Environment variables support: APIRUN_CONFIG, ...
 	v.SetEnvPrefix("APIRUN")
 	v.AutomaticEnv()
 	// Bind flags via Cobra and then bind to Viper
 	rootCmd.PersistentFlags().String("config", v.GetString("config"), "path to a config yaml (like examples/keycloak_migration/config.yaml)")
+	rootCmd.PersistentFlags().Bool("no-store", v.GetBool("no_store"), "disable store operations (do not save migration state)")
 	upCmd.Flags().Int("to", v.GetInt("to"), "target version to migrate up to (0 = all)")
 	upCmd.Flags().Bool("dry-run", v.GetBool("dry_run"), "simulate migrations without writing to the store")
 	upCmd.Flags().Int("dry-run-from", v.GetInt("dry_run_from"), "simulate as if versions up to N are already applied")
@@ -161,6 +168,7 @@ func init() {
 	downCmd.Flags().Int("dry-run-from", v.GetInt("dry_run_from"), "simulate as if versions up to N are already applied")
 
 	_ = v.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
+	_ = v.BindPFlag("no_store", rootCmd.PersistentFlags().Lookup("no-store"))
 	_ = v.BindPFlag("to", upCmd.Flags().Lookup("to"))
 	_ = v.BindPFlag("dry_run", upCmd.Flags().Lookup("dry-run"))
 	_ = v.BindPFlag("dry_run_from", upCmd.Flags().Lookup("dry-run-from"))

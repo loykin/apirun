@@ -135,6 +135,9 @@ go run ./cmd/apirun down --to 0
 
 # Show current and applied versions
 go run ./cmd/apirun status
+
+# Run migrations without saving state to the database (stateless mode)
+go run ./cmd/apirun --no-store
 ```
 
 Customize:
@@ -193,6 +196,9 @@ env:
 
 # Store settings
 store:
+  # Disable store operations entirely (run migrations without persisting state)
+  # disabled: false
+
   # Whether to record response bodies alongside status codes in migration history
   save_response_body: false
 
@@ -255,6 +261,60 @@ By default, request bodies are rendered as Go templates when they contain {{...}
 - Setting the programmatic Migrator.RenderBodyDefault = false to make unannotated requests send the raw body as-is.
 
 This is useful when you want to post JSON that legitimately includes template-like braces.
+
+## Stateless Mode (No Store)
+
+apirun can run migrations without persisting any state to a database. This is useful for:
+
+- **CI/CD pipelines**: Run API setups without requiring database storage
+- **Testing environments**: Execute workflows without leaving state behind
+- **Ephemeral deployments**: Apply configurations without persistent storage
+- **Development**: Quickly test migrations without affecting stored state
+
+### Usage
+
+**CLI Flag:**
+```bash
+# Disable store for any command
+apirun --no-store
+apirun up --no-store --to 5
+apirun down --no-store --to 0
+apirun status --no-store  # Will show "Store is disabled" message
+```
+
+**Configuration File:**
+```yaml
+store:
+  disabled: true  # Disable store operations entirely
+```
+
+**Environment Variable:**
+```bash
+export APIRUN_NO_STORE=true
+apirun up
+```
+
+### Behavior in Stateless Mode
+
+When store operations are disabled:
+
+- ✅ **Migrations execute normally**: All HTTP requests and API calls work as expected
+- ✅ **Authentication works**: Auth providers acquire tokens normally
+- ✅ **Environment variables work**: All templating and variable extraction functions
+- ✅ **Response validation works**: Status codes and response parsing work normally
+- ❌ **No version tracking**: Migration versions are not persisted or checked
+- ❌ **No execution history**: No record of what was run or when
+- ❌ **No stored environment**: Variables extracted via `env_from` are not persisted
+- ❌ **Status command**: Shows "Store is disabled" instead of version info
+
+### Important Notes
+
+- **CLI flag overrides config**: `--no-store` takes precedence over `store.disabled` in config files
+- **No rollback capability**: Without stored state, down migrations cannot reference previously extracted IDs
+- **Idempotent workflows recommended**: Design migrations to handle repeated execution gracefully
+- **Status command behavior**: Returns informational message instead of version data
+
+This mode is particularly useful for setup scripts, testing scenarios, and environments where persistent state is not desired or available.
 
 ## Structured Logging and Security
 
