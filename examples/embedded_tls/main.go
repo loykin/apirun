@@ -37,7 +37,7 @@ func main() {
 	// 3) Prepare base environment
 	//    Provide the URL value used by templates.
 	baseEnv := env.New()
-	_ = baseEnv.SetString("global", "URL", "https://httpbin.org/status/200")
+	_ = baseEnv.SetString("global", "URL", "https://example.com")
 
 	m := apirun.Migrator{
 		Dir:              dir,
