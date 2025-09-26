@@ -33,14 +33,14 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          BIN_NAME=apimigrate
+          BIN_NAME=apirun
           EXT=""
           if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
           BIN_FILE="${BIN_NAME}${EXT}"
           OUT_DIR="${BIN_NAME}_${{ matrix.goos }}_${{ matrix.goarch }}"
 
           echo "Building $BIN_FILE for $OUT_DIR"
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o "$BIN_FILE" ./cmd/apimigrate
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o "$BIN_FILE" ./cmd/apirun
 
           mkdir -p "$OUT_DIR/bin"
           cp "$BIN_FILE" "$OUT_DIR/bin/"
@@ -111,8 +111,8 @@ jobs:
             --type slsaprovenance \
             --predicate <(echo '{
               "buildType": "https://slsa.dev/container/v1",
-              "builder": { "id": "https://github.com/loykin/apimigrate" },
-              "invocation": { "configSource": { "uri": "git+https://github.com/loykin/apimigrate@${GITHUB_REF_NAME}" } }
+              "builder": { "id": "https://github.com/loykin/apirun" },
+              "invocation": { "configSource": { "uri": "git+https://github.com/loykin/apirun@${GITHUB_REF_NAME}" } }
             }') \
             --output-attestation $f.intoto.jsonl \
             --output-certificate $f.pem
