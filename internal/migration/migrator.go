@@ -31,6 +31,18 @@ type Migrator struct {
 	DryRunFrom int
 	// TLSConfig applies to all HTTP requests executed by tasks during migrations.
 	TLSConfig *tls.Config
+	// DelayBetweenMigrations configures the delay between migration executions for backend consistency.
+	// If not set, defaults to 1 second. Set to 0 to disable delays.
+	DelayBetweenMigrations time.Duration
+}
+
+// getDelayBetweenMigrations returns the configured delay or default value
+func (m *Migrator) getDelayBetweenMigrations() time.Duration {
+	if m.DelayBetweenMigrations > 0 {
+		return m.DelayBetweenMigrations
+	}
+	// Default to 1 second for backward compatibility
+	return 1 * time.Second
 }
 
 // initTaskAndEnv loads task from file and initializes env for up/down, merges stored/session env as needed.
@@ -296,8 +308,11 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 			if err := m.Store.Apply(f.index); err != nil {
 				return results, fmt.Errorf("record apply %d: %w", f.index, err)
 			}
-			// Small delay to allow backend consistency before next migration
-			time.Sleep(1 * time.Second)
+			// Configurable delay to allow backend consistency before next migration
+			delay := m.getDelayBetweenMigrations()
+			if delay > 0 {
+				time.Sleep(delay)
+			}
 		}
 	}
 

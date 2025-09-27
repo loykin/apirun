@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/loykin/apirun/pkg/security"
 	"gopkg.in/yaml.v3"
 )
 
@@ -230,28 +231,31 @@ func (e *Env) Lookup(key string) (string, bool) {
 // RenderGoTemplate renders strings like {{.username}} with html/template using default Go delimiters.
 // Missing keys keep the original string unchanged.
 // Note: html/template escapes HTML by default to mitigate XSS when used in HTML contexts.
+// This method now includes security validation to prevent template injection attacks.
 func (e *Env) RenderGoTemplate(s string) string {
-	if len(s) == 0 {
-		return s
-	}
-	t, err := template.New("gotmpl").Option("missingkey=error").Parse(s)
+	result, err := e.RenderGoTemplateErr(s)
 	if err != nil {
+		// For backward compatibility, return original string on error
 		return s
 	}
-	var buf bytes.Buffer
-	if err := t.Execute(&buf, e.dataForTemplate()); err != nil {
-		return s
-	}
-	return buf.String()
+	return result
 }
 
 // RenderGoTemplateErr behaves like RenderGoTemplate but returns an error when
 // the template cannot be parsed or executed (including missing keys due to missingkey=error).
 // This is useful for critical contexts like HTTP body rendering where silent fallback would hide issues.
+// This method includes security validation to prevent template injection attacks.
 func (e *Env) RenderGoTemplateErr(s string) (string, error) {
 	if len(s) == 0 {
 		return s, nil
 	}
+
+	// Security validation: check for template injection attempts
+	validator := security.NewTemplateValidator()
+	if err := validator.ValidateTemplate(s); err != nil {
+		return "", fmt.Errorf("template security validation failed: %w", err)
+	}
+
 	t, err := template.New("gotmpl").Option("missingkey=error").Parse(s)
 	if err != nil {
 		return "", err

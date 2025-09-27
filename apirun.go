@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/loykin/apirun/internal/auth"
 	"github.com/loykin/apirun/internal/common"
@@ -59,6 +60,9 @@ type Migrator struct {
 	DryRunFrom int
 	// TLSConfig applies to all HTTP requests executed during migrations
 	TLSConfig *tls.Config
+	// DelayBetweenMigrations configures the delay between migration executions for backend consistency.
+	// If not set, defaults to 1 second. Set to 0 to disable delays.
+	DelayBetweenMigrations time.Duration
 }
 
 // MigrateUp applies pending migrations up to targetVersion (0 = all) using this Migrator's Store and Env.
@@ -98,7 +102,7 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 		}
 	}
 
-	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody, RenderBodyDefault: m.RenderBodyDefault, DryRun: m.DryRun, DryRunFrom: m.DryRunFrom, TLSConfig: m.TLSConfig}
+	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody, RenderBodyDefault: m.RenderBodyDefault, DryRun: m.DryRun, DryRunFrom: m.DryRunFrom, TLSConfig: m.TLSConfig, DelayBetweenMigrations: m.DelayBetweenMigrations}
 	return im.MigrateUp(ctx, targetVersion)
 }
 
@@ -136,7 +140,7 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 			return nil, err
 		}
 	}
-	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody, RenderBodyDefault: m.RenderBodyDefault, DryRun: m.DryRun, DryRunFrom: m.DryRunFrom, TLSConfig: m.TLSConfig}
+	im := imig.Migrator{Dir: m.Dir, Store: m.store, Env: m.Env, Auth: m.Auth, SaveResponseBody: m.SaveResponseBody, RenderBodyDefault: m.RenderBodyDefault, DryRun: m.DryRun, DryRunFrom: m.DryRunFrom, TLSConfig: m.TLSConfig, DelayBetweenMigrations: m.DelayBetweenMigrations}
 	return im.MigrateDown(ctx, targetVersion)
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/loykin/apirun"
 	"github.com/loykin/apirun/pkg/env"
@@ -68,12 +69,17 @@ var downCmd = &cobra.Command{
 			dir = abs
 		}
 		m := apirun.Migrator{Env: *baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry, DryRunFrom: dryFrom}
-		// Set default render_body from config if provided
+		// Set default render_body and delay from config if provided
 		if strings.TrimSpace(configPath) != "" {
 			var doc ConfigDoc
 			if err := doc.Load(configPath); err == nil {
 				if doc.RenderBody != nil {
 					m.RenderBodyDefault = doc.RenderBody
+				}
+				if strings.TrimSpace(doc.DelayBetweenMigrations) != "" {
+					if duration, err := time.ParseDuration(doc.DelayBetweenMigrations); err == nil {
+						m.DelayBetweenMigrations = duration
+					}
 				}
 			}
 		}

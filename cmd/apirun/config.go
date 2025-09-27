@@ -173,6 +173,9 @@ type ConfigDoc struct {
 	Logging    LoggingConfig `mapstructure:"logging" yaml:"logging"`
 	// Optional: control default rendering of request bodies with templates
 	RenderBody *bool `mapstructure:"render_body" yaml:"render_body"`
+	// DelayBetweenMigrations configures the delay between migration executions.
+	// Can be specified as duration string (e.g., "500ms", "1s", "2m"). Defaults to "1s".
+	DelayBetweenMigrations string `mapstructure:"delay_between_migrations" yaml:"delay_between_migrations"`
 }
 
 func (c *ConfigDoc) DecodeAuth(ctx context.Context, e *env.Env) error {
