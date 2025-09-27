@@ -1,0 +1,8 @@
+migrate_dir: ./migration
+
+# Configure delay between migrations (default: 1s)
+# Set to "0s" to disable delays completely
+delay_between_migrations: "500ms"
+
+base_env:
+  global: {}
