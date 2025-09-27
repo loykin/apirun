@@ -61,9 +61,16 @@ var statusCmd = &cobra.Command{
 		}
 
 		// Check if store is disabled
-		if noStore || storeCfg == nil {
+		if noStore {
 			fmt.Println("Store is disabled - no migration status available")
 			return nil
+		}
+
+		// Use default SQLite store if no store config provided
+		if storeCfg == nil {
+			storeCfg = &apirun.StoreConfig{}
+			storeCfg.Config.Driver = apirun.DriverSqlite
+			storeCfg.Config.DriverConfig = &apirun.SqliteConfig{Path: filepath.Join(dir, apirun.StoreDBFileName)}
 		}
 
 		// centralized store opening

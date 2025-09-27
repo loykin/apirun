@@ -23,10 +23,11 @@ func main() {
 
 	ctx := context.Background()
 
-	// Configure migrator with logging
+	// Configure migrator with logging and disable store (NoStore mode)
 	m := apirun.Migrator{
-		Dir: "examples/embedded_logging/migration",
-		Env: base,
+		Dir:         "examples/embedded_logging/migration",
+		Env:         base,
+		StoreConfig: nil, // Disable store operations
 	}
 
 	logger.Info("running migrations with structured logging",

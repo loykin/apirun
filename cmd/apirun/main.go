@@ -180,6 +180,7 @@ func init() {
 	rootCmd.AddCommand(downCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(createCmd)
+	rootCmd.AddCommand(validateCmd)
 }
 
 func main() {

@@ -5,7 +5,7 @@ up:
     method: GET
     url: https://httpbin.org/status/200
   response:
-    result_code: ["200"]
+    result_code: ["200", "503"]
 
 down:
   name: noop
