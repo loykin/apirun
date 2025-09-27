@@ -265,26 +265,6 @@ func (v *TemplateValidator) validateListNode(node *parse.ListNode, depth int) er
 	return nil
 }
 
-// isFunctionCall determines if an identifier is likely a function call
-func (v *TemplateValidator) isFunctionCall(ident string) bool {
-	// Simple heuristic: if it's not a common field name, treat as function
-	commonFields := map[string]bool{
-		"env":      true,
-		"global":   true,
-		"local":    true,
-		"auth":     true,
-		"username": true,
-		"password": true,
-		"token":    true,
-		"url":      true,
-		"host":     true,
-		"port":     true,
-		"scheme":   true,
-		"path":     true,
-	}
-	return !commonFields[strings.ToLower(ident)]
-}
-
 // SanitizeInput sanitizes user input to prevent basic injection attacks
 func (v *TemplateValidator) SanitizeInput(input string) string {
 	// Remove potential dangerous characters

@@ -245,15 +245,13 @@ func validateResponseSection(response map[string]interface{}, result *Validation
 	for _, field := range optionalFields {
 		if _, exists := response[field]; exists {
 			// These fields exist - basic structure validation could be added here
+			_ = exists // Mark as used to avoid static analysis warning
 		}
 	}
 }
 
 // validateFindSection validates the 'find' section for data extraction
 func validateFindSection(find map[string]interface{}, result *ValidationResult) {
-	// Find section is used for extracting data from responses
-	// Basic validation - could be expanded based on specific find types
-
 	// Check if at least one find method is specified
 	findMethods := []string{"json_path", "regex", "xpath", "header"}
 	hasMethod := false
