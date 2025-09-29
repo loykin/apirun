@@ -91,32 +91,28 @@ func (h *ColorHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return level >= minLevel
 }
 
-// Handle handles the Record
+// Handle handles the Record with column alignment for better readability
 func (h *ColorHandler) Handle(_ context.Context, r slog.Record) error {
 	buf := make([]byte, 0, 1024)
 
-	// Format timestamp
+	// Format timestamp with fixed width (25 chars for RFC3339 + timezone)
+	timestampStr := ""
 	if !r.Time.IsZero() {
-		buf = append(buf, h.colorize(Gray, r.Time.Format(time.RFC3339))...)
-		buf = append(buf, " "...)
+		timestampStr = r.Time.Format(time.RFC3339)
 	}
+	buf = append(buf, h.colorize(Gray, fmt.Sprintf("%-25s", timestampStr))...)
+	buf = append(buf, " "...) // Add space after timestamp
 
-	// Format level with color
-	levelStr := h.formatLevel(r.Level)
+	// Format level with fixed width and color
+	levelStr := h.formatLevelAligned(r.Level)
 	buf = append(buf, levelStr...)
-	buf = append(buf, " "...)
+	buf = append(buf, " "...) // Add space after level
 
-	// Format component if present in groups
-	if len(h.groups) > 0 {
-		component := strings.Join(h.groups, ".")
-		buf = append(buf, h.colorize(Cyan, fmt.Sprintf("[%s]", component))...)
-		buf = append(buf, " "...)
-	}
+	// Format message with fixed width for alignment (50 chars to accommodate longer messages)
+	messageStr := fmt.Sprintf("%-54s", r.Message)
+	buf = append(buf, h.colorize(White, messageStr)...)
 
-	// Format message
-	buf = append(buf, h.colorize(White, r.Message)...)
-
-	// Format attributes
+	// Format attributes in a clean, aligned way
 	attrs := make([]slog.Attr, 0, r.NumAttrs()+len(h.attrs))
 	attrs = append(attrs, h.attrs...)
 	r.Attrs(func(a slog.Attr) bool {
@@ -127,8 +123,7 @@ func (h *ColorHandler) Handle(_ context.Context, r slog.Record) error {
 	if len(attrs) > 0 {
 		// Apply masking to attributes
 		maskedAttrs := h.maskAttributes(attrs)
-		buf = append(buf, " "...)
-		buf = h.formatAttributes(buf, maskedAttrs)
+		buf = h.formatAttributesClean(buf, maskedAttrs)
 	}
 
 	buf = append(buf, "\n"...)
@@ -163,8 +158,52 @@ func (h *ColorHandler) formatLevel(level slog.Level) string {
 	return h.colorize(color, fmt.Sprintf("[%s]", levelStr))
 }
 
+// formatLevelAligned formats the log level with fixed width for alignment
+func (h *ColorHandler) formatLevelAligned(level slog.Level) string {
+	var color string
+	var levelStr string
+
+	switch level {
+	case slog.LevelDebug:
+		color = Gray
+		levelStr = "DEBUG"
+	case slog.LevelInfo:
+		color = Green
+		levelStr = "INFO "
+	case slog.LevelWarn:
+		color = Yellow
+		levelStr = "WARN "
+	case slog.LevelError:
+		color = Red
+		levelStr = "ERROR"
+	default:
+		color = White
+		levelStr = "UNKNW"
+	}
+
+	return h.colorize(color, fmt.Sprintf("[%-5s]", levelStr))
+}
+
 // formatAttributes formats attributes with colors
 func (h *ColorHandler) formatAttributes(buf []byte, attrs []slog.Attr) []byte {
+	for i, attr := range attrs {
+		if i > 0 {
+			buf = append(buf, " "...)
+		}
+
+		// Key in cyan
+		buf = append(buf, h.colorize(Cyan, attr.Key)...)
+		buf = append(buf, "="...)
+
+		// Value formatting with appropriate colors
+		valueStr := h.formatValue(attr.Value)
+		buf = append(buf, valueStr...)
+	}
+	return buf
+}
+
+// formatAttributesClean formats attributes with clean key=value pairs
+func (h *ColorHandler) formatAttributesClean(buf []byte, attrs []slog.Attr) []byte {
 	for i, attr := range attrs {
 		if i > 0 {
 			buf = append(buf, " "...)
