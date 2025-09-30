@@ -11,6 +11,24 @@ import (
 	"github.com/loykin/apirun/pkg/env"
 )
 
+// parseTLSVersion converts a TLS version string to the corresponding crypto/tls constant.
+// Supports various formats: "1.0", "10", "tls1.0", "tls10", etc.
+// Returns 0 if the version string is not recognized.
+func parseTLSVersion(version string) uint16 {
+	switch strings.TrimSpace(strings.ToLower(version)) {
+	case "1.0", "10", "tls1.0", "tls10":
+		return tls.VersionTLS10
+	case "1.1", "11", "tls1.1", "tls11":
+		return tls.VersionTLS11
+	case "1.2", "12", "tls1.2", "tls12":
+		return tls.VersionTLS12
+	case "1.3", "13", "tls1.3", "tls13":
+		return tls.VersionTLS13
+	default:
+		return 0
+	}
+}
+
 // doWait polls an HTTP endpoint until it returns the expected status or timeout elapses.
 //
 // Behavior:
@@ -48,28 +66,8 @@ func doWait(ctx context.Context, env *env.Env, wc WaitConfig, clientCfg ClientCo
 	urlToHit := env.RenderGoTemplate(urlRaw)
 	ctxWait := ctx
 	// Prepare TLS options for the wait HTTP client via httpc.Httpc
-	minV := uint16(0)
-	maxV := uint16(0)
-	switch strings.TrimSpace(strings.ToLower(clientCfg.MinTLSVersion)) {
-	case "1.0", "10", "tls1.0", "tls10":
-		minV = tls.VersionTLS10
-	case "1.1", "11", "tls1.1", "tls11":
-		minV = tls.VersionTLS11
-	case "1.2", "12", "tls1.2", "tls12":
-		minV = tls.VersionTLS12
-	case "1.3", "13", "tls1.3", "tls13":
-		minV = tls.VersionTLS13
-	}
-	switch strings.TrimSpace(strings.ToLower(clientCfg.MaxTLSVersion)) {
-	case "1.0", "10", "tls1.0", "tls10":
-		maxV = tls.VersionTLS10
-	case "1.1", "11", "tls1.1", "tls11":
-		maxV = tls.VersionTLS11
-	case "1.2", "12", "tls1.2", "tls12":
-		maxV = tls.VersionTLS12
-	case "1.3", "13", "tls1.3", "tls13":
-		maxV = tls.VersionTLS13
-	}
+	minV := parseTLSVersion(clientCfg.MinTLSVersion)
+	maxV := parseTLSVersion(clientCfg.MaxTLSVersion)
 
 	// for legacy compatibility, if no max version is set, use min version
 	// #nosec G402 -- legacy compatibility only, do not use in production

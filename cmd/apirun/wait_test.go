@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -169,5 +170,53 @@ migrate_dir: %s
 	}
 	if atomic.LoadInt32(&seen) == 0 {
 		t.Fatalf("expected server to be hit at least once")
+	}
+}
+
+func TestParseTLSVersion(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected uint16
+	}{
+		// TLS 1.0 variants
+		{"1.0", tls.VersionTLS10},
+		{"10", tls.VersionTLS10},
+		{"tls1.0", tls.VersionTLS10},
+		{"tls10", tls.VersionTLS10},
+		{"TLS1.0", tls.VersionTLS10},
+		{" 1.0 ", tls.VersionTLS10}, // with whitespace
+
+		// TLS 1.1 variants
+		{"1.1", tls.VersionTLS11},
+		{"11", tls.VersionTLS11},
+		{"tls1.1", tls.VersionTLS11},
+		{"tls11", tls.VersionTLS11},
+
+		// TLS 1.2 variants
+		{"1.2", tls.VersionTLS12},
+		{"12", tls.VersionTLS12},
+		{"tls1.2", tls.VersionTLS12},
+		{"tls12", tls.VersionTLS12},
+
+		// TLS 1.3 variants
+		{"1.3", tls.VersionTLS13},
+		{"13", tls.VersionTLS13},
+		{"tls1.3", tls.VersionTLS13},
+		{"tls13", tls.VersionTLS13},
+
+		// Invalid/empty cases
+		{"", 0},
+		{"invalid", 0},
+		{"2.0", 0},
+		{"tls2.0", 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("input_%s", tt.input), func(t *testing.T) {
+			result := parseTLSVersion(tt.input)
+			if result != tt.expected {
+				t.Errorf("parseTLSVersion(%q) = %d, expected %d", tt.input, result, tt.expected)
+			}
+		})
 	}
 }
