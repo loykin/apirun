@@ -29,33 +29,36 @@ func parseTLSVersion(version string) uint16 {
 	}
 }
 
-// doWait polls an HTTP endpoint until it returns the expected status or timeout elapses.
-//
-// Behavior:
-// - method defaults to GET; supports GET and HEAD (others fallback to GET)
-// - expected status defaults to 200
-// - timeout defaults to 60s; interval defaults to 2s
-// - url is rendered with Go template using provided env
-// - TLS client options are applied via clientCfg and attached to the polling context
-func doWait(ctx context.Context, env *env.Env, wc WaitConfig, clientCfg ClientConfig) error {
+// waitParams holds the parsed and normalized parameters for waiting
+type waitParams struct {
+	url      string
+	method   string
+	expected int
+	timeout  time.Duration
+	interval time.Duration
+}
+
+// parseWaitConfig parses and normalizes wait configuration with defaults
+func parseWaitConfig(wc WaitConfig, env *env.Env) waitParams {
 	urlRaw := strings.TrimSpace(wc.URL)
-	if urlRaw == "" {
-		return nil
-	}
+
 	method := strings.ToUpper(strings.TrimSpace(wc.Method))
 	if method == "" {
 		method = "GET"
 	}
+
 	expected := wc.Status
 	if expected == 0 {
 		expected = 200
 	}
+
 	timeout := 60 * time.Second
 	if s := strings.TrimSpace(wc.Timeout); s != "" {
 		if d, err := time.ParseDuration(s); err == nil {
 			timeout = d
 		}
 	}
+
 	interval := 2 * time.Second
 	if s := strings.TrimSpace(wc.Interval); s != "" {
 		if d, err := time.ParseDuration(s); err == nil {
@@ -63,9 +66,19 @@ func doWait(ctx context.Context, env *env.Env, wc WaitConfig, clientCfg ClientCo
 		}
 	}
 
-	urlToHit := env.RenderGoTemplate(urlRaw)
-	ctxWait := ctx
-	// Prepare TLS options for the wait HTTP client via httpc.Httpc
+	url := env.RenderGoTemplate(urlRaw)
+
+	return waitParams{
+		url:      url,
+		method:   method,
+		expected: expected,
+		timeout:  timeout,
+		interval: interval,
+	}
+}
+
+// setupTLSConfig creates TLS configuration from client config
+func setupTLSConfig(clientCfg ClientConfig) *tls.Config {
 	minV := parseTLSVersion(clientCfg.MinTLSVersion)
 	maxV := parseTLSVersion(clientCfg.MaxTLSVersion)
 
@@ -76,42 +89,84 @@ func doWait(ctx context.Context, env *env.Env, wc WaitConfig, clientCfg ClientCo
 		// #nosec G402 — Intentionally allow self-signed certificates for the wait probe when explicitly configured
 		cfg.InsecureSkipVerify = true
 	}
-	hcfg := httpc.Httpc{TlsConfig: cfg}
+	return cfg
+}
 
-	deadline := time.Now().Add(timeout)
-	var lastStatus int
-	for {
-		client := hcfg.New()
-		req := client.R().SetContext(ctxWait)
-		var status int
-		var err error
-		switch method {
-		case "GET":
-			resp, e := req.Get(urlToHit)
-			err = e
-			if resp != nil {
-				status = resp.StatusCode()
-			}
-		case "HEAD":
-			resp, e := req.Head(urlToHit)
-			err = e
-			if resp != nil {
-				status = resp.StatusCode()
-			}
-		default:
-			resp, e := req.Get(urlToHit)
-			err = e
-			if resp != nil {
-				status = resp.StatusCode()
-			}
+// performHTTPRequest executes an HTTP request with the specified method
+func performHTTPRequest(ctx context.Context, hcfg *httpc.Httpc, method, url string) (int, error) {
+	client := hcfg.New()
+	req := client.R().SetContext(ctx)
+
+	var status int
+	var err error
+
+	switch method {
+	case "GET":
+		resp, e := req.Get(url)
+		err = e
+		if resp != nil {
+			status = resp.StatusCode()
 		}
-		if err == nil && status == expected {
+	case "HEAD":
+		resp, e := req.Head(url)
+		err = e
+		if resp != nil {
+			status = resp.StatusCode()
+		}
+	default:
+		resp, e := req.Get(url)
+		err = e
+		if resp != nil {
+			status = resp.StatusCode()
+		}
+	}
+
+	return status, err
+}
+
+// performPolling repeatedly polls the endpoint until success or timeout
+func performPolling(ctx context.Context, hcfg *httpc.Httpc, params waitParams) error {
+	deadline := time.Now().Add(params.timeout)
+	var lastStatus int
+
+	for {
+		status, err := performHTTPRequest(ctx, hcfg, params.method, params.url)
+
+		if err == nil && status == params.expected {
 			return nil
 		}
+
 		lastStatus = status
 		if time.Now().After(deadline) {
-			return fmt.Errorf("wait: timeout waiting for %s to return %d (last=%d)", urlToHit, expected, lastStatus)
+			return fmt.Errorf("wait: timeout waiting for %s to return %d (last=%d)",
+				params.url, params.expected, lastStatus)
 		}
-		time.Sleep(interval)
+
+		time.Sleep(params.interval)
 	}
+}
+
+// doWait polls an HTTP endpoint until it returns the expected status or timeout elapses.
+//
+// Behavior:
+// - method defaults to GET; supports GET and HEAD (others fallback to GET)
+// - expected status defaults to 200
+// - timeout defaults to 60s; interval defaults to 2s
+// - url is rendered with Go template using provided env
+// - TLS client options are applied via clientCfg and attached to the polling context
+func doWait(ctx context.Context, env *env.Env, wc WaitConfig, clientCfg ClientConfig) error {
+	// Early exit if no URL is provided
+	if strings.TrimSpace(wc.URL) == "" {
+		return nil
+	}
+
+	// Parse and normalize wait configuration
+	params := parseWaitConfig(wc, env)
+
+	// Setup TLS configuration
+	tlsConfig := setupTLSConfig(clientCfg)
+	hcfg := &httpc.Httpc{TlsConfig: tlsConfig}
+
+	// Perform polling until success or timeout
+	return performPolling(ctx, hcfg, params)
 }

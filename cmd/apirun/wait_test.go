@@ -8,7 +8,9 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/loykin/apirun/pkg/env"
 	"github.com/spf13/viper"
 )
 
@@ -217,6 +219,119 @@ func TestParseTLSVersion(t *testing.T) {
 			if result != tt.expected {
 				t.Errorf("parseTLSVersion(%q) = %d, expected %d", tt.input, result, tt.expected)
 			}
+		})
+	}
+}
+
+func TestParseWaitConfig(t *testing.T) {
+	envInstance := env.New()
+
+	tests := []struct {
+		name     string
+		wc       WaitConfig
+		expected waitParams
+	}{
+		{
+			name: "defaults",
+			wc:   WaitConfig{URL: "http://example.com/health"},
+			expected: waitParams{
+				url:      "http://example.com/health",
+				method:   "GET",
+				expected: 200,
+				timeout:  60 * time.Second,
+				interval: 2 * time.Second,
+			},
+		},
+		{
+			name: "custom_values",
+			wc: WaitConfig{
+				URL:      "http://example.com/ready",
+				Method:   "head",
+				Status:   204,
+				Timeout:  "30s",
+				Interval: "5s",
+			},
+			expected: waitParams{
+				url:      "http://example.com/ready",
+				method:   "HEAD",
+				expected: 204,
+				timeout:  30 * time.Second,
+				interval: 5 * time.Second,
+			},
+		},
+		{
+			name: "empty_url",
+			wc:   WaitConfig{URL: ""},
+			expected: waitParams{
+				url:      "",
+				method:   "GET",
+				expected: 200,
+				timeout:  60 * time.Second,
+				interval: 2 * time.Second,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseWaitConfig(tt.wc, envInstance)
+			if result != tt.expected {
+				t.Errorf("parseWaitConfig() = %+v, expected %+v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSetupTLSConfig(t *testing.T) {
+	tests := []struct {
+		name      string
+		clientCfg ClientConfig
+		checkFunc func(*testing.T, *tls.Config)
+	}{
+		{
+			name:      "default_config",
+			clientCfg: ClientConfig{},
+			checkFunc: func(t *testing.T, cfg *tls.Config) {
+				if cfg.MinVersion != 0 || cfg.MaxVersion != 0 {
+					t.Errorf("Expected default TLS versions (0,0), got (%d,%d)", cfg.MinVersion, cfg.MaxVersion)
+				}
+				if cfg.InsecureSkipVerify {
+					t.Error("Expected InsecureSkipVerify to be false")
+				}
+			},
+		},
+		{
+			name: "tls_versions_set",
+			clientCfg: ClientConfig{
+				MinTLSVersion: "1.2",
+				MaxTLSVersion: "1.3",
+			},
+			checkFunc: func(t *testing.T, cfg *tls.Config) {
+				if cfg.MinVersion != tls.VersionTLS12 {
+					t.Errorf("Expected MinVersion TLS12, got %d", cfg.MinVersion)
+				}
+				if cfg.MaxVersion != tls.VersionTLS13 {
+					t.Errorf("Expected MaxVersion TLS13, got %d", cfg.MaxVersion)
+				}
+			},
+		},
+		{
+			name: "insecure_skip_verify",
+			clientCfg: ClientConfig{
+				Insecure: true,
+			},
+			checkFunc: func(t *testing.T, cfg *tls.Config) {
+				if !cfg.InsecureSkipVerify {
+					t.Error("Expected InsecureSkipVerify to be true")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := setupTLSConfig(tt.clientCfg)
+			tt.checkFunc(t, cfg)
 		})
 	}
 }
