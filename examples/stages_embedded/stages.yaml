@@ -1,0 +1,28 @@
+apiVersion: apirun/v1
+kind: StageOrchestration
+
+stages:
+  - name: setup
+    config_path: setup/config.yaml
+    env:
+      environment: test
+      project_name: embedded-test
+
+  - name: validation
+    config_path: validation/config.yaml
+    depends_on: [setup]
+    env_from_stages:
+      - stage: setup
+        vars: [setup_id, setup_timestamp]
+
+  - name: cleanup
+    config_path: cleanup/config.yaml
+    depends_on: [validation]
+    env:
+      cleanup_reason: "end_of_test"
+
+global:
+  env:
+    run_id: "ci-test-12345"
+  wait_between_stages: 1s
+  rollback_on_failure: false

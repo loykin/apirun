@@ -1,0 +1,38 @@
+# Setup test environment using httpbin
+up:
+  name: setup-test-environment
+  env:
+    test_data: "embedded-test-data"
+  request:
+    method: POST
+    url: "https://httpbin.org/post"
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: X-Test-Run
+        value: "embedded-test"
+    body: |
+      {
+        "project": "embedded-test",
+        "environment": "test",
+        "test_data": "embedded-test-data",
+        "timestamp": "embedded-test"
+      }
+  response:
+    result_code: ["200", "503"]
+    env_from:
+      setup_id: "json.project"
+      setup_timestamp: "json.test_data"
+
+down:
+  name: cleanup-setup
+  method: POST
+  url: "https://httpbin.org/post"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body: |
+    {
+      "action": "cleanup",
+      "setup_id": "embedded-test"
+    }

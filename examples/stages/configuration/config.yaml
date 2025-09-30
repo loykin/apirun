@@ -1,0 +1,32 @@
+---
+# Configuration stage configuration
+migrate_dir: ./migration
+
+# Environment variables for this stage
+env:
+  - name: admin_api_base
+    value: https://admin.example.com/api
+  - name: default_role
+    value: user
+  - name: welcome_template
+    value: welcome_email
+
+# Authentication for admin API
+auth:
+  - type: basic
+    name: admin_auth
+    config:
+      username: admin
+      password: "{{.admin_password}}"
+
+# Store configuration
+store:
+  type: sqlite
+  sqlite:
+    path: ./configuration_state.db
+  save_response_body: false
+
+# Logging configuration
+logging:
+  level: info
+  format: text

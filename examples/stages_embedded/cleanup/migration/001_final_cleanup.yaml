@@ -1,0 +1,36 @@
+# Final cleanup after validation
+up:
+  name: final-cleanup
+  env:
+    cleanup_message: "Cleaning up embedded test"
+  request:
+    method: POST
+    url: "https://httpbin.org/post"
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: X-Cleanup-Reason
+        value: "end_of_test"
+    body: |
+      {
+        "action": "final_cleanup",
+        "test_run_id": "embedded-test",
+        "cleanup_reason": "end_of_test",
+        "setup_id": "embedded-test",
+        "message": "Cleaning up embedded test"
+      }
+  response:
+    result_code: ["200", "503"]
+
+down:
+  name: restore-cleanup
+  method: POST
+  url: "https://httpbin.org/post"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body: |
+    {
+      "action": "restore",
+      "test_run_id": "embedded-test"
+    }

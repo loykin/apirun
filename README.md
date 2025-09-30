@@ -10,62 +10,34 @@ A lightweight Go library and CLI for running API-driven automation workflows def
 provisioning, configuration tasks, and E2E testing against HTTP APIs (e.g., create users/dashboards, import resources) in a versioned,
 repeatable way.
 
-- Library: import and run API workflows programmatically.
-- CLI: run versioned API workflows from a directory and record versions in a local SQLite store.
-- Auth: built-in providers (oauth2, basic, pocketbase) and pluggable registry for custom providers.
-- Logging: structured logging with slog, configurable levels and formats (text/JSON/color).
-- Security: automatic masking of sensitive information in logs (passwords, tokens, secrets).
-- Enhanced monitoring: workflow progress tracking with timing and HTTP request monitoring.
+- **Library**: import and run API workflows programmatically.
+- **CLI**: run versioned API workflows from a directory and record versions in a local SQLite store.
+- **Multi-Stage Orchestration**: manage complex workflows with dependency management and environment variable propagation.
+- **Auth**: built-in providers (oauth2, basic, pocketbase) and pluggable registry for custom providers.
+- **Logging**: structured logging with slog, configurable levels and formats (text/JSON/color).
+- **Security**: automatic masking of sensitive information in logs (passwords, tokens, secrets).
+- **Enhanced monitoring**: workflow progress tracking with timing and HTTP request monitoring.
 
 ## Features
 
-> Recent changes (2025-09)
-> - New struct-based authentication API: type Auth { Type, Name, Methods } with method Acquire(ctx, env *env.Env).
-> - Migrator now supports multiple auth entries: Migrator.Auth []auth.Auth. It auto-acquires tokens once at the start of
-    MigrateUp/Down and injects them into templates under {{.auth.<name>}}.
-> - Legacy helpers removed from public API: AcquireAuthAndSetEnv, AcquireAuthByProviderSpecWithName, and AuthSpec. Use
-    the Auth struct and MethodConfig instead (e.g., BasicAuthConfig, OAuth2* configs, or NewAuthSpecFromMap).
-> - Template variables are grouped: use {{.env.key}} for your variables and {{.auth.name}} for acquired tokens.
-> - YAML headers must be a list of name/value objects (not a map). Example:
-    headers: [ { name: Authorization, value: "Basic {{.auth.basic}}" } ].
+> **Recent changes (2025-10)**
+> - **🚀 Multi-Stage Orchestration**: New `stages` command for managing complex workflows with multiple dependent stages
+> - **🧹 CLI Simplification**: Removed redundant `--no-store` and `--dry-run-from` flags - use config file settings instead
+> - **📁 Stage-based Architecture**: Each stage has its own config, migrations, and store while sharing environment variables
+> - **🔗 Dependency Management**: Automatic execution ordering based on stage dependencies with cycle detection
+> - **⚡ Partial Execution**: Run specific stages with `--from`, `--to`, or `--stage` flags
+> - **🔍 Enhanced Dry-run**: Better execution planning and validation for both single migrations and multi-stage workflows
+
+> **Previous changes (2025-09)**
+> - New struct-based authentication API: type Auth { Type, Name, Methods } with method Acquire(ctx, env *env.Env)
+> - Migrator now supports multiple auth entries: Migrator.Auth []auth.Auth. It auto-acquires tokens once at the start of MigrateUp/Down and injects them into templates under {{.auth.<name>}}
+> - Template variables are grouped: use {{.env.key}} for your variables and {{.auth.name}} for acquired tokens
+> - YAML headers must be a list of name/value objects (not a map). Example: headers: [ { name: Authorization, value: "Basic {{.auth.basic}}" } ]
 > - Added examples demonstrating both embedded multi-auth and decoupled flows:
-    >
-
-- examples/auth_embedded: single embedded auth.
-
-> - examples/auth_embedded_multi_registry: multiple embedded auths.
-    >
-
-- examples/auth_embedded_multi_registry_type2: decoupled (acquire first, then migrate).
-
-> - Dry-run execution mode for planning and validation without persisting state. Use CLI flags `--dry-run` and
-    `--dry-run-from` or set `Migrator.DryRun=true` and `Migrator.DryRunFrom` in library usage. Dry-run supports two
-    modes: from the beginning (0) and from a snapshot version (N).
-> - Dry-run execution mode for planning and validation without persisting state. Use CLI flags `--dry-run` and
-    > `--dry-run-from` or set `Migrator.DryRun=true` and `Migrator.DryRunFrom` in library usage. Dry-run supports two
-    modes:
-    > from the beginning (0) and from a snapshot version (N).
-
-> Recent changes (2025-09)
-> - New struct-based authentication API: type Auth { Type, Name, Methods } with method Acquire(ctx, env *env.Env).
-> - Migrator now supports multiple auth entries: Migrator.Auth []auth.Auth. It auto-acquires tokens once at the start of
-    MigrateUp/Down and injects them into templates under {{.auth.<name>}}.
-> - Legacy helpers removed from public API: AcquireAuthAndSetEnv, AcquireAuthByProviderSpecWithName, and AuthSpec. Use
-    the Auth struct and MethodConfig instead (e.g., BasicAuthConfig, OAuth2* configs, or NewAuthSpecFromMap).
-> - Template variables are grouped: use {{.env.key}} for your variables and {{.auth.name}} for acquired tokens.
-> - YAML headers must be a list of name/value objects (not a map). Example:
-    headers: [ { name: Authorization, value: "Basic {{.auth.basic}}" } ].
-> - Added examples demonstrating both embedded multi-auth and decoupled flows:
-    >
-
-- examples/auth_embedded: single embedded auth.
-
-> - examples/auth_embedded_multi_registry: multiple embedded auths.
-    >
-
-- examples/auth_embedded_multi_registry_type2: decoupled (acquire first, then migrate).
-
-> - examples/auth_embedded_lazy: multiple embedded auths acquired lazily on first use per auth.
+>   - examples/auth_embedded: single embedded auth
+>   - examples/auth_embedded_multi_registry: multiple embedded auths
+>   - examples/auth_embedded_multi_registry_type2: decoupled (acquire first, then migrate)
+>   - examples/auth_embedded_lazy: multiple embedded auths acquired lazily on first use per auth
 
 - Versioned up/down workflows with persisted history (SQLite, `apirun.db`).
 - Request templating with simple Go templates using layered environment variables.
@@ -136,8 +108,8 @@ go run ./cmd/apirun down --to 0
 # Show current and applied versions
 go run ./cmd/apirun status
 
-# Run migrations without saving state to the database (stateless mode)
-go run ./cmd/apirun --no-store
+# Dry-run mode (planning without execution)
+go run ./cmd/apirun up --dry-run
 ```
 
 Customize:
@@ -196,7 +168,8 @@ env:
 
 # Store settings
 store:
-  # Disable store operations entirely (run migrations without persisting state)
+  # Disable store operations entirely (stateless mode - no CLI flag equivalent)
+  # When disabled, migrations run without persisting any state to database
   # disabled: false
 
   # Whether to record response bodies alongside status codes in migration history
@@ -242,15 +215,14 @@ logging:
 
 Notes:
 
-- If store.type is omitted or set to sqlite, apirun stores workflow history in a local SQLite file under <
-  migrate_dir>/apirun.db by default. You can override the path via store.sqlite.path.
+- **Store Management**: All store settings are now exclusively managed via config files. The `--no-store` CLI flag has been removed for better consistency.
+- If store.type is omitted or set to sqlite, apirun stores workflow history in a local SQLite file under <migrate_dir>/apirun.db by default. You can override the path via store.sqlite.path.
 - To use PostgreSQL, set store.type to postgres and either:
     - provide store.postgres.dsn directly, or
     - provide the component fields (host/port/user/password/dbname[/sslmode]) and a DSN will be constructed.
+- **Stateless Mode**: Set `store.disabled: true` to run migrations without persisting any state (replaces `--no-store` flag).
 - The migration history schema is initialized automatically by the library (no external migration tool needed).
-- Advanced: you can customize table names via store.table_prefix (derives three names automatically) or by setting
-  store.table_schema_migrations, store.table_migration_runs, and store.table_stored_env individually (explicit names
-  take precedence over the prefix).
+- Advanced: you can customize table names via store.table_prefix (derives three names automatically) or by setting store.table_schema_migrations, store.table_migration_runs, and store.table_stored_env individually (explicit names take precedence over the prefix).
 - You can inspect current/applied versions with: `apirun status --config <path>`.
 
 ### Body templating default
@@ -273,15 +245,6 @@ apirun can run migrations without persisting any state to a database. This is us
 
 ### Usage
 
-**CLI Flag:**
-```bash
-# Disable store for any command
-apirun --no-store
-apirun up --no-store --to 5
-apirun down --no-store --to 0
-apirun status --no-store  # Will show "Store is disabled" message
-```
-
 **Configuration File:**
 ```yaml
 store:
@@ -293,6 +256,8 @@ store:
 export APIRUN_NO_STORE=true
 apirun up
 ```
+
+> **Note**: The `--no-store` CLI flag has been removed in favor of config-file-only management for better consistency and maintainability.
 
 ### Behavior in Stateless Mode
 
@@ -309,12 +274,149 @@ When store operations are disabled:
 
 ### Important Notes
 
-- **CLI flag overrides config**: `--no-store` takes precedence over `store.disabled` in config files
+- **Configuration-driven**: Store behavior is now exclusively controlled via config files (`store.disabled: true`)
 - **No rollback capability**: Without stored state, down migrations cannot reference previously extracted IDs
 - **Idempotent workflows recommended**: Design migrations to handle repeated execution gracefully
 - **Status command behavior**: Returns informational message instead of version data
 
 This mode is particularly useful for setup scripts, testing scenarios, and environments where persistent state is not desired or available.
+
+## Multi-Stage Orchestration
+
+apirun supports complex workflows through multi-stage orchestration, allowing you to manage dependent stages with automatic execution ordering and environment variable propagation.
+
+### Key Features
+
+- **🔗 Dependency Management**: Define stage dependencies with automatic topological sorting
+- **📁 Stage Isolation**: Each stage has its own config, migrations, and store
+- **⚡ Environment Propagation**: Share variables between stages automatically
+- **🎯 Partial Execution**: Run specific stages or ranges with `--from`, `--to`, `--stage`
+- **🔍 Enhanced Planning**: Dry-run mode shows execution plan and dependencies
+- **⚠️ Failure Handling**: Configurable behavior on stage failures
+
+### Quick Start
+
+```bash
+# Create stages configuration
+cat > stages.yaml << 'EOF'
+apiVersion: apirun/v1
+kind: StageOrchestration
+
+stages:
+  - name: infrastructure
+    config_path: infra/config.yaml
+    env:
+      region: us-west-2
+
+  - name: services
+    config_path: services/config.yaml
+    depends_on: [infrastructure]
+    env_from_stages:
+      - stage: infrastructure
+        vars: [vpc_id, db_endpoint]
+
+  - name: configuration
+    config_path: config/config.yaml
+    depends_on: [services]
+
+global:
+  env:
+    project_name: my-project
+  wait_between_stages: 10s
+EOF
+
+# Execute all stages
+apirun stages up --config stages.yaml
+
+# Execute specific stages
+apirun stages up --from services --to configuration
+
+# Show execution plan
+apirun stages up --dry-run
+
+# Check status
+apirun stages status --verbose
+```
+
+### Stage Configuration
+
+Each stage references its own config file with standard apirun configuration:
+
+```yaml
+# infra/config.yaml
+migrate_dir: ./migration
+env:
+  - name: vpc_cidr
+    value: 10.0.0.0/16
+auth:
+  - type: basic
+    name: aws_api
+    config:
+      username: "{{.aws_key}}"
+      password: "{{.aws_secret}}"
+store:
+  type: sqlite
+  sqlite:
+    path: ./infra_state.db
+```
+
+### Environment Variable Flow
+
+```yaml
+# Infrastructure stage extracts variables
+response:
+  env_from:
+    vpc_id: "vpc.id"           # Extracted from API response
+    db_endpoint: "db.endpoint"
+
+# Services stage receives these variables
+env_from_stages:
+  - stage: infrastructure
+    vars: [vpc_id, db_endpoint]  # Available as {{.vpc_id}}, {{.db_endpoint}}
+```
+
+### Advanced Features
+
+#### Conditional Execution
+```yaml
+stages:
+  - name: production-only
+    condition: "{{.environment}} == 'production'"
+    config_path: prod/config.yaml
+```
+
+#### Failure Handling
+```yaml
+stages:
+  - name: optional-stage
+    on_failure: continue        # Options: stop, continue, skip_dependents
+    timeout: 300s
+```
+
+#### Global Settings
+```yaml
+global:
+  env:
+    project_name: my-project
+    log_level: info
+  wait_between_stages: 30s
+  rollback_on_failure: true
+  max_concurrent_stages: 3
+```
+
+### Available Commands
+
+```bash
+# Execute stages
+apirun stages up [--from STAGE] [--to STAGE] [--stage STAGE] [--dry-run]
+apirun stages down [--from STAGE] [--to STAGE] [--stage STAGE]
+
+# Status and validation
+apirun stages status [--verbose]
+apirun stages validate
+```
+
+For detailed examples, see [`examples/stages/`](examples/stages/) which demonstrates a complete infrastructure → services → configuration workflow.
 
 ## Structured Logging and Security
 
@@ -682,14 +784,22 @@ go run ./examples/auth_registry
 
 ## Examples
 
+### Single Migration Examples
 - `examples/keycloak_migration`: Keycloak realm/user provisioning.
 - `examples/grafana_migration`: Dashboard/user import for Grafana.
 - `examples/embedded`: Minimal example running a single migration inline.
 - `examples/embedded_sqlite`: Programmatic example using the default SQLite store with versioned migrations.
 - `examples/embedded_postgresql`: Programmatic example using a PostgreSQL store with versioned migrations.
 - `examples/embedded_custom_table`: Programmatic example demonstrating custom table/index names for the store.
+
+### Multi-Stage Orchestration Examples
+- **`examples/stages`**: Complete multi-stage workflow demonstrating infrastructure → services → configuration deployment with dependency management and environment variable propagation.
+
+### Authentication Examples
 - `examples/auth_registry`: Demonstrates custom auth provider registration.
 - `examples/auth_embedded`: Embed apirun and acquire auth via typed wrappers; uses a local test server.
+
+### Utility Examples
 - `examples/color_demo`: Demonstrates different logging formats (text/JSON/color) for comparison.
 
 Each example directory contains its own README or config and migration files.

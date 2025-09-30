@@ -1,0 +1,77 @@
+# Deploy main API service
+up:
+  name: deploy-api-service
+  env:
+    service_name: api-service
+    image_tag: "{{.api_version}}"
+    service_port: 3000
+  request:
+    auth_name: k8s_auth
+    method: POST
+    url: "{{.k8s_api_base}}/namespaces/{{.namespace}}/deployments"
+    headers:
+      - name: Content-Type
+        value: application/json
+    body: |
+      {
+        "apiVersion": "apps/v1",
+        "kind": "Deployment",
+        "metadata": {
+          "name": "{{.service_name}}",
+          "namespace": "{{.namespace}}",
+          "labels": {
+            "app": "{{.service_name}}",
+            "version": "{{.image_tag}}"
+          }
+        },
+        "spec": {
+          "replicas": {{.replicas}},
+          "selector": {
+            "matchLabels": {
+              "app": "{{.service_name}}"
+            }
+          },
+          "template": {
+            "metadata": {
+              "labels": {
+                "app": "{{.service_name}}"
+              }
+            },
+            "spec": {
+              "containers": [
+                {
+                  "name": "{{.service_name}}",
+                  "image": "{{.docker_registry}}/{{.service_name}}:{{.image_tag}}",
+                  "ports": [
+                    {
+                      "containerPort": {{.service_port}},
+                      "protocol": "TCP"
+                    }
+                  ],
+                  "env": [
+                    {
+                      "name": "DB_HOST",
+                      "value": "{{.db_endpoint}}"
+                    },
+                    {
+                      "name": "AUTH_SERVICE_URL",
+                      "value": "{{.auth_service_url}}"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+  response:
+    result_code: ["201"]
+    env_from:
+      api_deployment_name: "metadata.name"
+      api_service_url: "metadata.labels.service_url"
+
+down:
+  name: delete-api-service
+  auth: k8s_auth
+  method: DELETE
+  url: "{{.k8s_api_base}}/namespaces/{{.namespace}}/deployments/{{.service_name}}"

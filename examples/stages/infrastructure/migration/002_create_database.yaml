@@ -1,0 +1,47 @@
+# Create database infrastructure
+up:
+  name: create-database
+  env:
+    db_name: "{{.project_name}}-db"
+    db_subnet_group: "{{.project_name}}-subnet-group"
+  request:
+    auth_name: aws_api
+    method: POST
+    url: "{{.api_base}}/rds/instances"
+    headers:
+      - name: Content-Type
+        value: application/json
+    body: |
+      {
+        "db_instance_identifier": "{{.db_name}}",
+        "db_instance_class": "{{.db_instance_type}}",
+        "engine": "postgres",
+        "engine_version": "13.7",
+        "allocated_storage": 20,
+        "vpc_security_group_ids": ["{{.security_group_id}}"],
+        "db_subnet_group_name": "{{.db_subnet_group}}",
+        "backup_retention_period": 7,
+        "multi_az": false,
+        "publicly_accessible": false,
+        "tags": {
+          "Environment": "{{.environment}}",
+          "Project": "{{.project_name}}"
+        }
+      }
+  response:
+    result_code: ["201", "202"]
+    env_from:
+      db_instance_id: "db_instance.db_instance_identifier"
+      db_endpoint: "db_instance.endpoint.address"
+      db_port: "db_instance.endpoint.port"
+
+down:
+  name: delete-database
+  auth: aws_api
+  method: DELETE
+  url: "{{.api_base}}/rds/instances/{{.db_instance_id}}"
+  body: |
+    {
+      "skip_final_snapshot": true,
+      "delete_automated_backups": true
+    }

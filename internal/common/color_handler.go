@@ -184,24 +184,6 @@ func (h *ColorHandler) formatLevelAligned(level slog.Level) string {
 	return h.colorize(color, fmt.Sprintf("[%-5s]", levelStr))
 }
 
-// formatAttributes formats attributes with colors
-func (h *ColorHandler) formatAttributes(buf []byte, attrs []slog.Attr) []byte {
-	for i, attr := range attrs {
-		if i > 0 {
-			buf = append(buf, " "...)
-		}
-
-		// Key in cyan
-		buf = append(buf, h.colorize(Cyan, attr.Key)...)
-		buf = append(buf, "="...)
-
-		// Value formatting with appropriate colors
-		valueStr := h.formatValue(attr.Value)
-		buf = append(buf, valueStr...)
-	}
-	return buf
-}
-
 // formatAttributesClean formats attributes with clean key=value pairs
 func (h *ColorHandler) formatAttributesClean(buf []byte, attrs []slog.Attr) []byte {
 	for i, attr := range attrs {

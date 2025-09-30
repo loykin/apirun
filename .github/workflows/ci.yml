@@ -110,6 +110,8 @@ jobs:
           go run ./examples/color_demo
           echo "RUnning examples/metrics_demo"
           go run ./examples/metrics_demo
+          echo "Running examples/stages_embedded"
+          cd examples/stages_embedded && ../../apirun stages up && cd ../..
         env:
           CI: true
 

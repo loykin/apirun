@@ -1,0 +1,42 @@
+# Create VPC infrastructure
+up:
+  name: create-vpc
+  env:
+    vpc_name: "{{.project_name}}-vpc"
+  request:
+    auth_name: aws_api
+    method: POST
+    url: "{{.api_base}}/vpc"
+    headers:
+      - name: Content-Type
+        value: application/json
+    body: |
+      {
+        "cidr_block": "{{.vpc_cidr}}",
+        "name": "{{.vpc_name}}",
+        "enable_dns_hostnames": true,
+        "enable_dns_support": true,
+        "tags": {
+          "Environment": "{{.environment}}",
+          "Project": "{{.project_name}}"
+        }
+      }
+  response:
+    result_code: ["201"]
+    env_from:
+      vpc_id: "vpc.id"
+      vpc_cidr: "vpc.cidr_block"
+
+down:
+  name: delete-vpc
+  auth: aws_api
+  find:
+    request:
+      method: GET
+      url: "{{.api_base}}/vpc?name={{.vpc_name}}"
+    response:
+      result_code: ["200"]
+      env_from:
+        vpc_id: "vpcs.0.id"
+  method: DELETE
+  url: "{{.api_base}}/vpc/{{.vpc_id}}"

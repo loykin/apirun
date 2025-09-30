@@ -1,0 +1,40 @@
+apiVersion: apirun/v1
+kind: StageOrchestration
+
+stages:
+  - name: infrastructure
+    config_path: infrastructure/config.yaml
+    env:
+      environment: development
+      region: us-west-2
+    timeout: 300s
+    on_failure: stop
+
+  - name: services
+    config_path: services/config.yaml
+    depends_on: [infrastructure]
+    env:
+      api_version: v1.0.0
+      replicas: 3
+    env_from_stages:
+      - stage: infrastructure
+        vars: [vpc_id, db_endpoint, security_group_id]
+    timeout: 600s
+
+  - name: configuration
+    config_path: configuration/config.yaml
+    depends_on: [services]
+    env:
+      admin_email: admin@example.com
+    env_from_stages:
+      - stage: services
+        vars: [auth_service_url, api_service_url]
+    condition: "true"  # Always run (could be conditional based on other stages)
+
+global:
+  env:
+    project_name: my-awesome-project
+    log_level: info
+  wait_between_stages: 10s
+  rollback_on_failure: true
+  max_concurrent_stages: 2
