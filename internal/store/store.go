@@ -7,6 +7,9 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/loykin/apirun/internal/store/postgresql"
+	"github.com/loykin/apirun/internal/store/sqlite"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
 )
@@ -27,16 +30,18 @@ func (s *Store) Connect(config Config) error {
 	var connector Connector
 	switch config.Driver {
 	case DriverSqlite:
-		connector = NewSqliteConnector()
+		store := sqlite.NewStore()
 		if config.DriverConfig != nil {
-			_ = connector.Load(config.DriverConfig.ToMap())
+			_ = store.Load(config.DriverConfig.ToMap())
 		}
+		connector = &sqliteConnectorWrapper{store: store}
 		s.Driver = DriverSqlite
 	case DriverPostgresql:
-		connector = NewPostgresConnector()
+		store := postgresql.NewStore()
 		if config.DriverConfig != nil {
-			_ = connector.Load(config.DriverConfig.ToMap())
+			_ = store.Load(config.DriverConfig.ToMap())
 		}
+		connector = &postgresConnectorWrapper{store: store}
 		s.Driver = DriverPostgresql
 	default:
 		return errors.New("unknown store driver: " + s.Driver)
