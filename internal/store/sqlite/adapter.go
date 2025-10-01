@@ -2,87 +2,170 @@ package sqlite
 
 import (
 	"database/sql"
-	"fmt"
-	"time"
+
+	"github.com/loykin/apirun/internal/store/connector"
 )
 
-// Adapter implements DatabaseAdapter for SQLite
-type Adapter struct{}
+// Adapter wraps sqlite.Store to implement connector.Connector interface
+type Adapter struct {
+	store *Store
+}
 
-// NewAdapter creates a new SQLite adapter
+// NewAdapter creates a new SQLite connector adapter
 func NewAdapter() *Adapter {
-	return &Adapter{}
-}
-
-// GetPlaceholder returns SQLite-style placeholders (?)
-func (s *Adapter) GetPlaceholder() string {
-	return "?"
-}
-
-// GetUpsertClause returns SQLite's conflict resolution clause
-func (s *Adapter) GetUpsertClause() string {
-	return "OR IGNORE"
-}
-
-// ConvertBoolToStorage converts bool to SQLite storage format (integer 0/1)
-func (s *Adapter) ConvertBoolToStorage(b bool) interface{} {
-	if b {
-		return 1
+	return &Adapter{
+		store: NewStore(),
 	}
-	return 0
 }
 
-// ConvertTimeToStorage converts time to SQLite storage format (RFC3339Nano string)
-func (s *Adapter) ConvertTimeToStorage(t time.Time) interface{} {
-	return t.Format(time.RFC3339Nano)
+func (a *Adapter) Connect() (*sql.DB, error) {
+	return a.store.Connect()
 }
 
-// ConvertBoolFromStorage converts SQLite integer storage to bool
-func (s *Adapter) ConvertBoolFromStorage(val interface{}) bool {
-	if i, ok := val.(int64); ok {
-		return i != 0
+func (a *Adapter) Validate() error {
+	return a.store.Validate()
+}
+
+func (a *Adapter) Load(config map[string]interface{}) error {
+	return a.store.Load(config)
+}
+
+func (a *Adapter) Ensure(th connector.TableNames) error {
+	sqliteTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
 	}
-	if i, ok := val.(int); ok {
-		return i != 0
-	}
-	return false
+	return a.store.Ensure(sqliteTh)
 }
 
-// ConvertTimeFromStorage converts SQLite string storage to RFC3339Nano string
-func (s *Adapter) ConvertTimeFromStorage(val interface{}) string {
-	if str, ok := val.(string); ok {
-		return str
+func (a *Adapter) Apply(th connector.TableNames, v int) error {
+	sqliteTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
 	}
-	return ""
+	return a.store.Apply(sqliteTh, v)
 }
 
-// Connect establishes a connection to SQLite
-func (s *Adapter) Connect(dsn string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", dsn)
+func (a *Adapter) IsApplied(th connector.TableNames, v int) (bool, error) {
+	sqliteTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.IsApplied(sqliteTh, v)
+}
+
+func (a *Adapter) CurrentVersion(th connector.TableNames) (int, error) {
+	sqliteTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.CurrentVersion(sqliteTh)
+}
+
+func (a *Adapter) ListApplied(th connector.TableNames) ([]int, error) {
+	sqliteTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.ListApplied(sqliteTh)
+}
+
+func (a *Adapter) Remove(th connector.TableNames, v int) error {
+	sqliteTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.Remove(sqliteTh, v)
+}
+
+func (a *Adapter) SetVersion(th connector.TableNames, target int) error {
+	sqliteTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.SetVersion(sqliteTh, target)
+}
+
+func (a *Adapter) RecordRun(th connector.TableNames, version int, direction string, status int, body *string, env map[string]string, failed bool) error {
+	sqliteTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.RecordRun(sqliteTh, version, direction, status, body, env, failed)
+}
+
+func (a *Adapter) LoadEnv(th connector.TableNames, version int, direction string) (map[string]string, error) {
+	sqliteTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.LoadEnv(sqliteTh, version, direction)
+}
+
+func (a *Adapter) InsertStoredEnv(th connector.TableNames, version int, kv map[string]string) error {
+	sqliteTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.InsertStoredEnv(sqliteTh, version, kv)
+}
+
+func (a *Adapter) LoadStoredEnv(th connector.TableNames, version int) (map[string]string, error) {
+	sqliteTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.LoadStoredEnv(sqliteTh, version)
+}
+
+func (a *Adapter) DeleteStoredEnv(th connector.TableNames, version int) error {
+	sqliteTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.DeleteStoredEnv(sqliteTh, version)
+}
+
+func (a *Adapter) ListRuns(th connector.TableNames) ([]connector.Run, error) {
+	sqliteTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	sqliteRuns, err := a.store.ListRuns(sqliteTh)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open SQLite connection: %w", err)
-	}
-	if err := db.Ping(); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("failed to ping SQLite database: %w", err)
+		return nil, err
 	}
 
-	// SQLite-specific configuration
-	db.SetMaxOpenConns(1)
-
-	return db, nil
+	// Convert sqlite.Run to connector.Run
+	runs := make([]connector.Run, len(sqliteRuns))
+	for i, r := range sqliteRuns {
+		runs[i] = connector.Run{
+			ID:         r.ID,
+			Version:    r.Version,
+			Direction:  r.Direction,
+			StatusCode: r.StatusCode,
+			Body:       r.Body,
+			Env:        r.Env,
+			Failed:     r.Failed,
+			RanAt:      r.RanAt,
+		}
+	}
+	return runs, nil
 }
 
-// GetEnsureStatements returns SQLite-specific table creation statements
-func (s *Adapter) GetEnsureStatements(schemaMigrations, migrationRuns, storedEnv string) []string {
-	return []string{
-		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER PRIMARY KEY)", schemaMigrations),
-		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY AUTOINCREMENT, version INTEGER NOT NULL, direction TEXT NOT NULL, status_code INTEGER NOT NULL, body TEXT NULL, env_json TEXT NULL, failed INTEGER NOT NULL DEFAULT 0, ran_at TEXT NOT NULL)", migrationRuns),
-		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(version, name))", storedEnv),
-	}
-}
-
-// GetDriverName returns the driver name for logging
-func (s *Adapter) GetDriverName() string {
-	return "sqlite"
+func (a *Adapter) Close() error {
+	return a.store.Close()
 }

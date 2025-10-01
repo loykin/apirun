@@ -2,80 +2,170 @@ package postgresql
 
 import (
 	"database/sql"
-	"fmt"
-	"time"
+
+	"github.com/loykin/apirun/internal/store/connector"
 )
 
-// Adapter implements DatabaseAdapter for PostgreSQL
-type Adapter struct{}
+// Adapter wraps postgresql.Store to implement connector.Connector interface
+type Adapter struct {
+	store *Store
+}
 
-// NewAdapter creates a new PostgreSQL adapter
+// NewAdapter creates a new PostgreSQL connector adapter
 func NewAdapter() *Adapter {
-	return &Adapter{}
-}
-
-// GetPlaceholder returns PostgreSQL-style placeholders ($1, $2, etc.)
-func (p *Adapter) GetPlaceholder(index int) string {
-	return fmt.Sprintf("$%d", index)
-}
-
-// GetUpsertClause returns PostgreSQL's conflict resolution clause
-func (p *Adapter) GetUpsertClause() string {
-	return ""
-}
-
-// ConvertBoolToStorage converts bool to PostgreSQL storage format (native bool)
-func (p *Adapter) ConvertBoolToStorage(b bool) interface{} {
-	return b
-}
-
-// ConvertTimeToStorage converts time to PostgreSQL storage format (native time.Time)
-func (p *Adapter) ConvertTimeToStorage(t time.Time) interface{} {
-	return t
-}
-
-// ConvertBoolFromStorage converts PostgreSQL bool storage to bool
-func (p *Adapter) ConvertBoolFromStorage(val interface{}) bool {
-	if b, ok := val.(bool); ok {
-		return b
+	return &Adapter{
+		store: NewStore(),
 	}
-	return false
 }
 
-// ConvertTimeFromStorage converts PostgreSQL time storage to RFC3339Nano string
-func (p *Adapter) ConvertTimeFromStorage(val interface{}) string {
-	if t, ok := val.(*time.Time); ok && t != nil {
-		return t.UTC().Format(time.RFC3339Nano)
-	}
-	if t, ok := val.(time.Time); ok {
-		return t.UTC().Format(time.RFC3339Nano)
-	}
-	return ""
+func (a *Adapter) Connect() (*sql.DB, error) {
+	return a.store.Connect()
 }
 
-// Connect establishes a connection to PostgreSQL
-func (p *Adapter) Connect(dsn string) (*sql.DB, error) {
-	db, err := sql.Open("pgx", dsn)
+func (a *Adapter) Validate() error {
+	return a.store.Validate()
+}
+
+func (a *Adapter) Load(config map[string]interface{}) error {
+	return a.store.Load(config)
+}
+
+func (a *Adapter) Ensure(th connector.TableNames) error {
+	postgresTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.Ensure(postgresTh)
+}
+
+func (a *Adapter) Apply(th connector.TableNames, v int) error {
+	postgresTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.Apply(postgresTh, v)
+}
+
+func (a *Adapter) IsApplied(th connector.TableNames, v int) (bool, error) {
+	postgresTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.IsApplied(postgresTh, v)
+}
+
+func (a *Adapter) CurrentVersion(th connector.TableNames) (int, error) {
+	postgresTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.CurrentVersion(postgresTh)
+}
+
+func (a *Adapter) ListApplied(th connector.TableNames) ([]int, error) {
+	postgresTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.ListApplied(postgresTh)
+}
+
+func (a *Adapter) Remove(th connector.TableNames, v int) error {
+	postgresTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.Remove(postgresTh, v)
+}
+
+func (a *Adapter) SetVersion(th connector.TableNames, target int) error {
+	postgresTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.SetVersion(postgresTh, target)
+}
+
+func (a *Adapter) RecordRun(th connector.TableNames, version int, direction string, status int, body *string, env map[string]string, failed bool) error {
+	postgresTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.RecordRun(postgresTh, version, direction, status, body, env, failed)
+}
+
+func (a *Adapter) LoadEnv(th connector.TableNames, version int, direction string) (map[string]string, error) {
+	postgresTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.LoadEnv(postgresTh, version, direction)
+}
+
+func (a *Adapter) InsertStoredEnv(th connector.TableNames, version int, kv map[string]string) error {
+	postgresTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.InsertStoredEnv(postgresTh, version, kv)
+}
+
+func (a *Adapter) LoadStoredEnv(th connector.TableNames, version int) (map[string]string, error) {
+	postgresTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.LoadStoredEnv(postgresTh, version)
+}
+
+func (a *Adapter) DeleteStoredEnv(th connector.TableNames, version int) error {
+	postgresTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	return a.store.DeleteStoredEnv(postgresTh, version)
+}
+
+func (a *Adapter) ListRuns(th connector.TableNames) ([]connector.Run, error) {
+	postgresTh := TableNames{
+		SchemaMigrations: th.SchemaMigrations,
+		MigrationRuns:    th.MigrationRuns,
+		StoredEnv:        th.StoredEnv,
+	}
+	postgresRuns, err := a.store.ListRuns(postgresTh)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open PostgreSQL connection: %w", err)
+		return nil, err
 	}
-	if err := db.Ping(); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("failed to ping PostgreSQL database: %w", err)
+
+	// Convert postgresql.Run to connector.Run
+	runs := make([]connector.Run, len(postgresRuns))
+	for i, r := range postgresRuns {
+		runs[i] = connector.Run{
+			ID:         r.ID,
+			Version:    r.Version,
+			Direction:  r.Direction,
+			StatusCode: r.StatusCode,
+			Body:       r.Body,
+			Env:        r.Env,
+			Failed:     r.Failed,
+			RanAt:      r.RanAt,
+		}
 	}
-	return db, nil
+	return runs, nil
 }
 
-// GetEnsureStatements returns PostgreSQL-specific table creation statements
-func (p *Adapter) GetEnsureStatements(schemaMigrations, migrationRuns, storedEnv string) []string {
-	return []string{
-		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER PRIMARY KEY)", schemaMigrations),
-		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id SERIAL PRIMARY KEY, version INTEGER NOT NULL, direction TEXT NOT NULL, status_code INTEGER NOT NULL, body TEXT NULL, env_json TEXT NULL, failed BOOLEAN NOT NULL DEFAULT FALSE, ran_at TIMESTAMPTZ NOT NULL)", migrationRuns),
-		fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (version INTEGER NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(version, name))", storedEnv),
-	}
-}
-
-// GetDriverName returns the driver name for logging
-func (p *Adapter) GetDriverName() string {
-	return "postgresql"
+func (a *Adapter) Close() error {
+	return a.store.Close()
 }

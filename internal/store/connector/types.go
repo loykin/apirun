@@ -1,4 +1,4 @@
-package store
+package connector
 
 import "database/sql"
 
@@ -13,6 +13,13 @@ type Run struct {
 	Env        map[string]string
 	Failed     bool
 	RanAt      string // RFC3339Nano for sqlite; Postgres converted to RFC3339Nano
+}
+
+// TableNames represents database table names
+type TableNames struct {
+	SchemaMigrations string
+	MigrationRuns    string
+	StoredEnv        string
 }
 
 type Connector interface {

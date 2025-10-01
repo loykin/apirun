@@ -1,6 +1,7 @@
 package store
 
 import (
+	"github.com/loykin/apirun/internal/store/connector"
 	"github.com/loykin/apirun/internal/store/postgresql"
 	"github.com/loykin/apirun/internal/store/sqlite"
 )
@@ -13,7 +14,7 @@ const (
 
 type Config struct {
 	Driver       string `mapstructure:"driver"`
-	TableNames   TableNames
+	TableNames   connector.TableNames
 	DriverConfig DriverConfig
 }
 
@@ -24,3 +25,4 @@ type DriverConfig interface {
 // Type aliases for external use - no need to import subpackages directly
 type SqliteConfig = sqlite.Config
 type PostgresConfig = postgresql.Config
+type TableNames = connector.TableNames

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/loykin/apirun/internal/store/connector"
 	"github.com/loykin/apirun/internal/store/postgresql"
 	"github.com/loykin/apirun/internal/store/sqlite"
 
@@ -19,39 +20,37 @@ const DbFileName = "apirun.db"
 
 type Store struct {
 	DB        *sql.DB
-	TableName TableNames
+	TableName connector.TableNames
 	Driver    string
-	connector Connector
+	connector connector.Connector
 }
 
 // Connect selects a connector based on Driver, loads config, connects, assigns DB/connector
 // and ensures schema. It also sets backend flags for placeholder handling.
 func (s *Store) Connect(config Config) error {
-	var connector Connector
+	var conn connector.Connector
 	switch config.Driver {
 	case DriverSqlite:
-		store := sqlite.NewStore()
+		conn = sqlite.NewAdapter()
 		if config.DriverConfig != nil {
-			_ = store.Load(config.DriverConfig.ToMap())
+			_ = conn.Load(config.DriverConfig.ToMap())
 		}
-		connector = &sqliteConnectorWrapper{store: store}
 		s.Driver = DriverSqlite
 	case DriverPostgresql:
-		store := postgresql.NewStore()
+		conn = postgresql.NewAdapter()
 		if config.DriverConfig != nil {
-			_ = store.Load(config.DriverConfig.ToMap())
+			_ = conn.Load(config.DriverConfig.ToMap())
 		}
-		connector = &postgresConnectorWrapper{store: store}
 		s.Driver = DriverPostgresql
 	default:
 		return errors.New("unknown store driver: " + s.Driver)
 	}
-	db, err := connector.Connect()
+	db, err := conn.Connect()
 	if err != nil {
 		return err
 	}
 	s.DB = db
-	s.connector = connector
+	s.connector = conn
 	// ensure schema via connector
 	if err := s.EnsureSchema(); err != nil {
 		_ = s.Close()
@@ -60,17 +59,11 @@ func (s *Store) Connect(config Config) error {
 	return nil
 }
 
-type TableNames struct {
-	SchemaMigrations string
-	MigrationRuns    string
-	StoredEnv        string
-}
-
 var identRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
 // safeTableNames returns validated table/index names; if a custom name is invalid,
 // it falls back to the default for that identifier to avoid SQL injection via identifiers.
-func (s *Store) safeTableNames() TableNames {
+func (s *Store) safeTableNames() connector.TableNames {
 	d := defaultTableNames()
 	// Prefer externally visible TableName when any field is non-empty; else use internal tn
 	t := s.TableName
@@ -90,8 +83,8 @@ func (s *Store) safeTableNames() TableNames {
 	return t
 }
 
-func defaultTableNames() TableNames {
-	return TableNames{
+func defaultTableNames() connector.TableNames {
+	return connector.TableNames{
 		SchemaMigrations: "schema_migrations",
 		MigrationRuns:    "migration_runs",
 		StoredEnv:        "stored_env",
@@ -100,7 +93,7 @@ func defaultTableNames() TableNames {
 
 // SetTableNames allows overriding default table names (validated via safeTableNames at use time).
 func (s *Store) SetTableNames(schema, runs, env string) {
-	t := TableNames{SchemaMigrations: schema, MigrationRuns: runs, StoredEnv: env}
+	t := connector.TableNames{SchemaMigrations: schema, MigrationRuns: runs, StoredEnv: env}
 	s.TableName = t
 }
 
@@ -194,6 +187,6 @@ func (s *Store) DeleteStoredEnv(version int) error {
 }
 
 // ListRuns returns the migration_runs history records.
-func (s *Store) ListRuns() ([]Run, error) {
+func (s *Store) ListRuns() ([]connector.Run, error) {
 	return s.connector.ListRuns(s.safeTableNames())
 }

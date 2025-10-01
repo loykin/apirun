@@ -31,14 +31,14 @@ type TableNames struct {
 
 type Store struct {
 	db      *sql.DB
-	adapter *Adapter
+	dialect *Dialect
 	DSN     string
 }
 
 // NewStore creates a new PostgreSQL store
 func NewStore() *Store {
 	return &Store{
-		adapter: NewAdapter(),
+		dialect: NewDialect(),
 	}
 }
 
@@ -52,7 +52,7 @@ func (p *Store) Load(config map[string]interface{}) error {
 
 // Connect establishes a connection to PostgreSQL using the adapter
 func (p *Store) Connect() (*sql.DB, error) {
-	db, err := p.adapter.Connect(p.DSN)
+	db, err := p.dialect.Connect(p.DSN)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (p *Store) Ensure(th TableNames) error {
 	logger := common.GetLogger().WithStore("postgresql")
 	logger.Debug("ensuring PostgreSQL database schema", "tables", []string{th.SchemaMigrations, th.MigrationRuns, th.StoredEnv})
 
-	stmts := p.adapter.GetEnsureStatements(th.SchemaMigrations, th.MigrationRuns, th.StoredEnv)
+	stmts := p.dialect.GetEnsureStatements(th.SchemaMigrations, th.MigrationRuns, th.StoredEnv)
 	for i, q := range stmts {
 		logger.Debug("executing schema creation statement", "table_index", i+1, "sql", q)
 		if _, err := p.db.Exec(q); err != nil {
@@ -96,17 +96,17 @@ func (p *Store) Ensure(th TableNames) error {
 
 // Apply inserts a migration version into the schema_migrations table
 func (p *Store) Apply(th TableNames, v int) error {
-	logger := common.GetLogger().WithStore(p.adapter.GetDriverName()).WithVersion(v)
+	logger := common.GetLogger().WithStore(p.dialect.GetDriverName()).WithVersion(v)
 	logger.Debug("applying migration version")
 
 	var q string
-	upsertClause := p.adapter.GetUpsertClause()
+	upsertClause := p.dialect.GetUpsertClause()
 	if upsertClause != "" {
 		q = fmt.Sprintf("INSERT %s INTO %s(version) VALUES(%s)",
-			upsertClause, th.SchemaMigrations, p.adapter.GetPlaceholder(1))
+			upsertClause, th.SchemaMigrations, p.dialect.GetPlaceholder(1))
 	} else {
 		q = fmt.Sprintf("INSERT INTO %s(version) VALUES(%s) ON CONFLICT DO NOTHING",
-			th.SchemaMigrations, p.adapter.GetPlaceholder(1))
+			th.SchemaMigrations, p.dialect.GetPlaceholder(1))
 	}
 
 	_, err := p.db.Exec(q, v)
@@ -121,10 +121,10 @@ func (p *Store) Apply(th TableNames, v int) error {
 
 // IsApplied checks if a migration version has been applied
 func (p *Store) IsApplied(th TableNames, v int) (bool, error) {
-	logger := common.GetLogger().WithStore(p.adapter.GetDriverName()).WithVersion(v)
+	logger := common.GetLogger().WithStore(p.dialect.GetDriverName()).WithVersion(v)
 	logger.Debug("checking if migration version is applied")
 
-	q := fmt.Sprintf("SELECT 1 FROM %s WHERE version = %s", th.SchemaMigrations, p.adapter.GetPlaceholder(1))
+	q := fmt.Sprintf("SELECT 1 FROM %s WHERE version = %s", th.SchemaMigrations, p.dialect.GetPlaceholder(1))
 
 	var result int
 	err := p.db.QueryRow(q, v).Scan(&result)
@@ -180,7 +180,7 @@ func (p *Store) ListApplied(th TableNames) ([]int, error) {
 
 // Remove removes a migration version from the schema_migrations table
 func (p *Store) Remove(th TableNames, v int) error {
-	q := fmt.Sprintf("DELETE FROM %s WHERE version = %s", th.SchemaMigrations, p.adapter.GetPlaceholder(1))
+	q := fmt.Sprintf("DELETE FROM %s WHERE version = %s", th.SchemaMigrations, p.dialect.GetPlaceholder(1))
 
 	_, err := p.db.Exec(q, v)
 	if err != nil {
@@ -204,7 +204,7 @@ func (p *Store) SetVersion(th TableNames, target int) error {
 		return nil
 	}
 
-	q := fmt.Sprintf("DELETE FROM %s WHERE version > %s", th.SchemaMigrations, p.adapter.GetPlaceholder(1))
+	q := fmt.Sprintf("DELETE FROM %s WHERE version > %s", th.SchemaMigrations, p.dialect.GetPlaceholder(1))
 
 	_, err = p.db.Exec(q, target)
 	if err != nil {
@@ -216,7 +216,7 @@ func (p *Store) SetVersion(th TableNames, target int) error {
 // LoadEnv loads environment variables from a migration run record
 func (p *Store) LoadEnv(th TableNames, version int, direction string) (map[string]string, error) {
 	q := fmt.Sprintf("SELECT env_json FROM %s WHERE version = %s AND direction = %s ORDER BY id DESC LIMIT 1",
-		th.MigrationRuns, p.adapter.GetPlaceholder(1), p.adapter.GetPlaceholder(2))
+		th.MigrationRuns, p.dialect.GetPlaceholder(1), p.dialect.GetPlaceholder(2))
 
 	var envJSON *string
 	err := p.db.QueryRow(q, version, direction).Scan(&envJSON)
@@ -240,7 +240,7 @@ func (p *Store) LoadEnv(th TableNames, version int, direction string) (map[strin
 
 // LoadStoredEnv loads stored environment variables for a specific version
 func (p *Store) LoadStoredEnv(th TableNames, version int) (map[string]string, error) {
-	q := fmt.Sprintf("SELECT name, value FROM %s WHERE version = %s", th.StoredEnv, p.adapter.GetPlaceholder(1))
+	q := fmt.Sprintf("SELECT name, value FROM %s WHERE version = %s", th.StoredEnv, p.dialect.GetPlaceholder(1))
 
 	rows, err := p.db.Query(q, version)
 	if err != nil {
@@ -265,7 +265,7 @@ func (p *Store) LoadStoredEnv(th TableNames, version int) (map[string]string, er
 
 // DeleteStoredEnv deletes stored environment variables for a specific version
 func (p *Store) DeleteStoredEnv(th TableNames, version int) error {
-	q := fmt.Sprintf("DELETE FROM %s WHERE version = %s", th.StoredEnv, p.adapter.GetPlaceholder(1))
+	q := fmt.Sprintf("DELETE FROM %s WHERE version = %s", th.StoredEnv, p.dialect.GetPlaceholder(1))
 
 	_, err := p.db.Exec(q, version)
 	if err != nil {
@@ -286,14 +286,14 @@ func (p *Store) RecordRun(th TableNames, version int, direction string, status i
 		envJSON = &s
 	}
 
-	ranAt := p.adapter.ConvertTimeToStorage(time.Now().UTC())
-	failedVal := p.adapter.ConvertBoolToStorage(failed)
+	ranAt := p.dialect.ConvertTimeToStorage(time.Now().UTC())
+	failedVal := p.dialect.ConvertBoolToStorage(failed)
 
 	q := fmt.Sprintf("INSERT INTO %s(version, direction, status_code, body, env_json, failed, ran_at) VALUES(%s,%s,%s,%s,%s,%s,%s)",
 		th.MigrationRuns,
-		p.adapter.GetPlaceholder(1), p.adapter.GetPlaceholder(2), p.adapter.GetPlaceholder(3),
-		p.adapter.GetPlaceholder(4), p.adapter.GetPlaceholder(5), p.adapter.GetPlaceholder(6),
-		p.adapter.GetPlaceholder(7))
+		p.dialect.GetPlaceholder(1), p.dialect.GetPlaceholder(2), p.dialect.GetPlaceholder(3),
+		p.dialect.GetPlaceholder(4), p.dialect.GetPlaceholder(5), p.dialect.GetPlaceholder(6),
+		p.dialect.GetPlaceholder(7))
 
 	_, err := p.db.Exec(q, version, direction, status, body, envJSON, failedVal, ranAt)
 	if err != nil {
@@ -314,7 +314,7 @@ func (p *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string
 
 	for name, value := range kv {
 		valuesClauses = append(valuesClauses, fmt.Sprintf("(%s,%s,%s)",
-			p.adapter.GetPlaceholder(argIndex), p.adapter.GetPlaceholder(argIndex+1), p.adapter.GetPlaceholder(argIndex+2)))
+			p.dialect.GetPlaceholder(argIndex), p.dialect.GetPlaceholder(argIndex+1), p.dialect.GetPlaceholder(argIndex+2)))
 		args = append(args, version, name, value)
 		argIndex += 3
 	}
@@ -366,7 +366,7 @@ func (p *Store) ListRuns(th TableNames) ([]Run, error) {
 		}
 
 		run.Failed = failed
-		run.RanAt = p.adapter.ConvertTimeFromStorage(&ranAt)
+		run.RanAt = p.dialect.ConvertTimeFromStorage(&ranAt)
 
 		runs = append(runs, run)
 	}
