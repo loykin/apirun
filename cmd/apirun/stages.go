@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loykin/apirun/internal/orchestration"
+	"github.com/loykin/apirun/pkg/orchestrator"
 	"github.com/spf13/cobra"
 )
 
@@ -36,12 +36,12 @@ var stagesStatusCmd = &cobra.Command{
 		configPath, _ := cmd.Flags().GetString("config")
 		verbose, _ := cmd.Flags().GetBool("verbose")
 
-		orchestrator, err := orchestration.LoadFromFile(configPath)
+		orch, err := orchestrator.LoadFromFile(configPath)
 		if err != nil {
 			return err
 		}
 
-		return showStagesStatus(orchestrator, verbose)
+		return showStagesStatus(orch, verbose)
 	},
 }
 
@@ -51,7 +51,7 @@ var stagesValidateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configPath, _ := cmd.Flags().GetString("config")
 
-		_, err := orchestration.LoadFromFile(configPath)
+		_, err := orchestrator.LoadFromFile(configPath)
 		if err != nil {
 			fmt.Printf("❌ Validation failed: %v\n", err)
 			return err
@@ -109,9 +109,9 @@ func executeStagesCommand(cmd *cobra.Command, isUp bool) error {
 	}
 
 	// Load orchestrator
-	orchestrator, err := orchestration.LoadFromFile(configPath)
+	orch, err := orchestrator.LoadFromFile(configPath)
 	if err != nil {
-		return err // orchestration.LoadFromFile already provides clear error messages
+		return err // orchestrator.LoadFromFile already provides clear error messages
 	}
 
 	direction := "down"
@@ -126,9 +126,9 @@ func executeStagesCommand(cmd *cobra.Command, isUp bool) error {
 	// Execute stages
 	ctx := context.Background()
 	if isUp {
-		err = orchestrator.ExecuteStages(ctx, fromStage, toStage)
+		err = orch.ExecuteStages(ctx, fromStage, toStage)
 	} else {
-		err = orchestrator.ExecuteStagesDown(ctx, fromStage, toStage)
+		err = orch.ExecuteStagesDown(ctx, fromStage, toStage)
 	}
 
 	if err != nil {
@@ -166,11 +166,11 @@ func showExecutionPlan(fromStage, toStage, direction string) error {
 	return nil
 }
 
-func showStagesStatus(orchestrator *orchestration.Orchestrator, verbose bool) error {
+func showStagesStatus(orch *orchestrator.Orchestrator, verbose bool) error {
 	fmt.Println("📊 Stages Status:")
 
 	// Get stage results
-	results := orchestrator.GetStageResults()
+	results := orch.GetStageResults()
 
 	if len(results) == 0 {
 		fmt.Println("No stages have been executed yet")

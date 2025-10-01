@@ -1,8 +1,9 @@
-package orchestration
+package orchestrator
 
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"github.com/loykin/apirun"
-	"github.com/loykin/apirun/internal/common"
 	"github.com/loykin/apirun/pkg/env"
 	"gopkg.in/yaml.v3"
 )
@@ -20,7 +20,7 @@ type Orchestrator struct {
 	config  *StageOrchestration
 	graph   *DependencyGraph
 	context *ExecutionContext
-	logger  *common.Logger
+	logger  *slog.Logger
 	mu      sync.RWMutex
 }
 
@@ -33,7 +33,7 @@ func NewOrchestrator(config *StageOrchestration) *Orchestrator {
 			StageResults: make(map[string]*StageResult),
 			GlobalEnv:    config.Global.Env,
 		},
-		logger: common.GetLogger().WithComponent("orchestrator"),
+		logger: slog.With("component", "orchestrator"),
 	}
 }
 

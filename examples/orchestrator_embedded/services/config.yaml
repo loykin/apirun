@@ -1,0 +1,14 @@
+migrate_dir: migration
+
+store:
+  type: sqlite
+  sqlite:
+    path: /tmp/claude/services_state.db
+
+env:
+  api_base: https://httpbin.org
+  service_count: "3"
+
+logging:
+  level: info
+  format: color

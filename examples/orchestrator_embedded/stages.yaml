@@ -1,0 +1,43 @@
+apiVersion: apirun/v1
+kind: StageOrchestration
+
+stages:
+  - name: infrastructure
+    config_path: infrastructure/config.yaml
+    env:
+      environment: embedded-demo
+      project_name: orchestrator-example
+
+  - name: database
+    config_path: database/config.yaml
+    depends_on: [infrastructure]
+    env_from_stages:
+      - stage: infrastructure
+        vars: [vpc_id, region]
+    env:
+      db_type: postgresql
+
+  - name: services
+    config_path: services/config.yaml
+    depends_on: [database]
+    env_from_stages:
+      - stage: infrastructure
+        vars: [vpc_id, region]
+      - stage: database
+        vars: [db_endpoint, db_credentials]
+
+  - name: configuration
+    config_path: configuration/config.yaml
+    depends_on: [services]
+    env_from_stages:
+      - stage: services
+        vars: [api_endpoint, service_token]
+    env:
+      config_version: "v1.0"
+
+global:
+  env:
+    run_id: "embedded-demo-123"
+    deployment_env: "staging"
+  wait_between_stages: 500ms
+  rollback_on_failure: false

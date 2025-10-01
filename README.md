@@ -842,6 +842,7 @@ go run ./examples/auth_registry
 
 ### Multi-Stage Orchestration Examples
 - **`examples/stages`**: Complete multi-stage workflow demonstrating infrastructure → services → configuration deployment with dependency management and environment variable propagation.
+- **`examples/orchestrator_embedded`**: Programmatic multi-stage orchestration example showing how to use the orchestration API from Go code with different execution modes and status monitoring.
 
 ### Authentication Examples
 - `examples/auth_registry`: Demonstrates custom auth provider registration.

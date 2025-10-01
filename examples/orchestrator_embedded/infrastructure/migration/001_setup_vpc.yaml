@@ -1,0 +1,34 @@
+# Infrastructure: Setup VPC
+up:
+  name: setup-vpc
+  request:
+    method: POST
+    url: "https://httpbin.org/post"
+    headers:
+      - name: Content-Type
+        value: application/json
+    body: |
+      {
+        "action": "create_vpc",
+        "project": "orchestrator-example",
+        "environment": "embedded-demo",
+        "cloud_provider": "aws"
+      }
+  response:
+    result_code: ["200"]
+    env_from:
+      vpc_id: "json.json.action"
+      region: "json.json.cloud_provider"
+
+down:
+  name: cleanup-vpc
+  method: POST
+  url: "https://httpbin.org/post"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body: |
+    {
+      "action": "delete_vpc",
+      "vpc_id": "create_vpc"
+    }
