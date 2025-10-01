@@ -293,6 +293,7 @@ apirun supports complex workflows through multi-stage orchestration, allowing yo
 - **🎯 Partial Execution**: Run specific stages or ranges with `--from`, `--to`, `--stage`
 - **🔍 Enhanced Planning**: Dry-run mode shows execution plan and dependencies
 - **⚠️ Failure Handling**: Configurable behavior on stage failures
+- **🔄 Dynamic Updates**: Add/remove migration files and stages safely during development
 
 ### Quick Start
 
@@ -416,7 +417,54 @@ apirun stages status [--verbose]
 apirun stages validate
 ```
 
-For detailed examples, see [`examples/stages/`](examples/stages/) which demonstrates a complete infrastructure → services → configuration workflow.
+### Dependency Management & Constraints
+
+#### 🔗 Dependency Rules
+- **Acyclic Dependencies**: Circular dependencies are automatically detected and rejected
+- **Execution Order**: Stages execute in topological order based on dependency graph
+- **Isolated Execution**: Single stage execution requires all dependencies to be pre-executed
+- **Environment Inheritance**: Dependent stages can inherit environment variables from parent stages
+
+#### 📋 Constraints & Limitations
+- **Template Variables**: Migrations using `{{.variable}}` templates require parent stages to export those variables
+- **Database Isolation**: Each stage maintains its own migration state (separate store configurations recommended)
+- **Partial Execution**: `--stage` flag only works if all dependencies have been previously executed
+- **Variable Propagation**: Environment variables flow one-way (parent → child) in dependency chain
+
+#### 🔄 Dynamic Changes During Development
+
+##### ✅ Safe Operations
+- **Add Migration Files**: New migration files in existing stages are automatically detected and executed
+- **Remove Migration Files**: Deleted files don't affect already-applied migrations (state-based)
+- **Add New Stages**: New stages can be safely added at any position in dependency chain
+- **Modify Stage Configuration**: Update `config.yaml` files without affecting migration state
+
+##### ⚠️ Operations Requiring Caution
+- **Change Dependencies**: Modifying `depends_on` relationships may require state cleanup
+- **Rename Stages**: Stage renaming breaks environment variable inheritance from previous runs
+- **Template Dependencies**: Adding template variables to migrations requires ensuring parent stages export them
+
+#### 🚨 Troubleshooting Common Issues
+
+```bash
+# Issue: "dependent stage X has not been executed"
+# Solution: Run dependencies first or use --from flag
+apirun stages up --from parent-stage --to target-stage
+
+# Issue: "variable not found in dependent stage"
+# Solution: Check if parent stage's migration exports the required variable
+apirun stages status --verbose  # Check extracted variables
+
+# Issue: Template rendering errors in migrations
+# Solution: Verify environment variable propagation
+apirun stages validate  # Validate configuration
+```
+
+### 📚 Additional Resources
+
+- **[Migration Lifecycle Guide](MIGRATION_LIFECYCLE.md)**: Deep dive into migration file behavior in multi-stage contexts
+- **[Troubleshooting Guide](TROUBLESHOOTING_STAGES.md)**: Common issues and solutions for multi-stage orchestration
+- **[Complete Example](examples/stages/)**: Infrastructure → services → configuration workflow demonstration
 
 ## Structured Logging and Security
 

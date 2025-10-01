@@ -114,6 +114,112 @@ apirun stages up --dry-run --config examples/stages/stages.yaml
 5. **Visibility**: Clear status and progress tracking
 6. **Safety**: Validation and dry-run capabilities
 
+## Dependency Management Deep Dive
+
+### 🔗 Understanding Stage Dependencies
+
+#### Execution Flow
+```
+infrastructure → services → configuration
+     ↓             ↓           ↓
+   vpc_id      auth_service  admin_user
+ db_endpoint     api_url      settings
+```
+
+#### Dependency Rules
+- **Sequential Execution**: Stages execute in dependency order (topological sort)
+- **Prerequisite Check**: Dependent stages verify all parent stages completed successfully
+- **Environment Inheritance**: Child stages automatically receive parent stage variables
+
+### 📊 State Management
+
+#### Migration State Isolation
+Each stage maintains independent migration state:
+```bash
+infrastructure/migrations/    # State tracked in infra database
+services/migrations/          # State tracked in services database
+configuration/migrations/     # State tracked in config database
+```
+
+#### Adding Stages Mid-Development
+✅ **Safe**: Add new stage between existing ones
+```yaml
+# Before: infra → config
+# After:  infra → services → config
+stages:
+  - name: infrastructure
+    # ... existing config
+
+  - name: services          # ← New stage added
+    config_path: services/config.yaml
+    depends_on: [infrastructure]
+    env_from_stages:
+      - stage: infrastructure
+        vars: [vpc_id, db_endpoint]
+
+  - name: configuration
+    depends_on: [services]   # ← Updated dependency
+```
+
+⚠️ **Caution**: Changing existing dependencies may require state cleanup
+
+### 🔄 Migration File Lifecycle
+
+#### Adding Migrations
+- **Existing Stages**: New migration files are automatically detected and executed
+- **Version Ordering**: Files execute in numerical order (001, 002, 003...)
+- **State Tracking**: Applied migrations are recorded in each stage's database
+
+#### Removing Migrations
+- **Safe Removal**: Deleting migration files doesn't affect applied state
+- **State Persistence**: Migration history remains in database
+- **Development Workflow**: Safe to delete/add files during development
+
+#### Template Variables in Dependencies
+```yaml
+# Parent stage (infrastructure) migration
+response:
+  env_from:
+    vpc_id: "json.vpc.id"
+    db_endpoint: "json.database.endpoint"
+
+# Child stage (services) migration
+body: |
+  {
+    "vpc_id": "{{.vpc_id}}",           # Available from parent
+    "db_endpoint": "{{.db_endpoint}}"  # Available from parent
+  }
+```
+
+### 🚨 Common Pitfalls & Solutions
+
+#### Problem: Template Variable Not Found
+```
+Error: template: gotmpl:3:18: executing "gotmpl" at <.vpc_id>: map has no entry for key "vpc_id"
+```
+**Solution**: Ensure parent stage exports the variable in `response.env_from`
+
+#### Problem: Dependent Stage Not Executed
+```
+Error: dependent stage infrastructure has not been executed
+```
+**Solutions**:
+```bash
+# Option 1: Run from parent stage
+apirun stages up --from infrastructure --to services
+
+# Option 2: Run all dependencies first
+apirun stages up --to infrastructure
+apirun stages up --stage services
+```
+
+#### Problem: Variable Not Found Warning
+```
+WARN: variable not found in dependent stage preprocessing variable=processed_data
+```
+**Root Cause**: Parent stage migration didn't extract the expected variable
+**Solution**: Check parent stage's migration `response.env_from` section
+
 ## Real-World Use Cases
 
 - **Infrastructure as Code**: Provision cloud resources in stages
