@@ -320,11 +320,18 @@ func (s *Store) RecordRun(th TableNames, version int, direction string, status i
 
 // InsertStoredEnv inserts stored environment variables
 func (s *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string) error {
+	const maxStoredEnvVars = 10000
 	logger := common.GetLogger().WithStore("sqlite").WithVersion(version)
 	logger.Debug("inserting stored environment variables", "count", len(kv))
 
 	if len(kv) == 0 {
 		return nil
+	}
+
+	if len(kv) > maxStoredEnvVars {
+		err := fmt.Errorf("cannot store more than %d environment variables (got: %d)", maxStoredEnvVars, len(kv))
+		logger.Error("too many environment variables", "max", maxStoredEnvVars, "got", len(kv), "error", err)
+		return err
 	}
 
 	valuesClauses := make([]string, 0, len(kv))
