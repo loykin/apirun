@@ -15,9 +15,27 @@ stages:
       - stage: setup
         vars: [setup_id, setup_timestamp]
 
+  - name: branch-a
+    config_path: branch-a/config.yaml
+    depends_on: [validation]
+    env_from_stages:
+      - stage: setup
+        vars: [setup_id]
+      - stage: validation
+        vars: [validation_status]
+
+  - name: branch-b
+    config_path: branch-b/config.yaml
+    depends_on: [validation]
+    env_from_stages:
+      - stage: setup
+        vars: [setup_id]
+      - stage: validation
+        vars: [validation_status]
+
   - name: cleanup
     config_path: cleanup/config.yaml
-    depends_on: [validation]
+    depends_on: [branch-a, branch-b]
     env:
       cleanup_reason: "end_of_test"
 

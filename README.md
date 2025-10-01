@@ -953,6 +953,254 @@ go run ./examples/status_embedded --history  # with history
 
 The example defaults to the directory examples/status_embedded/migration and uses a local SQLite database file there.
 
+## CI/CD Integration
+
+apirun is designed to integrate seamlessly into CI/CD pipelines for automating API-driven deployments, testing, and infrastructure provisioning.
+
+### Installation in CI/CD
+
+**Download pre-built binary:**
+```bash
+# GitHub Releases (recommended for CI/CD)
+curl -L -o apirun "https://github.com/loykin/apirun/releases/latest/download/apirun-linux-amd64"
+chmod +x apirun
+```
+
+**Build from source:**
+```bash
+# Clone and build
+git clone https://github.com/loykin/apirun.git
+cd apirun
+go build -o apirun ./cmd/apirun
+```
+
+### GitHub Actions Integration
+
+```yaml
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Build apirun
+      run: go build -o apirun ./cmd/apirun
+
+    # Single-stage deployment
+    - name: Deploy API configurations
+      run: |
+        ./apirun up --config deployment/config.yaml
+      env:
+        API_TOKEN: ${{ secrets.API_TOKEN }}
+        ENVIRONMENT: production
+
+    # Multi-stage deployment
+    - name: Deploy infrastructure stages
+      run: |
+        ./apirun stages validate --config deployment/stages.yaml
+        ./apirun stages up --config deployment/stages.yaml
+      env:
+        CLOUD_TOKEN: ${{ secrets.CLOUD_TOKEN }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+```
+
+### GitLab CI Integration
+
+```yaml
+stages:
+  - validate
+  - deploy
+
+variables:
+  APIRUN_VERSION: "latest"
+
+before_script:
+  - go build -o apirun ./cmd/apirun
+
+validate:
+  stage: validate
+  script:
+    - ./apirun stages validate --config ci/stages.yaml
+    - ./apirun stages up --dry-run --config ci/stages.yaml
+
+deploy:
+  stage: deploy
+  script:
+    - ./apirun stages up --config ci/stages.yaml
+  environment:
+    name: production
+  only:
+    - main
+```
+
+### Jenkins Pipeline Integration
+
+```groovy
+pipeline {
+    agent any
+
+    environment {
+        API_TOKEN = credentials('api-token')
+        ENVIRONMENT = 'production'
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                sh 'go build -o apirun ./cmd/apirun'
+            }
+        }
+
+        stage('Validate') {
+            steps {
+                sh './apirun stages validate --config jenkins/stages.yaml'
+                sh './apirun stages up --dry-run --config jenkins/stages.yaml'
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                branch 'main'
+            }
+            steps {
+                sh './apirun stages up --config jenkins/stages.yaml'
+            }
+        }
+    }
+}
+```
+
+### Docker Integration
+
+```dockerfile
+FROM golang:1.21-alpine AS builder
+
+WORKDIR /app
+COPY . .
+RUN go build -o apirun ./cmd/apirun
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+
+COPY --from=builder /app/apirun .
+COPY config/ ./config/
+
+CMD ["./apirun", "stages", "up"]
+```
+
+### CI/CD Best Practices
+
+#### 1. **Stateless Execution**
+```yaml
+# config.yaml - recommended for CI/CD
+store:
+  disabled: true  # No persistent state required
+```
+
+#### 2. **Environment-specific Configurations**
+```bash
+# Use different configs per environment
+./apirun stages up --config "config/${ENVIRONMENT}.yaml"
+
+# Environment-specific overrides
+./apirun stages up --config config/base.yaml \
+  --env "api_base=${PRODUCTION_API_URL}" \
+  --env "environment=${ENVIRONMENT}"
+```
+
+#### 3. **Validation First**
+```bash
+# Always validate before deployment
+./apirun stages validate --config config/stages.yaml
+
+# Check execution plan
+./apirun stages up --dry-run --config config/stages.yaml
+
+# Then deploy
+./apirun stages up --config config/stages.yaml
+```
+
+#### 4. **Partial Deployments**
+```bash
+# Deploy specific stages in different pipeline steps
+./apirun stages up --from infrastructure --to database --config config/stages.yaml
+./apirun stages up --from services --config config/stages.yaml
+```
+
+#### 5. **Error Handling**
+```bash
+# Capture logs and exit codes
+./apirun stages up --config config/stages.yaml 2>&1 | tee deployment.log
+
+# Check specific stage status
+./apirun status --config services/config.yaml
+```
+
+#### 6. **Secret Management**
+```yaml
+# Use environment variables for secrets
+env:
+  - name: api_token
+    valueFromEnv: API_TOKEN
+  - name: db_password
+    valueFromEnv: DB_PASSWORD
+
+# In migration files
+headers:
+  - name: Authorization
+    value: "Bearer {{.env.api_token}}"
+```
+
+#### 7. **Multi-environment Support**
+```yaml
+# stages-production.yaml
+global:
+  env:
+    environment: production
+    api_base: https://api.production.com
+
+# stages-staging.yaml
+global:
+  env:
+    environment: staging
+    api_base: https://api.staging.com
+```
+
+### Common CI/CD Use Cases
+
+1. **Infrastructure Provisioning**: Deploy cloud resources via APIs
+2. **Application Configuration**: Set up dashboards, users, permissions
+3. **Database Seeding**: Initialize application data
+4. **Integration Testing**: End-to-end API workflow validation
+5. **Environment Bootstrapping**: Complete environment setup from scratch
+
+### Monitoring and Observability
+
+```bash
+# Enable detailed logging for CI/CD debugging
+export APIRUN_LOG_LEVEL=debug
+export APIRUN_LOG_FORMAT=json
+
+# Capture timing and performance metrics
+./apirun stages up --config config/stages.yaml 2>&1 | \
+  grep -E "(duration|HTTP response)" | \
+  tee performance.log
+```
+
 ## Development
 
 - Run tests:

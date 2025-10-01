@@ -1,0 +1,31 @@
+up:
+  name: branch-b-new-functionality
+  request:
+    method: POST
+    url: "https://httpbin.org/post"
+    headers:
+      - name: Content-Type
+        value: application/json
+    body: |
+      {
+        "stage": "branch-b",
+        "action": "new_functionality",
+        "feature_type": "enhanced_processing"
+      }
+  response:
+    result_code: ["200"]
+    env_from:
+      branch_b_feature_type: "json.json.feature_type"
+
+down:
+  name: branch-b-new-cleanup
+  method: POST
+  url: "https://httpbin.org/post"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body: |
+    {
+      "stage": "branch-b",
+      "action": "cleanup_new_functionality"
+    }

@@ -379,6 +379,50 @@ apirun stages up --stage parent-stage
 apirun stages up --from child-stage
 ```
 
+## Branching Workflow Behavior
+
+### Issue: New migrations in branch stages after cleanup completed
+
+**Scenario**: Structure like `Main1 → Main2 → [Branch-A, Branch-B] → Main3`
+
+**Question**: If Main3 (cleanup) already executed, do new migrations in Branch-A/Branch-B execute?
+
+**Answer**: **YES** - New migrations in branch stages execute even when final stage completed.
+
+#### Test Case Results
+```bash
+# Structure: setup → validation → [branch-a, branch-b] → cleanup
+# After cleanup completed, added 003_post_cleanup_feature.yaml to branch-b
+
+apirun stages up
+# Result: New migration executed successfully
+# Log: "applying migration version=3 file=003_post_cleanup_feature.yaml"
+```
+
+#### Execution Behavior
+- **State-based system**: Migration execution determined by database records, not dependency completion
+- **Individual stage tracking**: Each stage maintains independent migration state
+- **Complete dependency chain execution**: System always processes full dependency graph
+- **New migrations detected**: Added migration files are automatically detected and executed
+
+#### Implications
+1. **Development-friendly**: Can add migrations to any stage without breaking workflow
+2. **Dependency re-execution**: All stages in dependency chain run (even if no new migrations)
+3. **Template variable caution**: New migrations must account for variable availability
+4. **Performance consideration**: Full chain execution on any stage update
+
+#### Best Practices
+```bash
+# Target specific stages when adding migrations
+apirun stages up --from branch-a --to branch-a  # Only run branch-a
+
+# Validate before full execution
+apirun stages up --dry-run  # Check execution plan
+
+# Monitor variable dependencies
+apirun stages status --verbose | grep "variable not found"
+```
+
 ## Prevention Best Practices
 
 ### 1. Configuration Validation

@@ -1,0 +1,31 @@
+up:
+  name: branch-b-post-cleanup-feature
+  request:
+    method: POST
+    url: "https://httpbin.org/post"
+    headers:
+      - name: Content-Type
+        value: application/json
+    body: |
+      {
+        "stage": "branch-b",
+        "action": "post_cleanup_feature",
+        "feature_type": "additional_processing"
+      }
+  response:
+    result_code: ["200"]
+    env_from:
+      branch_b_post_feature: "json.json.feature_type"
+
+down:
+  name: branch-b-post-cleanup
+  method: POST
+  url: "https://httpbin.org/post"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body: |
+    {
+      "stage": "branch-b",
+      "action": "cleanup_post_feature"
+    }
