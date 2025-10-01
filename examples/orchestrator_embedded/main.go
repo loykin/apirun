@@ -66,12 +66,39 @@ func showStatus() {
 	configPath := filepath.Join("examples", "orchestrator_embedded", "stages.yaml")
 	fmt.Printf("Status check with config: %s\n", configPath)
 
-	_, err := orchestrator.LoadFromFile(configPath)
+	orch, err := orchestrator.LoadFromFile(configPath)
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	fmt.Println("📊 Configuration loaded successfully")
-	fmt.Println("   Stages defined: infrastructure, database, services, configuration")
-	fmt.Println("   Dependencies properly configured")
+	fmt.Println("📊 Stages Status:")
+
+	// Get stage results
+	results := orch.GetStageResults()
+
+	if len(results) == 0 {
+		fmt.Println("No stages have been executed yet")
+		return
+	}
+
+	for stageName, result := range results {
+		status := "❌ Failed"
+		if result.Success {
+			status = "✅ Success"
+		}
+
+		fmt.Printf("  %s: %s", stageName, status)
+		if result.Duration > 0 {
+			fmt.Printf(" (took %v)", result.Duration)
+		}
+		fmt.Println()
+
+		if result.Error != "" {
+			fmt.Printf("    Error: %s\n", result.Error)
+		}
+
+		if len(result.ExtractedEnv) > 0 {
+			fmt.Printf("    Extracted vars: %d\n", len(result.ExtractedEnv))
+		}
+	}
 }

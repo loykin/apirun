@@ -111,8 +111,11 @@ To stage: <end>
 ### Status Output
 ```
 Status check with config: examples/orchestrator_embedded/stages.yaml
-✅ Configuration is valid
+📊 Stages Status:
+No stages have been executed yet
 ```
+
+**Note**: The orchestrator tracks stage results in memory during execution. Each new orchestrator instance starts with empty results. For persistent state tracking, each stage maintains its own migration history in its respective SQLite database.
 
 ## Code Highlights
 
