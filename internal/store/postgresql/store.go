@@ -303,8 +303,8 @@ func (p *Store) RecordRun(th TableNames, version int, direction string, status i
 }
 
 // InsertStoredEnv inserts stored environment variables
-// maxStoredEnvEntries is set safely below math.MaxInt/3 to prevent overflow in capacity calculation (c*3)
 const maxStoredEnvEntries = 10000
+const maxCapacity = maxStoredEnvEntries * 3
 
 func (p *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string) error {
 	c := len(kv)
@@ -315,8 +315,7 @@ func (p *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string
 		return fmt.Errorf("stored environment map too large: %d entries (limit: %d)", c, maxStoredEnvEntries)
 	}
 	valuesClauses := make([]string, 0, c)
-	capacity := c * 3
-	args := make([]interface{}, 0, capacity)
+	args := make([]interface{}, 0, maxCapacity)
 	argIndex := 1
 
 	for name, value := range kv {

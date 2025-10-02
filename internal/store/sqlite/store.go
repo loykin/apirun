@@ -320,8 +320,8 @@ func (s *Store) RecordRun(th TableNames, version int, direction string, status i
 
 // InsertStoredEnv inserts stored environment variables
 func (s *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string) error {
-	// maxStoredEnvVars is set safely below math.MaxInt/3 to prevent overflow in capacity calculation (len(kv)*3)
 	const maxStoredEnvVars = 10000
+	const maxCapacity = maxStoredEnvVars * 3
 	logger := common.GetLogger().WithStore("sqlite").WithVersion(version)
 	logger.Debug("inserting stored environment variables", "count", len(kv))
 
@@ -336,8 +336,7 @@ func (s *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string
 	}
 
 	valuesClauses := make([]string, 0, len(kv))
-	capacity := len(kv) * 3
-	args := make([]interface{}, 0, capacity)
+	args := make([]interface{}, 0, maxCapacity)
 
 	for name, value := range kv {
 		valuesClauses = append(valuesClauses, "(?,?,?)")
