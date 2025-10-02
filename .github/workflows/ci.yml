@@ -81,7 +81,7 @@ jobs:
 
       - name: Build apirun binary
         run: |
-          go build -o apirun
+          go build -o apirun ./cmd/apirun
           chmod +x apirun
 
       - name: Run safe examples (self-contained, no external services)
