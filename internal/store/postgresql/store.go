@@ -305,15 +305,14 @@ func (p *Store) RecordRun(th TableNames, version int, direction string, status i
 
 // InsertStoredEnv inserts stored environment variables
 func (p *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string) error {
-	if len(kv) == 0 {
+	c := len(kv)
+	if c == 0 {
 		return nil
 	}
-
-	valuesClauses := make([]string, 0, len(kv))
-	c := len(kv)
 	if c > (math.MaxInt / 3) {
 		return fmt.Errorf("map too large, capacity overflow risk")
 	}
+	valuesClauses := make([]string, 0, c)
 	args := make([]interface{}, 0, c*3)
 	argIndex := 1
 
