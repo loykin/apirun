@@ -1,0 +1,13 @@
+migrate_dir: migration
+
+store:
+  type: sqlite
+  sqlite:
+    path: /tmp/claude/config_state.db
+
+env:
+  api_base: https://httpbin.org
+
+logging:
+  level: info
+  format: color

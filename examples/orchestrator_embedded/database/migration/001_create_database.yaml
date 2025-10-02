@@ -1,0 +1,37 @@
+# Database: Create Database Instance
+up:
+  name: create-database
+  request:
+    method: POST
+    url: "https://httpbin.org/post"
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: X-VPC-ID
+        value: "vpc-12345"
+    body: |
+      {
+        "action": "create_database",
+        "vpc_id": "vpc-12345",
+        "region": "us-east-1",
+        "db_type": "postgresql",
+        "project": "orchestrator-example"
+      }
+  response:
+    result_code: ["200"]
+    env_from:
+      db_endpoint: "json.json.action"
+      db_credentials: "json.json.db_type"
+
+down:
+  name: cleanup-database
+  method: POST
+  url: "https://httpbin.org/post"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body: |
+    {
+      "action": "delete_database",
+      "db_endpoint": "{{.env.db_endpoint}}"
+    }

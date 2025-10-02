@@ -1,0 +1,32 @@
+# Validate the setup was successful
+up:
+  name: validate-setup
+  env:
+    validation_data: "validating-setup"
+  request:
+    method: GET
+    url: "https://httpbin.org/json"
+    headers:
+      - name: X-Validation-Run
+        value: "embedded-test"
+      - name: X-Setup-ID
+        value: "embedded-test"
+  response:
+    result_code: ["200", "503"]
+    env_from:
+      validation_status: "slideshow.title"
+      validation_timestamp: "slideshow.date"
+    env_missing: "fail"
+
+down:
+  name: cleanup-validation
+  method: POST
+  url: "https://httpbin.org/post"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body: |
+    {
+      "action": "cleanup_validation",
+      "setup_id": "embedded-test"
+    }

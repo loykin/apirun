@@ -24,9 +24,7 @@ var upCmd = &cobra.Command{
 			configPath = os.Getenv("APIMIGRATE_CONFIG")
 		}
 		dry := v.GetBool("dry_run")
-		dryFrom := v.GetInt("dry_run_from")
 		to := v.GetInt("to")
-		noStore := v.GetBool("no_store")
 		ctx := context.Background()
 		be := ienv.New()
 		baseEnv := be
@@ -53,10 +51,7 @@ var upCmd = &cobra.Command{
 			if err := doc.DecodeAuth(ctx, envFromCfg); err != nil {
 				return err
 			}
-			// Override store disabled setting with CLI flag if provided
-			if noStore {
-				doc.Store.Disabled = true
-			}
+			// Store configuration is controlled via config file (store.disabled)
 			// Build store options now; we'll pass them to Migrator below
 			storeCfgFromDoc = doc.Store.ToStorOptions()
 			saveBody := doc.Store.SaveResponseBody
@@ -74,7 +69,7 @@ var upCmd = &cobra.Command{
 		if abs, err := filepath.Abs(dir); err == nil {
 			dir = abs
 		}
-		m := apirun.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry, DryRunFrom: dryFrom}
+		m := apirun.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry}
 		// Set default render_body and delay from config if provided
 		if strings.TrimSpace(configPath) != "" {
 			var doc ConfigDoc
@@ -97,7 +92,7 @@ var upCmd = &cobra.Command{
 				scPtr = storeCfgFromDoc
 			}
 		}
-		if scPtr == nil && !noStore {
+		if scPtr == nil {
 			// default to sqlite under dir explicitly
 			tmp := &apirun.StoreConfig{}
 			tmp.Config.Driver = apirun.DriverSqlite

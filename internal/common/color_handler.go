@@ -108,6 +108,14 @@ func (h *ColorHandler) Handle(_ context.Context, r slog.Record) error {
 	buf = append(buf, levelStr...)
 	buf = append(buf, " "...) // Add space after level
 
+	// Add groups if present
+	if len(h.groups) > 0 {
+		for _, group := range h.groups {
+			buf = append(buf, h.colorize(Blue, fmt.Sprintf("[%s]", group))...)
+			buf = append(buf, " "...)
+		}
+	}
+
 	// Format message with fixed width for alignment (50 chars to accommodate longer messages)
 	messageStr := fmt.Sprintf("%-54s", r.Message)
 	buf = append(buf, h.colorize(White, messageStr)...)
@@ -182,24 +190,6 @@ func (h *ColorHandler) formatLevelAligned(level slog.Level) string {
 	}
 
 	return h.colorize(color, fmt.Sprintf("[%-5s]", levelStr))
-}
-
-// formatAttributes formats attributes with colors
-func (h *ColorHandler) formatAttributes(buf []byte, attrs []slog.Attr) []byte {
-	for i, attr := range attrs {
-		if i > 0 {
-			buf = append(buf, " "...)
-		}
-
-		// Key in cyan
-		buf = append(buf, h.colorize(Cyan, attr.Key)...)
-		buf = append(buf, "="...)
-
-		// Value formatting with appropriate colors
-		valueStr := h.formatValue(attr.Value)
-		buf = append(buf, valueStr...)
-	}
-	return buf
 }
 
 // formatAttributesClean formats attributes with clean key=value pairs

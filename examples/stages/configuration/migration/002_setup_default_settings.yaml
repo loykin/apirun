@@ -1,0 +1,55 @@
+# Setup default application settings
+up:
+  name: setup-default-settings
+  env:
+    settings_key: default_configuration
+  request:
+    auth_name: admin_auth
+    method: POST
+    url: "{{.api_service_url}}/admin/settings"
+    headers:
+      - name: Content-Type
+        value: application/json
+    body: |
+      {
+        "key": "{{.settings_key}}",
+        "value": {
+          "default_user_role": "{{.default_role}}",
+          "welcome_email_template": "{{.welcome_template}}",
+          "session_timeout": 3600,
+          "max_login_attempts": 5,
+          "features": {
+            "user_registration": true,
+            "email_verification": true,
+            "password_reset": true
+          },
+          "integrations": {
+            "database": {
+              "host": "{{.db_endpoint}}",
+              "port": 5432
+            },
+            "auth_service": {
+              "url": "{{.auth_service_url}}",
+              "timeout": 30
+            }
+          },
+          "project_info": {
+            "name": "{{.project_name}}",
+            "environment": "{{.environment}}",
+            "log_level": "{{.log_level}}"
+          }
+        },
+        "description": "Default application configuration",
+        "tags": ["default", "configuration", "apirun"]
+      }
+  response:
+    result_code: ["201", "200"] # 200 if settings already exist and are updated
+    env_from:
+      settings_id: "setting.id"
+      settings_version: "setting.version"
+
+down:
+  name: delete-default-settings
+  auth: admin_auth
+  method: DELETE
+  url: "{{.api_service_url}}/admin/settings/{{.settings_id}}"

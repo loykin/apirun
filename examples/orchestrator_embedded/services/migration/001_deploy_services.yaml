@@ -1,0 +1,41 @@
+# Services: Deploy Application Services
+up:
+  name: deploy-services
+  request:
+    method: POST
+    url: "https://httpbin.org/post"
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: X-VPC-ID
+        value: "vpc-12345"
+      - name: X-Database
+        value: "db.example.com"
+    body: |
+      {
+        "action": "deploy_services",
+        "vpc_id": "vpc-12345",
+        "region": "us-east-1",
+        "db_endpoint": "db.example.com",
+        "db_credentials": "secret",
+        "service_count": "3",
+        "project": "orchestrator-example"
+      }
+  response:
+    result_code: ["200"]
+    env_from:
+      api_endpoint: "json.json.action"
+      service_token: "json.json.service_count"
+
+down:
+  name: cleanup-services
+  method: POST
+  url: "https://httpbin.org/post"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body: |
+    {
+      "action": "undeploy_services",
+      "api_endpoint": "deploy_services"
+    }

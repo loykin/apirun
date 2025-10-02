@@ -1,0 +1,32 @@
+---
+# Services stage configuration
+migrate_dir: ./migration
+
+# Environment variables for this stage
+env:
+  - name: k8s_api_base
+    value: https://kubernetes.example.com/api/v1
+  - name: docker_registry
+    value: my-registry.example.com
+  - name: namespace
+    value: "{{.project_name}}-{{.environment}}"
+
+# Authentication for Kubernetes API
+auth:
+  - type: basic
+    name: k8s_auth
+    config:
+      username: "{{.k8s_username}}"
+      password: "{{.k8s_token}}"
+
+# Store configuration
+store:
+  type: sqlite
+  sqlite:
+    path: ./services_state.db
+  save_response_body: true
+
+# Logging configuration
+logging:
+  level: info
+  format: text

@@ -1,0 +1,32 @@
+---
+# Infrastructure stage configuration
+migrate_dir: ./migration
+
+# Environment variables for this stage
+env:
+  - name: api_base
+    value: https://aws-api.example.com
+  - name: vpc_cidr
+    value: 10.0.0.0/16
+  - name: db_instance_type
+    value: db.t3.micro
+
+# Authentication for AWS API calls
+auth:
+  - type: basic
+    name: aws_api
+    config:
+      username: "{{.aws_access_key}}"
+      password: "{{.aws_secret_key}}"
+
+# Store configuration (each stage can have its own store)
+store:
+  type: sqlite
+  sqlite:
+    path: ./infrastructure_state.db
+  save_response_body: true
+
+# Logging configuration
+logging:
+  level: info
+  format: text

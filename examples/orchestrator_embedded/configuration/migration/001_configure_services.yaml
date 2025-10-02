@@ -1,0 +1,39 @@
+# Configuration: Configure Deployed Services
+up:
+  name: configure-services
+  request:
+    method: POST
+    url: "https://httpbin.org/post"
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: X-API-Endpoint
+        value: "api.example.com"
+      - name: Authorization
+        value: "Bearer token123"
+    body: |
+      {
+        "action": "configure_services",
+        "api_endpoint": "api.example.com",
+        "service_token": "token123",
+        "config_version": "v1.0",
+        "project": "orchestrator-example"
+      }
+  response:
+    result_code: ["200"]
+    env_from:
+      config_id: "json.json.action"
+      final_status: "json.json.config_version"
+
+down:
+  name: cleanup-configuration
+  method: POST
+  url: "https://httpbin.org/post"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body: |
+    {
+      "action": "remove_configuration",
+      "config_id": "configure_services"
+    }

@@ -1,0 +1,14 @@
+migrate_dir: migration
+
+store:
+  type: sqlite
+  sqlite:
+    path: /tmp/claude/infra_state.db
+
+env:
+  api_base: https://httpbin.org
+  cloud_provider: aws
+
+logging:
+  level: info
+  format: color

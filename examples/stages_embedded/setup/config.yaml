@@ -1,0 +1,15 @@
+---
+migrate_dir: ./migration
+
+env:
+  api_base: https://httpbin.org
+
+store:
+  type: sqlite
+  sqlite:
+    path: ./setup_state.db
+  save_response_body: false
+
+logging:
+  level: info
+  format: text

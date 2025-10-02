@@ -76,7 +76,7 @@ func (d *Down) runFind(ctx context.Context) (*ExecResult, error) {
 // Any 2xx status on the final call is considered success.
 func (d *Down) Execute(ctx context.Context) (*ExecResult, error) {
 	// 1) Optional find step
-	if d.Find != nil {
+	if d.Find != nil && d.Find.Request.Method != "" && d.Find.Request.URL != "" {
 		if res, err := d.runFind(ctx); err != nil {
 			// When validation fails we must return an ExecResult with status and error
 			return res, err

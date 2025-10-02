@@ -1,0 +1,31 @@
+up:
+  name: branch-a-additional-feature
+  request:
+    method: POST
+    url: "https://httpbin.org/post"
+    headers:
+      - name: Content-Type
+        value: application/json
+    body: |
+      {
+        "stage": "branch-a",
+        "action": "additional_feature",
+        "feature_name": "new_branch_a_feature"
+      }
+  response:
+    result_code: ["200"]
+    env_from:
+      branch_a_feature_id: "json.json.feature_name"
+
+down:
+  name: branch-a-additional-cleanup
+  method: POST
+  url: "https://httpbin.org/post"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body: |
+    {
+      "stage": "branch-a",
+      "action": "cleanup_additional_feature"
+    }

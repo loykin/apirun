@@ -1,0 +1,46 @@
+# Create admin user
+up:
+  name: create-admin-user
+  env:
+    username: admin
+    password: "{{.admin_password}}"
+    role: admin
+  request:
+    auth_name: admin_auth
+    method: POST
+    url: "{{.auth_service_url}}/users"
+    headers:
+      - name: Content-Type
+        value: application/json
+    body: |
+      {
+        "username": "{{.username}}",
+        "email": "{{.admin_email}}",
+        "password": "{{.password}}",
+        "role": "{{.role}}",
+        "active": true,
+        "metadata": {
+          "created_by": "apirun",
+          "stage": "configuration",
+          "project": "{{.project_name}}"
+        }
+      }
+  response:
+    result_code: ["201", "409"] # 409 if user already exists
+    env_from:
+      admin_user_id: "user.id"
+      admin_user_email: "user.email"
+
+down:
+  name: delete-admin-user
+  auth: admin_auth
+  find:
+    request:
+      method: GET
+      url: "{{.auth_service_url}}/users?username={{.username}}"
+    response:
+      result_code: ["200"]
+      env_from:
+        admin_user_id: "users.0.id"
+  method: DELETE
+  url: "{{.auth_service_url}}/users/{{.admin_user_id}}"

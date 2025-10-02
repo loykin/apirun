@@ -136,7 +136,9 @@ func (m *Migrator) prepareTaskEnv(current *env.Env) *env.Env {
 	} else if current.Auth == nil {
 		current.Auth = env.Map{}
 	}
-	if current.Local == nil {
+	if cl.Local != nil {
+		current.Local = cl.Local
+	} else if current.Local == nil {
 		current.Local = env.Map{}
 	}
 	return current

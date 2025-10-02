@@ -1,0 +1,35 @@
+apiVersion: apirun/v1
+kind: Migration
+
+up:
+  name: branch-a-initial-setup
+  request:
+    method: POST
+    url: "https://httpbin.org/post"
+    headers:
+      - name: Content-Type
+        value: application/json
+    body: |
+      {
+        "stage": "branch-a",
+        "setup_id": "{{.env.setup_id}}",
+        "action": "initial_setup"
+      }
+  response:
+    result_code: ["200"]
+    env_from:
+      branch_a_id: "json.json.setup_id"
+      branch_a_timestamp: "json.json.stage"
+
+down:
+  name: branch-a-initial-cleanup
+  method: DELETE
+  url: "https://httpbin.org/delete"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body: |
+    {
+      "stage": "branch-a",
+      "action": "cleanup_initial"
+    }
