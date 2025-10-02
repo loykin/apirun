@@ -17,12 +17,10 @@ stages:
 
   - name: branch-a
     config_path: branch-a/config.yaml
-    depends_on: [validation]
+    depends_on: [setup]
     env_from_stages:
       - stage: setup
         vars: [setup_id]
-      - stage: validation
-        vars: [validation_status]
 
   - name: branch-b
     config_path: branch-b/config.yaml

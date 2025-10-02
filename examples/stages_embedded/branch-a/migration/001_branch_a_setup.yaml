@@ -13,7 +13,6 @@ up:
       {
         "stage": "branch-a",
         "setup_id": "{{.setup_id}}",
-        "validation_status": "{{.validation_status}}",
         "action": "initial_setup"
       }
   response:

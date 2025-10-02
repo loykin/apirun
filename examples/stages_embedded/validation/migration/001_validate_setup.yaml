@@ -14,8 +14,8 @@ up:
   response:
     result_code: ["200", "503"]
     env_from:
-      validation_result: "json.url"
-      validation_timestamp: "json.headers.Host"
+      validation_status: "json.slideshow.title"
+      validation_timestamp: "json.slideshow.date"
 
 down:
   name: cleanup-validation
