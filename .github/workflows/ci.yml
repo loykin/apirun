@@ -80,7 +80,9 @@ jobs:
         run: go build ./...
 
       - name: Build apirun binary
-        run: go build -o apirun
+        run: |
+          go build -o apirun
+          chmod +x apirun
 
       - name: Run safe examples (self-contained, no external services)
         run: |
