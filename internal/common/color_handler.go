@@ -108,6 +108,14 @@ func (h *ColorHandler) Handle(_ context.Context, r slog.Record) error {
 	buf = append(buf, levelStr...)
 	buf = append(buf, " "...) // Add space after level
 
+	// Add groups if present
+	if len(h.groups) > 0 {
+		for _, group := range h.groups {
+			buf = append(buf, h.colorize(Blue, fmt.Sprintf("[%s]", group))...)
+			buf = append(buf, " "...)
+		}
+	}
+
 	// Format message with fixed width for alignment (50 chars to accommodate longer messages)
 	messageStr := fmt.Sprintf("%-54s", r.Message)
 	buf = append(buf, h.colorize(White, messageStr)...)

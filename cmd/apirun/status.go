@@ -56,11 +56,13 @@ var statusCmd = &cobra.Command{
 			dir = "./config/migration"
 		}
 
-		// Check if store is disabled (ToStorOptions returns nil when disabled)
-		if storeCfg == nil && strings.TrimSpace(configPath) != "" {
-			// This means store was disabled in config
-			fmt.Println("Store is disabled - no migration status available")
-			return nil
+		// Check if store is explicitly disabled in config
+		if strings.TrimSpace(configPath) != "" {
+			var doc ConfigDoc
+			if err := doc.Load(configPath); err == nil && doc.Store.Disabled {
+				fmt.Println("Store is disabled - no migration status available")
+				return nil
+			}
 		}
 
 		// Use default SQLite store if no store config provided

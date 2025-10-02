@@ -19,6 +19,7 @@ var downCmd = &cobra.Command{
 		v := viper.GetViper()
 		configPath := v.GetString("config")
 		dry := v.GetBool("dry_run")
+		dryRunFrom := v.GetInt("dry_run_from")
 		to := v.GetInt("to")
 		ctx := context.Background()
 		be := env.New()
@@ -63,7 +64,7 @@ var downCmd = &cobra.Command{
 		if abs, err := filepath.Abs(dir); err == nil {
 			dir = abs
 		}
-		m := apirun.Migrator{Env: *baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry}
+		m := apirun.Migrator{Env: *baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry, DryRunFrom: dryRunFrom}
 		// Set default render_body and delay from config if provided
 		if strings.TrimSpace(configPath) != "" {
 			var doc ConfigDoc
