@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -334,8 +335,13 @@ func (s *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string
 		return err
 	}
 
+	if len(kv) > (math.MaxInt / 3) {
+		return fmt.Errorf("map too large, capacity overflow risk")
+	}
+
 	valuesClauses := make([]string, 0, len(kv))
-	args := make([]interface{}, 0, len(kv)*3)
+	capacity := len(kv) * 3
+	args := make([]interface{}, 0, capacity)
 
 	for name, value := range kv {
 		valuesClauses = append(valuesClauses, "(?,?,?)")
