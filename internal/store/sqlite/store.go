@@ -335,7 +335,7 @@ func (s *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string
 		return err
 	}
 
-	if len(kv) > (math.MaxInt / 3) {
+	if len(kv) < 0 || len(kv) > (math.MaxInt/3) {
 		return fmt.Errorf("map too large, capacity overflow risk")
 	}
 
