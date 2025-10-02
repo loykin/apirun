@@ -254,8 +254,8 @@ func (o *Orchestrator) executeStage(ctx context.Context, stage *Stage) error {
 
 // executeStageDown executes a single stage's down migration
 func (o *Orchestrator) executeStageDown(ctx context.Context, stage *Stage) error {
-	// Build environment for this stage
-	stageEnv, err := o.buildStageEnvironment(stage)
+	// Build environment for this stage (simplified for down migrations)
+	stageEnv, err := o.buildStageEnvironmentForDown(stage)
 	if err != nil {
 		return fmt.Errorf("failed to build environment for stage %s: %w", stage.Name, err)
 	}
@@ -330,6 +330,31 @@ func (o *Orchestrator) buildStageEnvironment(stage *Stage) (*env.Env, error) {
 		}
 	}
 	o.mu.RUnlock()
+
+	return stageEnv, nil
+}
+
+// buildStageEnvironmentForDown builds a simplified environment for down migrations
+// that doesn't depend on other stages since they may have already been rolled back
+func (o *Orchestrator) buildStageEnvironmentForDown(stage *Stage) (*env.Env, error) {
+	stageEnv := env.New()
+
+	// Start with global environment
+	if o.context.GlobalEnv != nil {
+		for k, v := range o.context.GlobalEnv {
+			_ = stageEnv.SetString("global", k, v)
+		}
+	}
+
+	// Add stage-specific environment (not dependent stage variables)
+	if stage.Env != nil {
+		for k, v := range stage.Env {
+			_ = stageEnv.SetString("local", k, v)
+		}
+	}
+
+	// For down migrations, we don't add environment from dependent stages
+	// since they may have already been rolled back
 
 	return stageEnv, nil
 }

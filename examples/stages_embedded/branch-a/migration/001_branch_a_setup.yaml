@@ -12,7 +12,7 @@ up:
     body: |
       {
         "stage": "branch-a",
-        "setup_id": "{{.setup_id}}",
+        "setup_id": "{{.env.setup_id}}",
         "action": "initial_setup"
       }
   response:
