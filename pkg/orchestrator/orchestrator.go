@@ -1,13 +1,16 @@
 package orchestrator
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/loykin/apirun"
@@ -30,8 +33,9 @@ func NewOrchestrator(config *StageOrchestration) *Orchestrator {
 		config: config,
 		graph:  NewDependencyGraph(),
 		context: &ExecutionContext{
-			StageResults: make(map[string]*StageResult),
-			GlobalEnv:    config.Global.Env,
+			StageResults:  make(map[string]*StageResult),
+			GlobalEnv:     config.Global.Env,
+			SkippedStages: make(map[string]string),
 		},
 		logger: slog.With("component", "orchestrator"),
 	}
@@ -175,6 +179,29 @@ func (o *Orchestrator) ExecuteStagesDown(ctx context.Context, fromStage, toStage
 
 // executeStage executes a single stage
 func (o *Orchestrator) executeStage(ctx context.Context, stage *Stage) error {
+	// Check if stage is marked as skipped
+	if reason, isSkipped := o.context.SkippedStages[stage.Name]; isSkipped {
+		o.logger.Info("stage skipped due to dependency failure",
+			"stage", stage.Name,
+			"reason", reason)
+
+		result := &StageResult{
+			Name:         stage.Name,
+			Success:      false,
+			Error:        fmt.Sprintf("skipped: %s", reason),
+			StartTime:    time.Now(),
+			EndTime:      time.Now(),
+			Duration:     0,
+			ExtractedEnv: make(map[string]string),
+		}
+
+		o.mu.Lock()
+		o.context.StageResults[stage.Name] = result
+		o.mu.Unlock()
+
+		return nil // Don't propagate error for skipped stages
+	}
+
 	result := &StageResult{
 		Name:         stage.Name,
 		ExtractedEnv: make(map[string]string),
@@ -406,11 +433,13 @@ func (o *Orchestrator) filterStagesInRange(order []string, fromStage, toStage st
 	}
 
 	start, end := 0, len(order)
+	fromFound, toFound := fromStage == "", toStage == ""
 
 	if fromStage != "" {
 		for i, stage := range order {
 			if stage == fromStage {
 				start = i
+				fromFound = true
 				break
 			}
 		}
@@ -420,9 +449,15 @@ func (o *Orchestrator) filterStagesInRange(order []string, fromStage, toStage st
 		for i, stage := range order {
 			if stage == toStage {
 				end = i + 1
+				toFound = true
 				break
 			}
 		}
+	}
+
+	// If any specified stage is not found, return empty slice
+	if !fromFound || !toFound {
+		return []string{}
 	}
 
 	if start >= end {
@@ -468,9 +503,10 @@ func (o *Orchestrator) filterStagesInRangeDown(order []string, fromStage, toStag
 }
 
 func (o *Orchestrator) evaluateCondition(condition string) bool {
-	// Simple condition evaluation - can be extended
-	// For now, just check if it's "true" or contains basic comparisons
 	condition = strings.TrimSpace(condition)
+	if condition == "" {
+		return true
+	}
 	if condition == "true" {
 		return true
 	}
@@ -478,9 +514,63 @@ func (o *Orchestrator) evaluateCondition(condition string) bool {
 		return false
 	}
 
-	// TODO: Implement template-based condition evaluation
-	// For now, default to true
-	return true
+	// Template-based condition evaluation
+	tmpl, err := template.New("condition").Funcs(template.FuncMap{
+		"eq":       func(a, b interface{}) bool { return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b) },
+		"ne":       func(a, b interface{}) bool { return fmt.Sprintf("%v", a) != fmt.Sprintf("%v", b) },
+		"contains": func(s, substr string) bool { return strings.Contains(s, substr) },
+		"success":  func(stageName string) bool { return o.isStageSuccessful(stageName) },
+		"failed":   func(stageName string) bool { return o.isStageFailed(stageName) },
+		"env": func(key string) string {
+			// Check Global.Env first, then OS env
+			if val, exists := o.context.GlobalEnv[key]; exists {
+				return val
+			}
+			return os.Getenv(key)
+		},
+	}).Parse(condition)
+
+	if err != nil {
+		o.logger.Error("failed to parse condition template", "condition", condition, "error", err)
+		return false
+	}
+
+	// Create template data with execution context
+	data := map[string]interface{}{
+		"Results": o.context.StageResults,
+		"Env":     o.context.GlobalEnv,
+		"OS":      map[string]string{"GOOS": "darwin", "GOARCH": "amd64"}, // Could be dynamic
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		o.logger.Error("failed to execute condition template", "condition", condition, "error", err)
+		return false
+	}
+
+	result := strings.TrimSpace(buf.String())
+	parsed, err := strconv.ParseBool(result)
+	if err != nil {
+		o.logger.Error("condition did not evaluate to boolean", "condition", condition, "result", result)
+		return false
+	}
+
+	o.logger.Debug("condition evaluated", "condition", condition, "result", parsed)
+	return parsed
+}
+
+func (o *Orchestrator) isStageSuccessful(stageName string) bool {
+	if result, exists := o.context.StageResults[stageName]; exists {
+		return result.Success
+	}
+	return false
+}
+
+func (o *Orchestrator) isStageFailed(stageName string) bool {
+	if result, exists := o.context.StageResults[stageName]; exists {
+		return !result.Success
+	}
+	return false
 }
 
 func (o *Orchestrator) handleStageFailure(stage *Stage, err error) error {
@@ -494,8 +584,16 @@ func (o *Orchestrator) handleStageFailure(stage *Stage, err error) error {
 		o.logger.Warn("continuing despite stage failure", "stage", stage.Name)
 		return nil
 	case "skip_dependents":
-		// TODO: Implement dependent skipping logic
-		o.logger.Warn("skipping dependents not yet implemented", "stage", stage.Name)
+		dependents := o.graph.GetAllDependents(stage.Name)
+		o.logger.Warn("skipping dependent stages due to failure",
+			"failed_stage", stage.Name,
+			"dependents", dependents)
+
+		// Mark all dependents as skipped
+		for _, dependent := range dependents {
+			o.context.SkippedStages[dependent] = fmt.Sprintf("dependency %s failed", stage.Name)
+		}
+
 		return err
 	default: // "stop" or empty
 		return fmt.Errorf("stage %s failed: %w", stage.Name, err)
@@ -512,4 +610,65 @@ func (o *Orchestrator) GetStageResults() map[string]*StageResult {
 		results[k] = v
 	}
 	return results
+}
+
+// GetExecutionPlan returns the execution plan for stages in the specified range
+func (o *Orchestrator) GetExecutionPlan(fromStage, toStage string, direction string) ([][]string, error) {
+	if direction == "down" {
+		// For down migrations, use reverse order
+		order, err := o.graph.TopologicalSort()
+		if err != nil {
+			return nil, fmt.Errorf("failed to sort stages: %w", err)
+		}
+
+		// Reverse the order for down migrations
+		for i, j := 0, len(order)-1; i < j; i, j = i+1, j-1 {
+			order[i], order[j] = order[j], order[i]
+		}
+
+		stagesToExecute := o.filterStagesInRange(order, fromStage, toStage)
+
+		// Convert to batches (each stage in its own batch for down migrations)
+		batches := make([][]string, len(stagesToExecute))
+		for i, stage := range stagesToExecute {
+			batches[i] = []string{stage}
+		}
+		return batches, nil
+	}
+
+	// For up migrations, use dependency batches
+	batches, err := o.graph.GetBatches()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get execution batches: %w", err)
+	}
+
+	// Filter batches based on range
+	var filteredBatches [][]string
+	stageSet := make(map[string]bool)
+
+	// Build set of stages to execute
+	order, err := o.graph.TopologicalSort()
+	if err != nil {
+		return nil, fmt.Errorf("failed to sort stages: %w", err)
+	}
+
+	stagesToExecute := o.filterStagesInRange(order, fromStage, toStage)
+	for _, stage := range stagesToExecute {
+		stageSet[stage] = true
+	}
+
+	// Filter each batch to only include stages in our execution set
+	for _, batch := range batches {
+		var filteredBatch []string
+		for _, stage := range batch {
+			if stageSet[stage] {
+				filteredBatch = append(filteredBatch, stage)
+			}
+		}
+		if len(filteredBatch) > 0 {
+			filteredBatches = append(filteredBatches, filteredBatch)
+		}
+	}
+
+	return filteredBatches, nil
 }

@@ -120,7 +120,7 @@ func executeStagesCommand(cmd *cobra.Command, isUp bool) error {
 	}
 
 	if dryRun {
-		return showExecutionPlan(fromStage, toStage, direction)
+		return showExecutionPlan(cmd, fromStage, toStage, direction)
 	}
 
 	// Execute stages
@@ -143,7 +143,15 @@ func executeStagesCommand(cmd *cobra.Command, isUp bool) error {
 	return nil
 }
 
-func showExecutionPlan(fromStage, toStage, direction string) error {
+func showExecutionPlan(cmd *cobra.Command, fromStage, toStage, direction string) error {
+	configPath, _ := cmd.Flags().GetString("config")
+
+	// Load orchestrator to get execution plan
+	orch, err := orchestrator.LoadFromFile(configPath)
+	if err != nil {
+		return err
+	}
+
 	fmt.Printf("🔍 Execution plan (%s):\n", direction)
 
 	if fromStage != "" {
@@ -158,9 +166,29 @@ func showExecutionPlan(fromStage, toStage, direction string) error {
 		fmt.Printf("To stage: <end>\n")
 	}
 
-	fmt.Println("\n📋 Stages to execute:")
-	// TODO: Add actual execution plan by exposing graph methods from orchestrator
-	fmt.Println("  • Note: Detailed execution plan requires orchestrator graph exposure")
+	// Get execution plan
+	batches, err := orch.GetExecutionPlan(fromStage, toStage, direction)
+	if err != nil {
+		return fmt.Errorf("failed to get execution plan: %w", err)
+	}
+
+	if len(batches) == 0 {
+		fmt.Println("\n📋 No stages to execute")
+		return nil
+	}
+
+	fmt.Println("\n📋 Execution plan:")
+	for i, batch := range batches {
+		if len(batch) == 1 {
+			fmt.Printf("  %d. %s\n", i+1, batch[0])
+		} else {
+			fmt.Printf("  %d. Parallel execution:\n", i+1)
+			for _, stage := range batch {
+				fmt.Printf("     • %s\n", stage)
+			}
+		}
+	}
+
 	fmt.Println("\n⚠️  This is a dry run - no changes will be made")
 
 	return nil

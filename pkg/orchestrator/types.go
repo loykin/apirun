@@ -52,6 +52,7 @@ type StageResult struct {
 
 // ExecutionContext holds the context for stage execution
 type ExecutionContext struct {
-	StageResults map[string]*StageResult
-	GlobalEnv    map[string]string
+	StageResults  map[string]*StageResult
+	GlobalEnv     map[string]string
+	SkippedStages map[string]string // stage name -> reason for skipping
 }
