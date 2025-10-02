@@ -317,7 +317,8 @@ func (p *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string
 		return fmt.Errorf("map too large, capacity overflow risk")
 	}
 	valuesClauses := make([]string, 0, c)
-	args := make([]interface{}, 0, c*3)
+	capacity := c * 3
+	args := make([]interface{}, 0, capacity)
 	argIndex := 1
 
 	for name, value := range kv {
