@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
@@ -30,7 +31,7 @@ var downCmd = &cobra.Command{
 		if strings.TrimSpace(configPath) != "" {
 			var doc ConfigDoc
 			if err := doc.Load(configPath); err != nil {
-				return err
+				return fmt.Errorf("failed to load configuration file '%s': %w\nPlease verify the file exists and contains valid YAML", configPath, err)
 			}
 			mDir := strings.TrimSpace(doc.MigrateDir)
 			if mDir == "" {
@@ -39,13 +40,13 @@ var downCmd = &cobra.Command{
 			}
 			envFromCfg, err := doc.GetEnv()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to process environment variables from config: %w", err)
 			}
 			if err := doWait(ctx, envFromCfg, doc.Wait, doc.Client); err != nil {
-				return err
+				return fmt.Errorf("dependency wait check failed: %w\nCheck that required services are running and accessible", err)
 			}
 			if err := doc.DecodeAuth(ctx, envFromCfg); err != nil {
-				return err
+				return fmt.Errorf("authentication setup failed: %w\nVerify auth configuration in config file", err)
 			}
 			// Store configuration is controlled via config file (store.disabled)
 			storeCfgFromDoc = doc.Store.ToStorOptions()

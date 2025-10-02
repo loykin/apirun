@@ -1,6 +1,7 @@
 package orchestrator
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -407,7 +408,7 @@ func TestOrchestrator_executeStage_SkippedStage(t *testing.T) {
 	}
 
 	// Execute the skipped stage
-	err := orch.executeStage(nil, stage)
+	err := orch.executeStage(context.TODO(), stage)
 
 	// Should not return error for skipped stage
 	if err != nil {

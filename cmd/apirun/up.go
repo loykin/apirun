@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,7 @@ var upCmd = &cobra.Command{
 			configPath = os.Getenv("APIMIGRATE_CONFIG")
 		}
 		dry := v.GetBool("dry_run")
+		dryRunFrom := v.GetInt("dry_run_from")
 		to := v.GetInt("to")
 		ctx := context.Background()
 		be := ienv.New()
@@ -34,7 +36,7 @@ var upCmd = &cobra.Command{
 		if strings.TrimSpace(configPath) != "" {
 			var doc ConfigDoc
 			if err := doc.Load(configPath); err != nil {
-				return err
+				return fmt.Errorf("failed to load configuration file '%s': %w\nPlease verify the file exists and contains valid YAML", configPath, err)
 			}
 			mDir := strings.TrimSpace(doc.MigrateDir)
 			if mDir == "" {
@@ -43,13 +45,13 @@ var upCmd = &cobra.Command{
 			}
 			envFromCfg, err := doc.GetEnv()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to process environment variables from config: %w", err)
 			}
 			if err := doWait(ctx, envFromCfg, doc.Wait, doc.Client); err != nil {
-				return err
+				return fmt.Errorf("dependency wait check failed: %w\nCheck that required services are running and accessible", err)
 			}
 			if err := doc.DecodeAuth(ctx, envFromCfg); err != nil {
-				return err
+				return fmt.Errorf("authentication setup failed: %w\nVerify auth configuration in config file", err)
 			}
 			// Store configuration is controlled via config file (store.disabled)
 			// Build store options now; we'll pass them to Migrator below
@@ -69,7 +71,7 @@ var upCmd = &cobra.Command{
 		if abs, err := filepath.Abs(dir); err == nil {
 			dir = abs
 		}
-		m := apirun.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry}
+		m := apirun.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry, DryRunFrom: dryRunFrom}
 		// Set default render_body and delay from config if provided
 		if strings.TrimSpace(configPath) != "" {
 			var doc ConfigDoc
