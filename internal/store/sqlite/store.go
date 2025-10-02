@@ -329,7 +329,7 @@ func (s *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string
 		return nil
 	}
 
-	if len(kv) < 0 || len(kv) > maxStoredEnvVars {
+	if len(kv) > maxStoredEnvVars {
 		err := fmt.Errorf("cannot store more than %d environment variables (got: %d)", maxStoredEnvVars, len(kv))
 		logger.Error("too many environment variables", "max", maxStoredEnvVars, "got", len(kv), "error", err)
 		return err

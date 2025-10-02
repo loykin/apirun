@@ -311,7 +311,7 @@ func (p *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string
 	if c == 0 {
 		return nil
 	}
-	if c < 0 || c > maxStoredEnvEntries {
+	if c > maxStoredEnvEntries {
 		return fmt.Errorf("stored environment map too large: %d entries (limit: %d)", c, maxStoredEnvEntries)
 	}
 	valuesClauses := make([]string, 0, c)
