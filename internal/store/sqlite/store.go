@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"strings"
 	"time"
 
@@ -321,6 +320,7 @@ func (s *Store) RecordRun(th TableNames, version int, direction string, status i
 
 // InsertStoredEnv inserts stored environment variables
 func (s *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string) error {
+	// maxStoredEnvVars is set safely below math.MaxInt/3 to prevent overflow in capacity calculation (len(kv)*3)
 	const maxStoredEnvVars = 10000
 	logger := common.GetLogger().WithStore("sqlite").WithVersion(version)
 	logger.Debug("inserting stored environment variables", "count", len(kv))
@@ -329,14 +329,10 @@ func (s *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string
 		return nil
 	}
 
-	if len(kv) > maxStoredEnvVars {
+	if len(kv) < 0 || len(kv) > maxStoredEnvVars {
 		err := fmt.Errorf("cannot store more than %d environment variables (got: %d)", maxStoredEnvVars, len(kv))
 		logger.Error("too many environment variables", "max", maxStoredEnvVars, "got", len(kv), "error", err)
 		return err
-	}
-
-	if len(kv) < 0 || len(kv) > (math.MaxInt/3) {
-		return fmt.Errorf("map too large, capacity overflow risk")
 	}
 
 	valuesClauses := make([]string, 0, len(kv))

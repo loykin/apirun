@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"math"
 	"strings"
 	"time"
 
@@ -304,17 +303,16 @@ func (p *Store) RecordRun(th TableNames, version int, direction string, status i
 }
 
 // InsertStoredEnv inserts stored environment variables
-const maxStoredEnvEntries = 10000 // Defensive limit for maximum stored environment entries
+// maxStoredEnvEntries is set safely below math.MaxInt/3 to prevent overflow in capacity calculation (c*3)
+const maxStoredEnvEntries = 10000
+
 func (p *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string) error {
 	c := len(kv)
 	if c == 0 {
 		return nil
 	}
-	if c > maxStoredEnvEntries {
+	if c < 0 || c > maxStoredEnvEntries {
 		return fmt.Errorf("stored environment map too large: %d entries (limit: %d)", c, maxStoredEnvEntries)
-	}
-	if c < 0 || c > (math.MaxInt/3) {
-		return fmt.Errorf("map too large, capacity overflow risk")
 	}
 	valuesClauses := make([]string, 0, c)
 	capacity := c * 3
