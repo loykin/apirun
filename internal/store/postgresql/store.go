@@ -304,10 +304,14 @@ func (p *Store) RecordRun(th TableNames, version int, direction string, status i
 }
 
 // InsertStoredEnv inserts stored environment variables
+const maxStoredEnvEntries = 10000 // Defensive limit for maximum stored environment entries
 func (p *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string) error {
 	c := len(kv)
 	if c == 0 {
 		return nil
+	}
+	if c > maxStoredEnvEntries {
+		return fmt.Errorf("stored environment map too large: %d entries (limit: %d)", c, maxStoredEnvEntries)
 	}
 	if c > (math.MaxInt / 3) {
 		return fmt.Errorf("map too large, capacity overflow risk")
