@@ -3,17 +3,19 @@ kind: Migration
 
 up:
   name: branch-a-initial-setup
-  method: POST
-  url: "https://httpbin.org/post"
-  headers:
-    Content-Type: application/json
-  body: |
-    {
-      "stage": "branch-a",
-      "setup_id": "{{.setup_id}}",
-      "validation_status": "{{.validation_status}}",
-      "action": "initial_setup"
-    }
+  request:
+    method: POST
+    url: "https://httpbin.org/post"
+    headers:
+      - name: Content-Type
+        value: application/json
+    body: |
+      {
+        "stage": "branch-a",
+        "setup_id": "{{.setup_id}}",
+        "validation_status": "{{.validation_status}}",
+        "action": "initial_setup"
+      }
   response:
     result_code: ["200"]
     env_from:
@@ -24,6 +26,9 @@ down:
   name: branch-a-initial-cleanup
   method: DELETE
   url: "https://httpbin.org/delete"
+  headers:
+    - name: Content-Type
+      value: application/json
   body: |
     {
       "stage": "branch-a",
