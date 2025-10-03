@@ -2,7 +2,7 @@ package oauth2
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -51,10 +51,10 @@ func (m passwordMethod) Acquire(ctx context.Context) (string, error) {
 	authURL := strings.TrimSpace(m.c.AuthURL)
 	tokenURL := strings.TrimSpace(m.c.TokenURL)
 	if tokenURL == "" {
-		return "", errors.New("oauth2: token_url is required for password grant")
+		return "", fmt.Errorf("oauth2: token_url is required for password grant")
 	}
 	if clientID == "" || username == "" || password == "" {
-		return "", errors.New("oauth2: client_id, username and password are required for password grant")
+		return "", fmt.Errorf("oauth2: client_id, username and password are required for password grant")
 	}
 	// If a TLS config is provided, inject a custom HTTP client into the context
 	if cfg := acommon.GetTLSConfig(); cfg != nil {

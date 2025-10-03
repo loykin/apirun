@@ -2,7 +2,6 @@ package store
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -43,7 +42,7 @@ func (s *Store) Connect(config Config) error {
 		}
 		s.Driver = DriverPostgresql
 	default:
-		return errors.New("unknown store driver: " + s.Driver)
+		return fmt.Errorf("unknown store driver: %s", s.Driver)
 	}
 	db, err := conn.Connect()
 	if err != nil {

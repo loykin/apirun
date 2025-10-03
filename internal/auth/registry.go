@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -54,7 +53,7 @@ func AcquireAndStoreWithName(ctx context.Context, typ string, spec map[string]in
 	f, ok := providers[normalizeKey(typ)]
 	if !ok {
 		logger.Error("unsupported auth provider type", "provider_type", typ)
-		return "", errors.New("auth: unsupported provider type: " + typ)
+		return "", fmt.Errorf("auth: unsupported provider type: %s", typ)
 	}
 	m, err := f(spec)
 	if err != nil {

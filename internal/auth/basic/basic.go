@@ -2,7 +2,7 @@ package basic
 
 import (
 	"encoding/base64"
-	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -26,7 +26,7 @@ func AcquireBasic(pc Config) (string, error) {
 	u := strings.TrimSpace(pc.Username)
 	p := strings.TrimSpace(pc.Password)
 	if u == "" || p == "" {
-		return "", errors.New("basic: username and password are required")
+		return "", fmt.Errorf("basic: username and password are required")
 	}
 	cred := base64.StdEncoding.EncodeToString([]byte(u + ":" + p))
 	return cred, nil

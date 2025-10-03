@@ -2,7 +2,7 @@ package auth
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/loykin/apirun/internal/util"
@@ -43,10 +43,10 @@ func (a *Auth) Acquire(ctx context.Context, e *env.Env) (string, error) {
 	}
 	pt := strings.TrimSpace(a.Type)
 	if pt == "" {
-		return "", errors.New("auth: missing type")
+		return "", fmt.Errorf("auth: missing type")
 	}
 	if a.Methods == nil {
-		return "", errors.New("auth: methods not provided")
+		return "", fmt.Errorf("auth: methods not provided")
 	}
 	cfg := a.Methods.ToMap()
 	// Render templates in cfg using the provided env (global/local/auth)

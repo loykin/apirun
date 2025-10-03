@@ -3,7 +3,6 @@ package pocketbase
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -29,7 +28,7 @@ func (c Config) ToMap() map[string]interface{} {
 
 func AcquirePocketBase(ctx context.Context, pc Config) (string, error) {
 	if strings.TrimSpace(pc.BaseURL) == "" || strings.TrimSpace(pc.Email) == "" || strings.TrimSpace(pc.Password) == "" {
-		return "", errors.New("pocketbase: base_url, email and password are required")
+		return "", fmt.Errorf("pocketbase: base_url, email and password are required")
 	}
 	loginURL := strings.TrimRight(pc.BaseURL, "/") + "/api/admins/auth-with-password"
 	body := map[string]string{"identity": pc.Email, "password": pc.Password}
@@ -52,7 +51,7 @@ func AcquirePocketBase(ctx context.Context, pc Config) (string, error) {
 	}
 	v := strings.TrimSpace(lr.Token)
 	if v == "" {
-		return "", errors.New("pocketbase: token not found in response")
+		return "", fmt.Errorf("pocketbase: token not found in response")
 	}
 	return v, nil
 }

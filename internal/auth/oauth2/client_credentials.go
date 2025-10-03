@@ -2,7 +2,7 @@ package oauth2
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -44,10 +44,10 @@ func (m clientCredentialsMethod) Acquire(ctx context.Context) (string, error) {
 	clientSecret := strings.TrimSpace(m.c.ClientSec)
 	tokenURL := strings.TrimSpace(m.c.TokenURL)
 	if tokenURL == "" {
-		return "", errors.New("oauth2: token_url is required for client_credentials grant")
+		return "", fmt.Errorf("oauth2: token_url is required for client_credentials grant")
 	}
 	if clientID == "" || clientSecret == "" {
-		return "", errors.New("oauth2: client_id and client_secret are required for client_credentials grant")
+		return "", fmt.Errorf("oauth2: client_id and client_secret are required for client_credentials grant")
 	}
 	// If a TLS config is provided, inject a custom HTTP client into the context
 	if cfg := acommon.GetTLSConfig(); cfg != nil {
