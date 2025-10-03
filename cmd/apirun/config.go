@@ -91,7 +91,7 @@ func (c *StoreConfig) ToStorOptions() *apirun.StoreConfig {
 
 	tableNames := c.deriveTableNames()
 
-	if stType == apirun.DriverPostgres {
+	if stType == apirun.DriverPostgresql {
 		return c.createPostgresStoreConfig(tableNames)
 	}
 
@@ -136,7 +136,7 @@ func (c *StoreConfig) createPostgresStoreConfig(tableNames apirun.TableNames) *a
 	pg := apirun.PostgresConfig(pgConfig)
 
 	out := &apirun.StoreConfig{}
-	out.Config.Driver = apirun.DriverPostgres
+	out.Config.Driver = apirun.DriverPostgresql
 	out.Config.DriverConfig = &pg
 	out.Config.TableNames = tableNames
 	return out

@@ -289,12 +289,12 @@ func TestBuildStoreOptions_EmptyType_ReturnsNil(t *testing.T) {
 }
 
 func TestBuildStoreOptions_Postgres_WithDSN(t *testing.T) {
-	doc := ConfigDoc{Store: StoreConfig{Type: apirun.DriverPostgres, Postgres: postgresql.Config{DSN: "postgres://u:p@h:5432/db?sslmode=disable"}}}
+	doc := ConfigDoc{Store: StoreConfig{Type: apirun.DriverPostgresql, Postgres: postgresql.Config{DSN: "postgres://u:p@h:5432/db?sslmode=disable"}}}
 	got := doc.Store.ToStorOptions()
 	if got == nil {
 		t.Fatalf("expected non-nil options")
 	}
-	if got.Config.Driver != apirun.DriverPostgres {
+	if got.Config.Driver != apirun.DriverPostgresql {
 		t.Fatalf("driver=%s, want postgres", got.Config.Driver)
 	}
 	pg, ok := got.Config.DriverConfig.(*apirun.PostgresConfig)
@@ -307,11 +307,11 @@ func TestBuildStoreOptions_Postgres_WithDSN(t *testing.T) {
 }
 
 func TestBuildStoreOptions_Postgres_BuildFromComponents_Defaults(t *testing.T) {
-	doc := ConfigDoc{Store: StoreConfig{Type: apirun.DriverPostgres, Postgres: postgresql.Config{
+	doc := ConfigDoc{Store: StoreConfig{Type: apirun.DriverPostgresql, Postgres: postgresql.Config{
 		Host: "localhost", User: "user", Password: "pass", DBName: "db", // Port=0 -> default 5432, SSLMode empty -> disable
 	}}}
 	got := doc.Store.ToStorOptions()
-	if got == nil || got.Config.Driver != apirun.DriverPostgres {
+	if got == nil || got.Config.Driver != apirun.DriverPostgresql {
 		t.Fatalf("expected postgres driver, got %#v", got)
 	}
 	exp := "postgres://user:pass@localhost:5432/db?sslmode=disable"
@@ -396,7 +396,7 @@ func TestOpenStoreFromOptions_SQLitePath_UsesPath(t *testing.T) {
 
 func TestOpenStoreFromOptions_PostgresMissingDSN_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
-	doc := ConfigDoc{Store: StoreConfig{Type: apirun.DriverPostgres, Postgres: postgresql.Config{DSN: ""}}}
+	doc := ConfigDoc{Store: StoreConfig{Type: apirun.DriverPostgresql, Postgres: postgresql.Config{DSN: ""}}}
 	so := doc.Store.ToStorOptions()
 	// buildStoreOptionsFromDoc returns postgres backend with empty DSN if host also empty
 	// OpenStoreFromOptions should error

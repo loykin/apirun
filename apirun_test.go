@@ -74,7 +74,7 @@ func TestOpenStoreFromOptions_SQLite_DefaultAndCustomNames(t *testing.T) {
 // Test that postgres backend with empty DSN errors out
 func TestOpenStoreFromOptions_Postgres_EmptyDSN_Err(t *testing.T) {
 	cfg := &StoreConfig{}
-	cfg.Config.Driver = DriverPostgres
+	cfg.Config.Driver = DriverPostgresql
 	cfg.Config.DriverConfig = &PostgresConfig{DSN: ""}
 	_, err := OpenStoreFromOptions(t.TempDir(), cfg)
 	if err == nil {

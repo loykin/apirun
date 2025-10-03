@@ -19,7 +19,7 @@ import (
 )
 
 const DriverSqlite = store.DriverSqlite
-const DriverPostgres = store.DriverPostgresql
+const DriverPostgresql = store.DriverPostgresql
 
 type DriverConfig interface {
 	ToMap() map[string]interface{}
@@ -74,7 +74,7 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 			// Infer driver from DriverConfig type when not explicitly set
 			switch cfg.DriverConfig.(type) {
 			case *store.PostgresConfig:
-				cfg.Driver = DriverPostgres
+				cfg.Driver = DriverPostgresql
 			default:
 				cfg.Driver = DriverSqlite
 			}
@@ -115,7 +115,7 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 			// Infer driver from DriverConfig type when not explicitly set
 			switch cfg.DriverConfig.(type) {
 			case *store.PostgresConfig:
-				cfg.Driver = DriverPostgres
+				cfg.Driver = DriverPostgresql
 			default:
 				cfg.Driver = DriverSqlite
 			}
@@ -229,7 +229,7 @@ func OpenStoreFromOptions(dir string, storeConfig *StoreConfig) (*Store, error) 
 	if drv == "" {
 		switch cfg.DriverConfig.(type) {
 		case *store.PostgresConfig:
-			drv = DriverPostgres
+			drv = DriverPostgresql
 		default:
 			drv = DriverSqlite
 		}
