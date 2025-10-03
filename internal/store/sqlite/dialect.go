@@ -56,7 +56,7 @@ func (s *Dialect) ConvertTimeFromStorage(val interface{}) string {
 	return ""
 }
 
-// Connect establishes a connection to SQLite
+// Connect establishes a connection to SQLite with connection pooling
 func (s *Dialect) Connect(dsn string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -67,8 +67,11 @@ func (s *Dialect) Connect(dsn string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to ping SQLite database: %w", err)
 	}
 
-	// SQLite-specific configuration
-	db.SetMaxOpenConns(1)
+	// SQLite-specific configuration (SQLite doesn't support multiple writers)
+	db.SetMaxOpenConns(1)                   // SQLite allows only one writer
+	db.SetMaxIdleConns(1)                   // Keep one idle connection
+	db.SetConnMaxLifetime(10 * time.Minute) // Longer lifetime for SQLite
+	db.SetConnMaxIdleTime(5 * time.Minute)  // Longer idle time for SQLite
 
 	return db, nil
 }

@@ -2,6 +2,8 @@ package httpc
 
 import (
 	"crypto/tls"
+	"net/http"
+	"time"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/loykin/apirun/internal/common"
@@ -19,6 +21,29 @@ func (h *Httpc) New() *resty.Client {
 
 	c := resty.New()
 
+	// Configure retry policy for resilient HTTP operations
+	c.SetRetryCount(3).
+		SetRetryWaitTime(1 * time.Second).
+		SetRetryMaxWaitTime(5 * time.Second).
+		AddRetryCondition(func(r *resty.Response, err error) bool {
+			// Retry on network errors
+			if err != nil {
+				logger.Debug("retrying due to network error", "error", err)
+				return true
+			}
+			// Retry on 5xx server errors (like 502 Bad Gateway)
+			if r.StatusCode() >= 500 {
+				logger.Debug("retrying due to server error", "status_code", r.StatusCode())
+				return true
+			}
+			// Retry on specific 4xx errors that might be transient
+			if r.StatusCode() == http.StatusTooManyRequests || r.StatusCode() == http.StatusRequestTimeout {
+				logger.Debug("retrying due to transient client error", "status_code", r.StatusCode())
+				return true
+			}
+			return false
+		})
+
 	// Add request/response logging middleware
 	c.OnBeforeRequest(func(c *resty.Client, req *resty.Request) error {
 		logger.Debug("HTTP request",
@@ -32,9 +57,16 @@ func (h *Httpc) New() *resty.Client {
 			"method", resp.Request.Method,
 			"url", resp.Request.URL,
 			"status_code", resp.StatusCode(),
-			"duration_ms", resp.Time().Milliseconds())
+			"duration_ms", resp.Time().Milliseconds(),
+			"attempt", resp.Request.Attempt)
 		return nil
 	})
+
+	// Log retry information through the AfterResponse middleware
+	logger.Debug("HTTP client configured with retry policy",
+		"max_retries", 3,
+		"initial_wait", "1s",
+		"max_wait", "5s")
 
 	cfg := h.TlsConfig
 	if cfg == nil {

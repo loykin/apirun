@@ -53,12 +53,19 @@ func (p *Dialect) ConvertTimeFromStorage(val interface{}) string {
 	return ""
 }
 
-// Connect establishes a connection to PostgreSQL
+// Connect establishes a connection to PostgreSQL with connection pooling
 func (p *Dialect) Connect(dsn string) (*sql.DB, error) {
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open PostgreSQL connection: %w", err)
 	}
+
+	// Configure connection pool settings
+	db.SetMaxOpenConns(25)                 // Maximum number of open connections
+	db.SetMaxIdleConns(5)                  // Maximum number of idle connections
+	db.SetConnMaxLifetime(5 * time.Minute) // Maximum amount of time a connection may be reused
+	db.SetConnMaxIdleTime(1 * time.Minute) // Maximum amount of time a connection may be idle
+
 	if err := db.Ping(); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("failed to ping PostgreSQL database: %w", err)

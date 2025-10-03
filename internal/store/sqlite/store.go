@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/loykin/apirun/internal/common"
+	"github.com/loykin/apirun/internal/retry"
 )
 
 // Run represents a single execution record from the migration_runs table.
@@ -31,15 +33,17 @@ type TableNames struct {
 }
 
 type Store struct {
-	db      *sql.DB
-	dialect *Dialect
-	DSN     string
+	db          *sql.DB
+	dialect     *Dialect
+	DSN         string
+	retryConfig *retry.Config
 }
 
 // NewStore creates a new SQLite store
 func NewStore() *Store {
 	return &Store{
-		dialect: NewDialect(),
+		dialect:     NewDialect(),
+		retryConfig: retry.DefaultRetryConfig(),
 	}
 }
 
@@ -118,7 +122,10 @@ func (s *Store) Apply(th TableNames, v int) error {
 			th.SchemaMigrations, s.dialect.GetPlaceholder())
 	}
 
-	_, err := s.db.Exec(q, v)
+	ctx := context.Background()
+	_, err := retry.WithRetryExec(ctx, s.retryConfig, func() (sql.Result, error) {
+		return s.db.Exec(q, v)
+	})
 	if err != nil {
 		logger.Error("failed to apply migration version", "error", err)
 		return fmt.Errorf("failed to apply migration version %d: %w", v, err)
@@ -136,8 +143,13 @@ func (s *Store) IsApplied(th TableNames, v int) (bool, error) {
 	q := fmt.Sprintf("SELECT 1 FROM %s WHERE version = %s", th.SchemaMigrations, s.dialect.GetPlaceholder())
 
 	var result int
-	err := s.db.QueryRow(q, v).Scan(&result)
-	if errors.Is(err, sql.ErrNoRows) {
+	var scanErr error
+	ctx := context.Background()
+	err := retry.WithRetry(ctx, s.retryConfig, func() error {
+		scanErr = s.db.QueryRow(q, v).Scan(&result)
+		return scanErr
+	})
+	if errors.Is(scanErr, sql.ErrNoRows) {
 		logger.Debug("migration version not applied")
 		return false, nil
 	}
@@ -155,7 +167,10 @@ func (s *Store) CurrentVersion(th TableNames) (int, error) {
 	q := fmt.Sprintf("SELECT COALESCE(MAX(version), 0) FROM %s", th.SchemaMigrations)
 
 	var version int
-	err := s.db.QueryRow(q).Scan(&version)
+	ctx := context.Background()
+	err := retry.WithRetry(ctx, s.retryConfig, func() error {
+		return s.db.QueryRow(q).Scan(&version)
+	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get current version: %w", err)
 	}
@@ -166,7 +181,10 @@ func (s *Store) CurrentVersion(th TableNames) (int, error) {
 func (s *Store) ListApplied(th TableNames) ([]int, error) {
 	q := fmt.Sprintf("SELECT version FROM %s ORDER BY version", th.SchemaMigrations)
 
-	rows, err := s.db.Query(q)
+	ctx := context.Background()
+	rows, err := retry.WithRetryQuery(ctx, s.retryConfig, func() (*sql.Rows, error) {
+		return s.db.Query(q)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list applied migrations: %w", err)
 	}
@@ -191,7 +209,10 @@ func (s *Store) ListApplied(th TableNames) ([]int, error) {
 func (s *Store) Remove(th TableNames, v int) error {
 	q := fmt.Sprintf("DELETE FROM %s WHERE version = %s", th.SchemaMigrations, s.dialect.GetPlaceholder())
 
-	_, err := s.db.Exec(q, v)
+	ctx := context.Background()
+	_, err := retry.WithRetryExec(ctx, s.retryConfig, func() (sql.Result, error) {
+		return s.db.Exec(q, v)
+	})
 	if err != nil {
 		return fmt.Errorf("failed to remove migration version %d: %w", v, err)
 	}
@@ -215,7 +236,10 @@ func (s *Store) SetVersion(th TableNames, target int) error {
 
 	q := fmt.Sprintf("DELETE FROM %s WHERE version > %s", th.SchemaMigrations, s.dialect.GetPlaceholder())
 
-	_, err = s.db.Exec(q, target)
+	ctx := context.Background()
+	_, err = retry.WithRetryExec(ctx, s.retryConfig, func() (sql.Result, error) {
+		return s.db.Exec(q, target)
+	})
 	if err != nil {
 		return fmt.Errorf("failed to set version to %d: %w", target, err)
 	}
@@ -228,8 +252,13 @@ func (s *Store) LoadEnv(th TableNames, version int, direction string) (map[strin
 		th.MigrationRuns, s.dialect.GetPlaceholder(), s.dialect.GetPlaceholder())
 
 	var envJSON *string
-	err := s.db.QueryRow(q, version, direction).Scan(&envJSON)
-	if errors.Is(err, sql.ErrNoRows) {
+	var scanErr error
+	ctx := context.Background()
+	err := retry.WithRetry(ctx, s.retryConfig, func() error {
+		scanErr = s.db.QueryRow(q, version, direction).Scan(&envJSON)
+		return scanErr
+	})
+	if errors.Is(scanErr, sql.ErrNoRows) {
 		return map[string]string{}, nil
 	}
 	if err != nil {
@@ -251,7 +280,10 @@ func (s *Store) LoadEnv(th TableNames, version int, direction string) (map[strin
 func (s *Store) LoadStoredEnv(th TableNames, version int) (map[string]string, error) {
 	q := fmt.Sprintf("SELECT name, value FROM %s WHERE version = %s", th.StoredEnv, s.dialect.GetPlaceholder())
 
-	rows, err := s.db.Query(q, version)
+	ctx := context.Background()
+	rows, err := retry.WithRetryQuery(ctx, s.retryConfig, func() (*sql.Rows, error) {
+		return s.db.Query(q, version)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to load stored env for version %d: %w", version, err)
 	}
@@ -276,7 +308,10 @@ func (s *Store) LoadStoredEnv(th TableNames, version int) (map[string]string, er
 func (s *Store) DeleteStoredEnv(th TableNames, version int) error {
 	q := fmt.Sprintf("DELETE FROM %s WHERE version = %s", th.StoredEnv, s.dialect.GetPlaceholder())
 
-	_, err := s.db.Exec(q, version)
+	ctx := context.Background()
+	_, err := retry.WithRetryExec(ctx, s.retryConfig, func() (sql.Result, error) {
+		return s.db.Exec(q, version)
+	})
 	if err != nil {
 		return fmt.Errorf("failed to delete stored env for version %d: %w", version, err)
 	}
@@ -308,7 +343,10 @@ func (s *Store) RecordRun(th TableNames, version int, direction string, status i
 		s.dialect.GetPlaceholder(), s.dialect.GetPlaceholder(), s.dialect.GetPlaceholder(),
 		s.dialect.GetPlaceholder())
 
-	_, err := s.db.Exec(q, version, direction, status, body, envJSON, failedVal, ranAt)
+	ctx := context.Background()
+	_, err := retry.WithRetryExec(ctx, s.retryConfig, func() (sql.Result, error) {
+		return s.db.Exec(q, version, direction, status, body, envJSON, failedVal, ranAt)
+	})
 	if err != nil {
 		logger.Error("failed to record migration run", "error", err)
 		return fmt.Errorf("failed to record migration run (version %d, direction %s, status %d): %w", version, direction, status, err)
@@ -346,7 +384,10 @@ func (s *Store) InsertStoredEnv(th TableNames, version int, kv map[string]string
 	q := fmt.Sprintf("INSERT OR REPLACE INTO %s(version, name, value) VALUES %s",
 		th.StoredEnv, strings.Join(valuesClauses, ","))
 
-	_, err := s.db.Exec(q, args...)
+	ctx := context.Background()
+	_, err := retry.WithRetryExec(ctx, s.retryConfig, func() (sql.Result, error) {
+		return s.db.Exec(q, args...)
+	})
 	if err != nil {
 		logger.Error("failed to insert stored environment", "error", err)
 		return fmt.Errorf("failed to insert stored environment for version %d: %w", version, err)
@@ -363,7 +404,10 @@ func (s *Store) ListRuns(th TableNames) ([]Run, error) {
 
 	q := fmt.Sprintf("SELECT id, version, direction, status_code, body, env_json, failed, ran_at FROM %s ORDER BY id ASC", th.MigrationRuns)
 
-	rows, err := s.db.Query(q)
+	ctx := context.Background()
+	rows, err := retry.WithRetryQuery(ctx, s.retryConfig, func() (*sql.Rows, error) {
+		return s.db.Query(q)
+	})
 	if err != nil {
 		logger.Error("failed to query migration runs", "error", err)
 		return nil, fmt.Errorf("failed to list migration runs: %w", err)
