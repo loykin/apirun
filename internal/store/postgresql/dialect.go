@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/loykin/apirun/internal/constants"
 )
 
 // Dialect implements SQL dialect for PostgreSQL
@@ -53,12 +55,19 @@ func (p *Dialect) ConvertTimeFromStorage(val interface{}) string {
 	return ""
 }
 
-// Connect establishes a connection to PostgreSQL
+// Connect establishes a connection to PostgreSQL with connection pooling
 func (p *Dialect) Connect(dsn string) (*sql.DB, error) {
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open PostgreSQL connection: %w", err)
 	}
+
+	// Configure connection pool settings
+	db.SetMaxOpenConns(constants.DefaultPostgresMaxConnections) // Maximum number of open connections
+	db.SetMaxIdleConns(constants.DefaultPostgresMaxIdleConns)   // Maximum number of idle connections
+	db.SetConnMaxLifetime(constants.DefaultMaxConnLifetime)     // Maximum amount of time a connection may be reused
+	db.SetConnMaxIdleTime(constants.DefaultMaxIdleTime)         // Maximum amount of time a connection may be idle
+
 	if err := db.Ping(); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("failed to ping PostgreSQL database: %w", err)

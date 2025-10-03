@@ -1,4 +1,4 @@
-package main
+package runner
 
 import (
 	"encoding/json"
@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/loykin/apirun/cmd/apirun/commands"
 	"github.com/spf13/viper"
 )
 
@@ -71,8 +72,8 @@ migrate_dir: %s
 	v.Set("to", 0)
 
 	// Run the up command
-	if err := upCmd.RunE(upCmd, nil); err != nil {
-		t.Fatalf("upCmd.RunE error: %v", err)
+	if err := commands.UpCmd.RunE(commands.UpCmd, nil); err != nil {
+		t.Fatalf("commands.UpCmd.RunE error: %v", err)
 	}
 	if calls != 1 {
 		t.Fatalf("expected 1 API call, got %d", calls)

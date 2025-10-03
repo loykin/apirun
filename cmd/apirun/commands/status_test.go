@@ -1,4 +1,4 @@
-package main
+package commands
 
 import (
 	"bytes"
@@ -53,8 +53,8 @@ func TestStatusCmd_EmptyStore_PrintsZeroAndEmpty(t *testing.T) {
 	v.Set("v", false)
 
 	out := captureOutput(t, func() {
-		if err := statusCmd.RunE(statusCmd, nil); err != nil {
-			t.Fatalf("statusCmd.RunE error: %v", err)
+		if err := StatusCmd.RunE(StatusCmd, nil); err != nil {
+			t.Fatalf("StatusCmd.RunE error: %v", err)
 		}
 	})
 
@@ -92,8 +92,8 @@ func TestStatusCmd_WithAppliedVersions_PrintsCurrentAndList(t *testing.T) {
 	v.Set("v", false)
 
 	out := captureOutput(t, func() {
-		if err := statusCmd.RunE(statusCmd, nil); err != nil {
-			t.Fatalf("statusCmd.RunE error: %v", err)
+		if err := StatusCmd.RunE(StatusCmd, nil); err != nil {
+			t.Fatalf("StatusCmd.RunE error: %v", err)
 		}
 	})
 

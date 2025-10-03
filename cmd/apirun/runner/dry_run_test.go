@@ -1,16 +1,27 @@
-package main
+package runner
 
 import (
 	"database/sql"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/cmd/apirun/commands"
 	"github.com/spf13/viper"
 )
+
+func writeFile(t *testing.T, dir, name, content string) string {
+	t.Helper()
+	p := filepath.Join(dir, name)
+	if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+		t.Fatalf("write %s: %v", name, err)
+	}
+	return p
+}
 
 // Dry-run up should not write to schema_migrations or migration_runs
 func TestCLI_Up_DryRun_NoStoreMutations(t *testing.T) {
@@ -47,7 +58,7 @@ migrate_dir: %s
 	v.Set("dry_run_from", 0)
 	defer func() { v.Set("dry_run", false); v.Set("dry_run_from", 0) }()
 
-	if err := upCmd.RunE(upCmd, nil); err != nil {
+	if err := commands.UpCmd.RunE(commands.UpCmd, nil); err != nil {
 		t.Fatalf("up dry-run: %v", err)
 	}
 	// Validate that store file may not even exist; if it exists, tables should be empty
@@ -99,7 +110,7 @@ migrate_dir: %s
 	v.Set("v", false)
 	v.Set("to", 0)
 	v.Set("dry_run", false)
-	if err := upCmd.RunE(upCmd, nil); err != nil {
+	if err := commands.UpCmd.RunE(commands.UpCmd, nil); err != nil {
 		t.Fatalf("up real: %v", err)
 	}
 
@@ -108,7 +119,7 @@ migrate_dir: %s
 	v.Set("dry_run_from", 1)
 	defer func() { v.Set("dry_run", false); v.Set("dry_run_from", 0) }()
 	v.Set("to", 1)
-	if err := downCmd.RunE(downCmd, nil); err != nil {
+	if err := commands.DownCmd.RunE(commands.DownCmd, nil); err != nil {
 		t.Fatalf("down dry-run: %v", err)
 	}
 

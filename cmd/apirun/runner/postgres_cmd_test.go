@@ -1,4 +1,4 @@
-package main
+package runner
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/loykin/apirun/cmd/apirun/commands"
 	"github.com/spf13/viper"
 	tc "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -138,12 +139,12 @@ store:
 	v.Set("to", 0)
 
 	// Run up
-	if err := upCmd.RunE(upCmd, nil); err != nil {
+	if err := commands.UpCmd.RunE(commands.UpCmd, nil); err != nil {
 		t.Fatalf("up error: %v", err)
 	}
 
 	// Run down and validate the API effect (path recorded by the server)
-	if err := downCmd.RunE(downCmd, nil); err != nil {
+	if err := commands.DownCmd.RunE(commands.DownCmd, nil); err != nil {
 		t.Fatalf("down error: %v", err)
 	}
 	if delPath != "/resource/xyz" {

@@ -2,11 +2,11 @@ package oauth2
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"net/http"
-	"strings"
 
 	acommon "github.com/loykin/apirun/internal/auth/common"
+	"github.com/loykin/apirun/internal/util"
 	"golang.org/x/oauth2"
 )
 
@@ -45,16 +45,13 @@ type passwordMethod struct {
 }
 
 func (m passwordMethod) Acquire(ctx context.Context) (string, error) {
-	clientID := strings.TrimSpace(m.c.ClientID)
-	username := strings.TrimSpace(m.c.Username)
-	password := strings.TrimSpace(m.c.Password)
-	authURL := strings.TrimSpace(m.c.AuthURL)
-	tokenURL := strings.TrimSpace(m.c.TokenURL)
+	fields := util.TrimSpaceFields(m.c.ClientID, m.c.Username, m.c.Password, m.c.AuthURL, m.c.TokenURL)
+	clientID, username, password, authURL, tokenURL := fields[0], fields[1], fields[2], fields[3], fields[4]
 	if tokenURL == "" {
-		return "", errors.New("oauth2: token_url is required for password grant")
+		return "", fmt.Errorf("oauth2: token_url is required for password grant")
 	}
 	if clientID == "" || username == "" || password == "" {
-		return "", errors.New("oauth2: client_id, username and password are required for password grant")
+		return "", fmt.Errorf("oauth2: client_id, username and password are required for password grant")
 	}
 	// If a TLS config is provided, inject a custom HTTP client into the context
 	if cfg := acommon.GetTLSConfig(); cfg != nil {
@@ -67,7 +64,7 @@ func (m passwordMethod) Acquire(ctx context.Context) (string, error) {
 	}
 	ocfg := &oauth2.Config{
 		ClientID:     clientID,
-		ClientSecret: strings.TrimSpace(m.c.ClientSec),
+		ClientSecret: util.TrimWithDefault(m.c.ClientSec, ""),
 		Endpoint: oauth2.Endpoint{
 			AuthURL:   authURL,
 			TokenURL:  tokenURL,

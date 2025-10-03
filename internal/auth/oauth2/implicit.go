@@ -2,7 +2,7 @@ package oauth2
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -40,13 +40,13 @@ func (m implicitMethod) Acquire(_ context.Context) (string, error) {
 	authURL := strings.TrimSpace(m.c.AuthURL)
 	redirect := strings.TrimSpace(m.c.RedirectURL)
 	if authURL == "" {
-		return "", errors.New("oauth2: auth_url is required for implicit grant")
+		return "", fmt.Errorf("oauth2: auth_url is required for implicit grant")
 	}
 	if clientID == "" {
-		return "", errors.New("oauth2: client_id is required for implicit grant")
+		return "", fmt.Errorf("oauth2: client_id is required for implicit grant")
 	}
 	if redirect == "" {
-		return "", errors.New("oauth2: redirect_url is required for implicit grant")
+		return "", fmt.Errorf("oauth2: redirect_url is required for implicit grant")
 	}
 	params := []string{
 		"response_type=token",

@@ -1,7 +1,6 @@
 package security
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -9,8 +8,8 @@ import (
 )
 
 var (
-	ErrDangerousAction = errors.New("template contains dangerous action")
-	ErrExcessiveDepth  = errors.New("template depth exceeds maximum allowed")
+	ErrDangerousAction = fmt.Errorf("template contains dangerous action")
+	ErrExcessiveDepth  = fmt.Errorf("template depth exceeds maximum allowed")
 )
 
 // TemplateValidator provides security validation for Go templates

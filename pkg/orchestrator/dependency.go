@@ -229,3 +229,39 @@ func (dg *DependencyGraph) GetStagesByNames(names []string) []*Stage {
 	}
 	return stages
 }
+
+// GetDependents returns all stages that depend on the given stage
+func (dg *DependencyGraph) GetDependents(stageName string) []string {
+	if deps, exists := dg.edges[stageName]; exists {
+		// Return a copy to avoid modifying the original slice
+		result := make([]string, len(deps))
+		copy(result, deps)
+		return result
+	}
+	return []string{}
+}
+
+// GetAllDependents returns all stages that depend on the given stage, recursively
+func (dg *DependencyGraph) GetAllDependents(stageName string) []string {
+	visited := make(map[string]bool)
+	result := make([]string, 0)
+
+	var collect func(string)
+	collect = func(name string) {
+		if visited[name] {
+			return
+		}
+		visited[name] = true
+
+		// Get direct dependents
+		if deps, exists := dg.edges[name]; exists {
+			for _, dep := range deps {
+				result = append(result, dep)
+				collect(dep)
+			}
+		}
+	}
+
+	collect(stageName)
+	return result
+}

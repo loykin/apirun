@@ -1,8 +1,7 @@
-package main
+package config
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -44,8 +43,17 @@ func TestConfigDoc_DecodeAuth_BasicFlow(t *testing.T) {
 	if err := doc.DecodeAuth(ctx, base); err != nil {
 		t.Fatalf("DecodeAuth error: %v", err)
 	}
+	// Check that auth.b1 is populated
+	if base.Auth["b1"] == nil {
+		t.Fatalf("auth.b1 should be set after DecodeAuth")
+	}
 	// Lazy acquisition: token should be fetched when referenced in a template
-	if got := base.RenderGoTemplate("{{.auth.b1}}"); got == "{{.auth.b1}}" || got == "" {
+	got, err := base.RenderGoTemplateErr("{{.auth.b1}}")
+	if err != nil {
+		t.Fatalf("RenderGoTemplateErr failed: %v", err)
+	}
+	t.Logf("Rendered: %q", got)
+	if got == "{{.auth.b1}}" || got == "" {
 		t.Fatalf("expected lazy auth to acquire token for b1, got %q", got)
 	}
 }
@@ -104,21 +112,3 @@ func TestPublicAuthHelpers_WireThrough(t *testing.T) {
 type dummyMethodWire string
 
 func (d dummyMethodWire) Acquire(_ context.Context) (string, error) { return string(d), nil }
-
-func TestLazyVal_String_SuccessAndError(t *testing.T) {
-	calls := 0
-	l := &lazyVal{proc: func() (string, error) { calls++; return "VAL", nil }}
-	if s := l.String(); s != "VAL" {
-		t.Fatalf("expected VAL, got %q", s)
-	}
-	// second call should not invoke proc again
-	_ = l.String()
-	if calls != 1 {
-		t.Fatalf("expected single call, got %d", calls)
-	}
-	// error case
-	e := &lazyVal{proc: func() (string, error) { return "", errors.New("boom") }}
-	if s := e.String(); s != "" {
-		t.Fatalf("expected empty on error, got %q", s)
-	}
-}

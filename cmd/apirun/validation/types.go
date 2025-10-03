@@ -1,4 +1,4 @@
-package main
+package validation
 
 // ValidationResult represents the validation result for a single migration file
 type ValidationResult struct {

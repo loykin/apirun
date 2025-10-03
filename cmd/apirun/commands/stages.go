@@ -1,14 +1,15 @@
-package main
+package commands
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/loykin/apirun/internal/common"
 	"github.com/loykin/apirun/pkg/orchestrator"
 	"github.com/spf13/cobra"
 )
 
-var stagesCmd = &cobra.Command{
+var StagesCmd = &cobra.Command{
 	Use:   "stages",
 	Short: "Manage multi-stage orchestration",
 }
@@ -51,23 +52,24 @@ var stagesValidateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configPath, _ := cmd.Flags().GetString("config")
 
+		logger := common.GetLogger().WithComponent("stages-validate")
 		_, err := orchestrator.LoadFromFile(configPath)
 		if err != nil {
-			fmt.Printf("❌ Validation failed: %v\n", err)
+			logger.Error("validation failed", "error", err, "config_path", configPath)
 			return err
 		}
 
-		fmt.Println("✅ Configuration is valid")
+		logger.Info("configuration is valid", "config_path", configPath)
 		return nil
 	},
 }
 
 func init() {
 	// Add subcommands to stages
-	stagesCmd.AddCommand(stagesUpCmd)
-	stagesCmd.AddCommand(stagesDownCmd)
-	stagesCmd.AddCommand(stagesStatusCmd)
-	stagesCmd.AddCommand(stagesValidateCmd)
+	StagesCmd.AddCommand(stagesUpCmd)
+	StagesCmd.AddCommand(stagesDownCmd)
+	StagesCmd.AddCommand(stagesStatusCmd)
+	StagesCmd.AddCommand(stagesValidateCmd)
 
 	// Add common flags to all stage commands
 	addCommonStageFlags(stagesUpCmd)
@@ -120,7 +122,7 @@ func executeStagesCommand(cmd *cobra.Command, isUp bool) error {
 	}
 
 	if dryRun {
-		return showExecutionPlan(fromStage, toStage, direction)
+		return showExecutionPlan(cmd, fromStage, toStage, direction)
 	}
 
 	// Execute stages
@@ -136,14 +138,23 @@ func executeStagesCommand(cmd *cobra.Command, isUp bool) error {
 	}
 
 	if isUp {
-		fmt.Println("✅ All stages executed successfully")
+		logger := common.GetLogger().WithComponent("stages-up")
+		logger.Info("all stages executed successfully")
 	} else {
 		fmt.Println("✅ All stages rolled back successfully")
 	}
 	return nil
 }
 
-func showExecutionPlan(fromStage, toStage, direction string) error {
+func showExecutionPlan(cmd *cobra.Command, fromStage, toStage, direction string) error {
+	configPath, _ := cmd.Flags().GetString("config")
+
+	// Load orchestrator to get execution plan
+	orch, err := orchestrator.LoadFromFile(configPath)
+	if err != nil {
+		return err
+	}
+
 	fmt.Printf("🔍 Execution plan (%s):\n", direction)
 
 	if fromStage != "" {
@@ -158,9 +169,29 @@ func showExecutionPlan(fromStage, toStage, direction string) error {
 		fmt.Printf("To stage: <end>\n")
 	}
 
-	fmt.Println("\n📋 Stages to execute:")
-	// TODO: Add actual execution plan by exposing graph methods from orchestrator
-	fmt.Println("  • Note: Detailed execution plan requires orchestrator graph exposure")
+	// Get execution plan
+	batches, err := orch.GetExecutionPlan(fromStage, toStage, direction)
+	if err != nil {
+		return fmt.Errorf("failed to get execution plan: %w", err)
+	}
+
+	if len(batches) == 0 {
+		fmt.Println("\n📋 No stages to execute")
+		return nil
+	}
+
+	fmt.Println("\n📋 Execution plan:")
+	for i, batch := range batches {
+		if len(batch) == 1 {
+			fmt.Printf("  %d. %s\n", i+1, batch[0])
+		} else {
+			fmt.Printf("  %d. Parallel execution:\n", i+1)
+			for _, stage := range batch {
+				fmt.Printf("     • %s\n", stage)
+			}
+		}
+	}
+
 	fmt.Println("\n⚠️  This is a dry run - no changes will be made")
 
 	return nil

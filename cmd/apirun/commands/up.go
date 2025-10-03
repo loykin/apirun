@@ -1,36 +1,43 @@
-package main
+package commands
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/loykin/apirun"
-	"github.com/loykin/apirun/pkg/env"
+	"github.com/loykin/apirun/cmd/apirun/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	ienv "github.com/loykin/apirun/pkg/env"
 )
 
-var downCmd = &cobra.Command{
-	Use:   "down",
-	Short: "Rollback down to a target version",
+var UpCmd = &cobra.Command{
+	Use:   "up",
+	Short: "Apply up migrations up to a target version (0 = all)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		v := viper.GetViper()
 		configPath := v.GetString("config")
+		if strings.TrimSpace(configPath) == "" {
+			configPath = os.Getenv("APIMIGRATE_CONFIG")
+		}
 		dry := v.GetBool("dry_run")
 		dryRunFrom := v.GetInt("dry_run_from")
 		to := v.GetInt("to")
 		ctx := context.Background()
-		be := env.New()
-		baseEnv := &be
+		be := ienv.New()
+		baseEnv := be
 		dir := ""
 		saveResp := false
 		var storeCfgFromDoc *apirun.StoreConfig
 		if strings.TrimSpace(configPath) != "" {
-			var doc ConfigDoc
+			var doc config.ConfigDoc
 			if err := doc.Load(configPath); err != nil {
-				return err
+				return fmt.Errorf("failed to load configuration file '%s': %w\nPlease verify the file exists and contains valid YAML", configPath, err)
 			}
 			mDir := strings.TrimSpace(doc.MigrateDir)
 			if mDir == "" {
@@ -39,22 +46,23 @@ var downCmd = &cobra.Command{
 			}
 			envFromCfg, err := doc.GetEnv()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to process environment variables from config: %w", err)
 			}
-			if err := doWait(ctx, envFromCfg, doc.Wait, doc.Client); err != nil {
-				return err
+			if err := DoWait(ctx, envFromCfg, doc.Wait, doc.Client); err != nil {
+				return fmt.Errorf("dependency wait check failed: %w\nCheck that required services are running and accessible", err)
 			}
 			if err := doc.DecodeAuth(ctx, envFromCfg); err != nil {
-				return err
+				return fmt.Errorf("authentication setup failed: %w\nVerify auth configuration in config file", err)
 			}
 			// Store configuration is controlled via config file (store.disabled)
+			// Build store options now; we'll pass them to Migrator below
 			storeCfgFromDoc = doc.Store.ToStorOptions()
 			saveBody := doc.Store.SaveResponseBody
 			if mDir != "" {
 				dir = mDir
 			}
 			// Always use env from config (may carry Auth even if Global is empty)
-			baseEnv = &envFromCfg
+			baseEnv = envFromCfg
 			saveResp = saveBody
 		}
 		if strings.TrimSpace(dir) == "" {
@@ -64,10 +72,10 @@ var downCmd = &cobra.Command{
 		if abs, err := filepath.Abs(dir); err == nil {
 			dir = abs
 		}
-		m := apirun.Migrator{Env: *baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry, DryRunFrom: dryRunFrom}
+		m := apirun.Migrator{Env: baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry, DryRunFrom: dryRunFrom}
 		// Set default render_body and delay from config if provided
 		if strings.TrimSpace(configPath) != "" {
-			var doc ConfigDoc
+			var doc config.ConfigDoc
 			if err := doc.Load(configPath); err == nil {
 				if doc.RenderBody != nil {
 					m.RenderBodyDefault = doc.RenderBody
@@ -79,9 +87,10 @@ var downCmd = &cobra.Command{
 				}
 			}
 		}
-		// Configure store via Migrator.StoreConfig (auto-connect inside MigrateDown)
+		// Configure store via Migrator.StoreConfig (auto-connect inside MigrateUp)
 		var scPtr *apirun.StoreConfig
 		if strings.TrimSpace(configPath) != "" {
+			// Reuse store config parsed earlier
 			if storeCfgFromDoc != nil {
 				scPtr = storeCfgFromDoc
 			}
@@ -94,7 +103,7 @@ var downCmd = &cobra.Command{
 			scPtr = tmp
 		}
 		m.StoreConfig = scPtr
-		_, err := m.MigrateDown(ctx, to)
+		_, err := m.MigrateUp(ctx, to)
 		return err
 	},
 }

@@ -1,4 +1,4 @@
-package main
+package commands
 
 import (
 	"os"
@@ -27,9 +27,9 @@ func TestCreateCmd_GeneratesTimestampedFileWithTemplate(t *testing.T) {
 	v.Set("v", false)
 
 	// Run the command (name: sample_task)
-	createCmd.SetArgs([]string{"sample task"})
-	if err := createCmd.RunE(createCmd, []string{"sample task"}); err != nil {
-		t.Fatalf("createCmd.RunE: %v", err)
+	CreateCmd.SetArgs([]string{"sample task"})
+	if err := CreateCmd.RunE(CreateCmd, []string{"sample task"}); err != nil {
+		t.Fatalf("CreateCmd.RunE: %v", err)
 	}
 
 	// Find created file

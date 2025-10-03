@@ -1,4 +1,4 @@
-package main
+package commands
 
 import (
 	"encoding/base64"
@@ -109,8 +109,8 @@ migrate_dir: %s
 	v.Set("to", 0)
 
 	// Run the up command
-	if err := upCmd.RunE(upCmd, nil); err != nil {
-		t.Fatalf("upCmd.RunE error: %v", err)
+	if err := UpCmd.RunE(UpCmd, nil); err != nil {
+		t.Fatalf("UpCmd.RunE error: %v", err)
 	}
 
 	if calls["/one"] != 1 || calls["/two"] != 1 {
@@ -193,8 +193,8 @@ migrate_dir: %s
 	v.Set("v", false)
 	v.Set("to", 0)
 
-	if err := upCmd.RunE(upCmd, nil); err != nil {
-		t.Fatalf("upCmd.RunE error: %v", err)
+	if err := UpCmd.RunE(UpCmd, nil); err != nil {
+		t.Fatalf("UpCmd.RunE error: %v", err)
 	}
 	if calls["/one"] != 1 || calls["/two"] != 1 {
 		t.Fatalf("expected one call to /one and /two, got: %v", calls)

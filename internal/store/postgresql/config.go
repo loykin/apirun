@@ -2,13 +2,9 @@ package postgresql
 
 import (
 	"fmt"
-	"strings"
-)
 
-// PostgreSQL configuration constants
-const (
-	defaultPort    = 5432
-	defaultSSLMode = "disable"
+	"github.com/loykin/apirun/internal/constants"
+	"github.com/loykin/apirun/internal/util"
 )
 
 type Config struct {
@@ -24,20 +20,20 @@ type Config struct {
 
 func (p *Config) ToMap() map[string]interface{} {
 	// Prefer explicit DSN; otherwise, build from components when host is provided.
-	dsn := strings.TrimSpace(p.DSN)
-	if dsn == "" && strings.TrimSpace(p.Host) != "" {
+	dsn, hasDSN := util.TrimEmptyCheck(p.DSN)
+	host, hasHost := util.TrimEmptyCheck(p.Host)
+	if !hasDSN && hasHost {
 		port := p.Port
 		if port == 0 {
-			port = defaultPort
+			port = constants.DefaultPostgresPort
 		}
-		ssl := strings.TrimSpace(p.SSLMode)
-		if ssl == "" {
-			ssl = defaultSSLMode
-		}
+		ssl := util.TrimWithDefault(p.SSLMode, constants.DefaultPostgresSSLMode)
+
 		// Build DSN in the common form accepted by pgx stdlib.
+		fields := util.TrimSpaceFields(p.User, p.Password, p.DBName)
+		user, password, dbname := fields[0], fields[1], fields[2]
 		dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-			strings.TrimSpace(p.User), strings.TrimSpace(p.Password),
-			strings.TrimSpace(p.Host), port, strings.TrimSpace(p.DBName), ssl,
+			user, password, host, port, dbname, ssl,
 		)
 	}
 	p.dsn = dsn

@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/loykin/apirun/internal/constants"
 )
 
 // Dialect implements SQL dialect for SQLite
@@ -56,7 +58,7 @@ func (s *Dialect) ConvertTimeFromStorage(val interface{}) string {
 	return ""
 }
 
-// Connect establishes a connection to SQLite
+// Connect establishes a connection to SQLite with connection pooling
 func (s *Dialect) Connect(dsn string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -67,8 +69,11 @@ func (s *Dialect) Connect(dsn string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to ping SQLite database: %w", err)
 	}
 
-	// SQLite-specific configuration
-	db.SetMaxOpenConns(1)
+	// SQLite-specific configuration (SQLite doesn't support multiple writers)
+	db.SetMaxOpenConns(constants.DefaultSQLiteMaxConnections) // SQLite allows only one writer
+	db.SetMaxIdleConns(constants.DefaultSQLiteMaxIdleConns)   // Keep one idle connection
+	db.SetConnMaxLifetime(constants.DefaultSQLiteLifetime)    // Longer lifetime for SQLite
+	db.SetConnMaxIdleTime(constants.DefaultSQLiteIdleTime)    // Longer idle time for SQLite
 
 	return db, nil
 }

@@ -19,7 +19,7 @@ import (
 )
 
 const DriverSqlite = store.DriverSqlite
-const DriverPostgres = store.DriverPostgresql
+const DriverPostgresql = store.DriverPostgresql
 
 type DriverConfig interface {
 	ToMap() map[string]interface{}
@@ -31,6 +31,28 @@ type PostgresConfig = store.PostgresConfig
 type TableNames = store.TableNames
 type StoreConfig struct {
 	store.Config
+}
+
+// NewPostgresStoreConfig creates a StoreConfig for PostgreSQL with the given driver config and table names
+func NewPostgresStoreConfig(driverConfig *PostgresConfig, tableNames TableNames) *StoreConfig {
+	return &StoreConfig{
+		Config: store.Config{
+			Driver:       DriverPostgresql,
+			DriverConfig: driverConfig,
+			TableNames:   tableNames,
+		},
+	}
+}
+
+// NewSqliteStoreConfig creates a StoreConfig for SQLite with the given driver config and table names
+func NewSqliteStoreConfig(driverConfig *SqliteConfig, tableNames TableNames) *StoreConfig {
+	return &StoreConfig{
+		Config: store.Config{
+			Driver:       DriverSqlite,
+			DriverConfig: driverConfig,
+			TableNames:   tableNames,
+		},
+	}
 }
 
 // Migrator is the root struct-based API to run migrations programmatically.
@@ -74,7 +96,7 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 			// Infer driver from DriverConfig type when not explicitly set
 			switch cfg.DriverConfig.(type) {
 			case *store.PostgresConfig:
-				cfg.Driver = DriverPostgres
+				cfg.Driver = DriverPostgresql
 			default:
 				cfg.Driver = DriverSqlite
 			}
@@ -115,7 +137,7 @@ func (m *Migrator) MigrateDown(ctx context.Context, targetVersion int) ([]*ExecW
 			// Infer driver from DriverConfig type when not explicitly set
 			switch cfg.DriverConfig.(type) {
 			case *store.PostgresConfig:
-				cfg.Driver = DriverPostgres
+				cfg.Driver = DriverPostgresql
 			default:
 				cfg.Driver = DriverSqlite
 			}
@@ -229,7 +251,7 @@ func OpenStoreFromOptions(dir string, storeConfig *StoreConfig) (*Store, error) 
 	if drv == "" {
 		switch cfg.DriverConfig.(type) {
 		case *store.PostgresConfig:
-			drv = DriverPostgres
+			drv = DriverPostgresql
 		default:
 			drv = DriverSqlite
 		}

@@ -1,10 +1,10 @@
 package oauth2
 
 import (
-	"errors"
-	"strings"
+	"fmt"
 
 	"github.com/go-viper/mapstructure/v2"
+	"github.com/loykin/apirun/internal/util"
 )
 
 type Auth2Config struct {
@@ -15,12 +15,12 @@ type Auth2Config struct {
 // GetGrantMethod builds and returns a grant-specific oauth2 Method using the
 // GrantType and GrantConfig fields. This avoids the generic Build() path for simplicity.
 func (c Auth2Config) GetGrantMethod() (Method, error) {
-	gt := strings.ToLower(strings.TrimSpace(c.GrantType))
+	gt := util.TrimAndLower(c.GrantType)
 	if gt == "" {
-		return nil, errors.New("auth: oauth2 grant_type is required")
+		return nil, fmt.Errorf("auth: oauth2 grant_type is required")
 	}
 	if c.GrantConfig == nil {
-		return nil, errors.New("auth: oauth2 grant_config is required")
+		return nil, fmt.Errorf("auth: oauth2 grant_config is required")
 	}
 	sub := c.GrantConfig
 	switch gt {
@@ -43,6 +43,6 @@ func (c Auth2Config) GetGrantMethod() (Method, error) {
 		}
 		return implicitMethod{c: ic}, nil
 	default:
-		return nil, errors.New("auth: unsupported oauth2 grant_type: " + gt)
+		return nil, fmt.Errorf("auth: unsupported oauth2 grant_type: %s", gt)
 	}
 }

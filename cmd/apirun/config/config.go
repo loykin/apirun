@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"context"
@@ -6,27 +6,17 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
-	"sync"
 
 	"github.com/loykin/apirun"
 	iauth "github.com/loykin/apirun/internal/auth"
+	"github.com/loykin/apirun/internal/store/postgresql"
+	"github.com/loykin/apirun/internal/util"
 	"github.com/loykin/apirun/pkg/env"
 	"gopkg.in/yaml.v3"
 )
 
 type SQLiteStoreConfig struct {
 	Path string `mapstructure:"path" yaml:"path"`
-}
-
-type PostgresStoreConfig struct {
-	DSN      string `mapstructure:"dsn" yaml:"dsn"`
-	Host     string `mapstructure:"host" yaml:"host"`
-	Port     int    `mapstructure:"port" yaml:"port"`
-	User     string `mapstructure:"user" yaml:"user"`
-	Password string `mapstructure:"password" yaml:"password"`
-	DBName   string `mapstructure:"dbname" yaml:"dbname"`
-	SSLMode  string `mapstructure:"sslmode" yaml:"sslmode"`
 }
 
 type AuthConfig struct {
@@ -54,11 +44,11 @@ type LoggingConfig struct {
 }
 
 type StoreConfig struct {
-	Disabled         bool                `mapstructure:"disabled" yaml:"disabled" json:"disabled"`
-	SaveResponseBody bool                `mapstructure:"save_response_body" yaml:"save_response_body"`
-	Type             string              `mapstructure:"type" yaml:"type"`
-	SQLite           SQLiteStoreConfig   `mapstructure:"sqlite" yaml:"sqlite"`
-	Postgres         PostgresStoreConfig `mapstructure:"postgres" yaml:"postgres"`
+	Disabled         bool              `mapstructure:"disabled" yaml:"disabled" json:"disabled"`
+	SaveResponseBody bool              `mapstructure:"save_response_body" yaml:"save_response_body"`
+	Type             string            `mapstructure:"type" yaml:"type"`
+	SQLite           SQLiteStoreConfig `mapstructure:"sqlite" yaml:"sqlite"`
+	Postgres         postgresql.Config `mapstructure:"postgres" yaml:"postgres"`
 	// Optional table name customization
 	TablePrefix           string `mapstructure:"table_prefix" yaml:"table_prefix"`
 	TableSchemaMigrations string `mapstructure:"table_schema_migrations" yaml:"table_schema_migrations"`
@@ -66,86 +56,9 @@ type StoreConfig struct {
 	TableStoredEnv        string `mapstructure:"table_stored_env" yaml:"table_stored_env"`
 }
 
-// lazyVal is a Stringer that resolves once via proc when first printed
-// used to install lazy .auth values into env.Auth Map without tying env to auth
-type lazyVal struct {
-	once sync.Once
-	res  string
-	err  error
-	proc func() (string, error)
-}
-
-func (l *lazyVal) String() string {
-	l.once.Do(func() {
-		v, err := l.proc()
-		if err != nil {
-			l.err = err
-			l.res = ""
-			return
-		}
-		l.res = v
-	})
-	return l.res
-}
-
 func (c *StoreConfig) ToStorOptions() *apirun.StoreConfig {
-	if c.Disabled {
-		return nil
-	}
-	stType := strings.ToLower(strings.TrimSpace(c.Type))
-	if stType == "" {
-		return nil
-	}
-
-	// Derive table names: explicit values win; otherwise compute from prefix
-	prefix := strings.TrimSpace(c.TablePrefix)
-	sm := strings.TrimSpace(c.TableSchemaMigrations)
-	mr := strings.TrimSpace(c.TableMigrationRuns)
-	se := strings.TrimSpace(c.TableStoredEnv)
-	if prefix != "" {
-		if sm == "" {
-			sm = prefix + "_schema_migrations"
-		}
-		if mr == "" {
-			// use migration_log as agreed
-			mr = prefix + "_migration_log"
-		}
-		if se == "" {
-			se = prefix + "_stored_env"
-		}
-	}
-
-	if stType == apirun.DriverPostgres {
-		dsn := strings.TrimSpace(c.Postgres.DSN)
-		if dsn == "" && strings.TrimSpace(c.Postgres.Host) != "" {
-			port := c.Postgres.Port
-			if port == 0 {
-				port = 5432
-			}
-			ssl := strings.TrimSpace(c.Postgres.SSLMode)
-			if ssl == "" {
-				ssl = "disable"
-			}
-			dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-				strings.TrimSpace(c.Postgres.User), strings.TrimSpace(c.Postgres.Password),
-				strings.TrimSpace(c.Postgres.Host), port, strings.TrimSpace(c.Postgres.DBName), ssl,
-			)
-		}
-		pg := &apirun.PostgresConfig{DSN: dsn, Host: strings.TrimSpace(c.Postgres.Host), Port: c.Postgres.Port, User: strings.TrimSpace(c.Postgres.User), Password: strings.TrimSpace(c.Postgres.Password), DBName: strings.TrimSpace(c.Postgres.DBName), SSLMode: strings.TrimSpace(c.Postgres.SSLMode)}
-		out := &apirun.StoreConfig{}
-		out.Config.Driver = apirun.DriverPostgres
-		out.Config.DriverConfig = pg
-		// Table names customization (optional)
-		out.Config.TableNames = apirun.TableNames{SchemaMigrations: sm, MigrationRuns: mr, StoredEnv: se}
-		return out
-	}
-	// default to sqlite
-	sqlite := &apirun.SqliteConfig{Path: strings.TrimSpace(c.SQLite.Path)}
-	out := &apirun.StoreConfig{}
-	out.Config.Driver = apirun.DriverSqlite
-	out.Config.DriverConfig = sqlite
-	out.Config.TableNames = apirun.TableNames{SchemaMigrations: sm, MigrationRuns: mr, StoredEnv: se}
-	return out
+	factory := NewStoreFactory()
+	return factory.CreateStoreConfig(*c)
 }
 
 type ClientConfig struct {
@@ -179,15 +92,18 @@ type ConfigDoc struct {
 }
 
 func (c *ConfigDoc) DecodeAuth(ctx context.Context, e *env.Env) error {
+	// Ensure map exists
+	if e.Auth == nil {
+		e.Auth = env.Map{}
+	}
 	// Prepare lazy acquisition closures per auth name
-	procs := map[string]func() (string, error){}
 	for i, a := range c.Auth {
-		pt := strings.TrimSpace(a.Type)
-		if pt == "" {
+		pt, ptOk := util.TrimEmptyCheck(a.Type)
+		if !ptOk {
 			return fmt.Errorf("auth[%d]: missing type", i)
 		}
-		storedName := strings.TrimSpace(a.Name)
-		if storedName == "" {
+		storedName, nameOk := util.TrimEmptyCheck(a.Name)
+		if !nameOk {
 			return fmt.Errorf("auth[%d] type=%s: missing name (use auth[].name)", i, pt)
 		}
 		// Render templated values in the auth config using the base env
@@ -195,23 +111,16 @@ func (c *ConfigDoc) DecodeAuth(ctx context.Context, e *env.Env) error {
 		renderedCfg, _ := renderedAny.(map[string]interface{})
 		// Build struct-based config for later acquisition
 		authCfg := &iauth.Auth{Type: pt, Name: storedName, Methods: iauth.NewAuthSpecFromMap(renderedCfg)}
-		procs[storedName] = func() (string, error) {
+
+		// Install lazy value using env.MakeLazy
+		e.Auth[storedName] = e.MakeLazy(func(env *env.Env) (string, error) {
 			// Use provided ctx if available; fall back to Background
 			cctx := ctx
 			if cctx == nil {
 				cctx = context.Background()
 			}
-			return authCfg.Acquire(cctx, e)
-		}
-	}
-	// Ensure map exists
-	if e.Auth == nil {
-		e.Auth = env.Map{}
-	}
-	// Install lazy values for each configured auth
-	for name, proc := range procs {
-		// preset values are not set here (DecodeAuth only wires lazies)
-		e.Auth[name] = &lazyVal{proc: proc}
+			return authCfg.Acquire(cctx, env)
+		})
 	}
 	return nil
 }
@@ -225,8 +134,8 @@ func (c *ConfigDoc) GetEnv() (*env.Env, error) {
 			continue
 		}
 		val := kv.Value
-		if val == "" && strings.TrimSpace(kv.ValueFromEnv) != "" {
-			val = os.Getenv(kv.ValueFromEnv)
+		if envVar, hasEnvVar := util.TrimEmptyCheck(kv.ValueFromEnv); val == "" && hasEnvVar {
+			val = os.Getenv(envVar)
 			if val == "" {
 				slog.Warn("env variable requested but empty or not set", "name", kv.Name, "env_var", kv.ValueFromEnv)
 			}
@@ -256,30 +165,33 @@ func (c *ConfigDoc) Load(path string) error {
 	return dec.Decode(c)
 }
 
+func (c *ConfigDoc) parseLogLevel() (apirun.LogLevel, error) {
+	level := util.TrimAndLower(c.Logging.Level)
+	switch level {
+	case "error":
+		return apirun.LogLevelError, nil
+	case "warn", "warning":
+		return apirun.LogLevelWarn, nil
+	case "info", "":
+		return apirun.LogLevelInfo, nil
+	case "debug":
+		return apirun.LogLevelDebug, nil
+	default:
+		return apirun.LogLevelInfo, fmt.Errorf("invalid logging level: %s (valid: error, warn, info, debug)", c.Logging.Level)
+	}
+}
+
 // SetupLogging configures the global logger based on config settings
 func (c *ConfigDoc) SetupLogging() error {
 	// Determine log level from config
-	var level apirun.LogLevel
-
-	switch strings.ToLower(strings.TrimSpace(c.Logging.Level)) {
-	case "error":
-		level = apirun.LogLevelError
-	case "warn", "warning":
-		level = apirun.LogLevelWarn
-	case "info":
-		level = apirun.LogLevelInfo
-	case "debug":
-		level = apirun.LogLevelDebug
-	case "":
-		// Default to info if not specified
-		level = apirun.LogLevelInfo
-	default:
-		return fmt.Errorf("invalid logging level: %s (valid: error, warn, info, debug)", c.Logging.Level)
+	level, err := c.parseLogLevel()
+	if err != nil {
+		return err
 	}
 
 	// Determine format
 	var logger *apirun.Logger
-	format := strings.ToLower(strings.TrimSpace(c.Logging.Format))
+	format := util.TrimAndLower(c.Logging.Format)
 
 	// Check if color is explicitly requested or auto-detect
 	useColor := false
@@ -318,14 +230,11 @@ func (c *ConfigDoc) SetupLogging() error {
 	// Also set global masking state
 	apirun.EnableMasking(maskingEnabled)
 
-	// Log configuration info with actual effective level
-	effectiveLevel := strings.ToLower(strings.TrimSpace(c.Logging.Level))
-	if effectiveLevel == "" {
-		effectiveLevel = "info"
-	}
+	// Log configuration info
+	levelStr := util.TrimWithDefault(util.TrimAndLower(c.Logging.Level), "info")
 
 	logger.Info("logging configured",
-		"level", effectiveLevel,
+		"level", levelStr,
 		"format", format,
 		"color", useColor,
 		"mask_sensitive", maskingEnabled)

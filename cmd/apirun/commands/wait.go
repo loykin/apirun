@@ -1,4 +1,4 @@
-package main
+package commands
 
 import (
 	"context"
@@ -7,7 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loykin/apirun/cmd/apirun/config"
+	"github.com/loykin/apirun/internal/constants"
 	"github.com/loykin/apirun/internal/httpc"
+	"github.com/loykin/apirun/internal/util"
 	"github.com/loykin/apirun/pkg/env"
 )
 
@@ -15,7 +18,7 @@ import (
 // Supports various formats: "1.0", "10", "tls1.0", "tls10", etc.
 // Returns 0 if the version string is not recognized.
 func parseTLSVersion(version string) uint16 {
-	switch strings.TrimSpace(strings.ToLower(version)) {
+	switch util.TrimAndLower(version) {
 	case "1.0", "10", "tls1.0", "tls10":
 		return tls.VersionTLS10
 	case "1.1", "11", "tls1.1", "tls11":
@@ -39,28 +42,25 @@ type waitParams struct {
 }
 
 // parseWaitConfig parses and normalizes wait configuration with defaults
-func parseWaitConfig(wc WaitConfig, env *env.Env) waitParams {
-	urlRaw := strings.TrimSpace(wc.URL)
+func parseWaitConfig(wc config.WaitConfig, env *env.Env) waitParams {
+	urlRaw, _ := util.TrimEmptyCheck(wc.URL)
 
-	method := strings.ToUpper(strings.TrimSpace(wc.Method))
-	if method == "" {
-		method = "GET"
-	}
+	method := strings.ToUpper(util.TrimWithDefault(wc.Method, constants.DefaultWaitMethod))
 
 	expected := wc.Status
 	if expected == 0 {
-		expected = 200
+		expected = constants.DefaultWaitStatus
 	}
 
-	timeout := 60 * time.Second
-	if s := strings.TrimSpace(wc.Timeout); s != "" {
+	timeout := constants.DefaultWaitTimeout
+	if s, hasTimeout := util.TrimEmptyCheck(wc.Timeout); hasTimeout {
 		if d, err := time.ParseDuration(s); err == nil {
 			timeout = d
 		}
 	}
 
-	interval := 2 * time.Second
-	if s := strings.TrimSpace(wc.Interval); s != "" {
+	interval := constants.DefaultWaitInterval
+	if s, hasInterval := util.TrimEmptyCheck(wc.Interval); hasInterval {
 		if d, err := time.ParseDuration(s); err == nil {
 			interval = d
 		}
@@ -78,7 +78,7 @@ func parseWaitConfig(wc WaitConfig, env *env.Env) waitParams {
 }
 
 // setupTLSConfig creates TLS configuration from client config
-func setupTLSConfig(clientCfg ClientConfig) *tls.Config {
+func setupTLSConfig(clientCfg config.ClientConfig) *tls.Config {
 	minV := parseTLSVersion(clientCfg.MinTLSVersion)
 	maxV := parseTLSVersion(clientCfg.MaxTLSVersion)
 
@@ -142,11 +142,19 @@ func performPolling(ctx context.Context, hcfg *httpc.Httpc, params waitParams) e
 				params.url, params.expected, lastStatus)
 		}
 
-		time.Sleep(params.interval)
+		// Context-aware sleep
+		timer := time.NewTimer(params.interval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+			// Continue polling
+		}
 	}
 }
 
-// doWait polls an HTTP endpoint until it returns the expected status or timeout elapses.
+// DoWait polls an HTTP endpoint until it returns the expected status or timeout elapses.
 //
 // Behavior:
 // - method defaults to GET; supports GET and HEAD (others fallback to GET)
@@ -154,9 +162,9 @@ func performPolling(ctx context.Context, hcfg *httpc.Httpc, params waitParams) e
 // - timeout defaults to 60s; interval defaults to 2s
 // - url is rendered with Go template using provided env
 // - TLS client options are applied via clientCfg and attached to the polling context
-func doWait(ctx context.Context, env *env.Env, wc WaitConfig, clientCfg ClientConfig) error {
+func DoWait(ctx context.Context, env *env.Env, wc config.WaitConfig, clientCfg config.ClientConfig) error {
 	// Early exit if no URL is provided
-	if strings.TrimSpace(wc.URL) == "" {
+	if _, hasURL := util.TrimEmptyCheck(wc.URL); !hasURL {
 		return nil
 	}
 

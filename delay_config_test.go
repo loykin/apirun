@@ -2,6 +2,9 @@ package apirun
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -63,13 +66,20 @@ func TestMigrator_DelayBetweenMigrations(t *testing.T) {
 }
 
 func TestMigrator_DelayBetweenMigrations_Integration(t *testing.T) {
-	// Create a simple migration file content
-	migrationContent := `up:
+	// Create mock HTTP server that responds quickly
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status": "ok"}`))
+	}))
+	defer server.Close()
+
+	// Create migration file content using the mock server URL
+	migrationContent := fmt.Sprintf(`up:
   name: test
   env: {}
   request:
     method: GET
-    url: https://httpbin.org/status/200
+    url: %s
   response:
     result_code: ["200"]
 
@@ -78,8 +88,8 @@ down:
   env: {}
   request:
     method: GET
-    url: https://httpbin.org/status/200
-`
+    url: %s
+`, server.URL, server.URL)
 
 	tests := []struct {
 		name  string
@@ -134,6 +144,12 @@ down:
 			}
 
 			t.Logf("Migration completed in %v with configured delay %v", elapsed, expectedDelay)
+
+			// Basic sanity check: elapsed time should be at least close to expected delay
+			// (allowing for execution overhead, but should be reasonable)
+			if elapsed < expectedDelay/2 {
+				t.Logf("Warning: elapsed time %v is much less than expected delay %v", elapsed, expectedDelay)
+			}
 		})
 	}
 }

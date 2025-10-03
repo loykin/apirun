@@ -1,7 +1,7 @@
 package oauth2
 
 import (
-	"errors"
+	"fmt"
 	"strings"
 
 	golangoauth2 "golang.org/x/oauth2"
@@ -10,7 +10,7 @@ import (
 // normalizeOAuth2Token builds the Authorization header value from an oauth2.Token.
 func normalizeOAuth2Token(tok *golangoauth2.Token) (string, error) {
 	if tok == nil || !tok.Valid() || strings.TrimSpace(tok.AccessToken) == "" {
-		return "", errors.New("oauth2: received invalid token")
+		return "", fmt.Errorf("oauth2: received invalid token")
 	}
 	return tok.AccessToken, nil
 }

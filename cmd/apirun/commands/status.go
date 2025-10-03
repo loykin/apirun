@@ -1,12 +1,13 @@
-package main
+package commands
 
 import (
 	"fmt"
-	"log"
 	"path/filepath"
 	"strings"
 
 	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/cmd/apirun/config"
+	"github.com/loykin/apirun/internal/common"
 	"github.com/loykin/apirun/pkg/status"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -18,7 +19,7 @@ var (
 	statusHistoryLimit int
 )
 
-var statusCmd = &cobra.Command{
+var StatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show current migration version, applied versions, and optionally history",
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -30,9 +31,10 @@ var statusCmd = &cobra.Command{
 		var colorEnabled bool = false // Default to no color
 
 		if strings.TrimSpace(configPath) != "" {
-			var doc ConfigDoc
+			var doc config.ConfigDoc
 			if err := doc.Load(configPath); err != nil {
-				log.Printf("warning: failed to load config: %v", err)
+				logger := common.GetLogger().WithComponent("status")
+				logger.Warn("failed to load config", "error", err, "config_path", configPath)
 			} else {
 				// Enable color from config if available
 				if doc.Logging.Color != nil {
@@ -58,9 +60,10 @@ var statusCmd = &cobra.Command{
 
 		// Check if store is explicitly disabled in config
 		if strings.TrimSpace(configPath) != "" {
-			var doc ConfigDoc
+			var doc config.ConfigDoc
 			if err := doc.Load(configPath); err == nil && doc.Store.Disabled {
-				fmt.Println("Store is disabled - no migration status available")
+				logger := common.GetLogger().WithComponent("status")
+				logger.Info("store is disabled - no migration status available")
 				return nil
 			}
 		}
@@ -93,7 +96,7 @@ var statusCmd = &cobra.Command{
 }
 
 func init() {
-	statusCmd.Flags().BoolVar(&statusHistory, "history", false, "show migration run history as well")
-	statusCmd.Flags().BoolVar(&statusHistoryAll, "history-all", false, "when used with --history, show all history entries (newest first)")
-	statusCmd.Flags().IntVar(&statusHistoryLimit, "history-limit", 10, "when used with --history, show up to N latest entries (default 10)")
+	StatusCmd.Flags().BoolVar(&statusHistory, "history", false, "show migration run history as well")
+	StatusCmd.Flags().BoolVar(&statusHistoryAll, "history-all", false, "when used with --history, show all history entries (newest first)")
+	StatusCmd.Flags().IntVar(&statusHistoryLimit, "history-limit", 10, "when used with --history, show up to N latest entries (default 10)")
 }
