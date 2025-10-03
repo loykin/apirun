@@ -64,9 +64,9 @@ func (p *Dialect) Connect(dsn string) (*sql.DB, error) {
 
 	// Configure connection pool settings
 	db.SetMaxOpenConns(constants.DefaultPostgresMaxConnections) // Maximum number of open connections
-	db.SetMaxIdleConns(5)                                       // Maximum number of idle connections
-	db.SetConnMaxLifetime(5 * time.Minute)                      // Maximum amount of time a connection may be reused
-	db.SetConnMaxIdleTime(1 * time.Minute)                      // Maximum amount of time a connection may be idle
+	db.SetMaxIdleConns(constants.DefaultPostgresMaxIdleConns)   // Maximum number of idle connections
+	db.SetConnMaxLifetime(constants.DefaultMaxConnLifetime)     // Maximum amount of time a connection may be reused
+	db.SetConnMaxIdleTime(constants.DefaultMaxIdleTime)         // Maximum amount of time a connection may be idle
 
 	if err := db.Ping(); err != nil {
 		_ = db.Close()

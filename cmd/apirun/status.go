@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"path/filepath"
 	"strings"
 
 	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/internal/common"
 	"github.com/loykin/apirun/pkg/status"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -32,7 +32,8 @@ var statusCmd = &cobra.Command{
 		if strings.TrimSpace(configPath) != "" {
 			var doc ConfigDoc
 			if err := doc.Load(configPath); err != nil {
-				log.Printf("warning: failed to load config: %v", err)
+				logger := common.GetLogger().WithComponent("status")
+				logger.Warn("failed to load config", "error", err, "config_path", configPath)
 			} else {
 				// Enable color from config if available
 				if doc.Logging.Color != nil {
@@ -60,7 +61,8 @@ var statusCmd = &cobra.Command{
 		if strings.TrimSpace(configPath) != "" {
 			var doc ConfigDoc
 			if err := doc.Load(configPath); err == nil && doc.Store.Disabled {
-				fmt.Println("Store is disabled - no migration status available")
+				logger := common.GetLogger().WithComponent("status")
+				logger.Info("store is disabled - no migration status available")
 				return nil
 			}
 		}

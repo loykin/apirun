@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/loykin/apirun/internal/common"
 	"github.com/loykin/apirun/pkg/orchestrator"
 	"github.com/spf13/cobra"
 )
@@ -51,13 +52,14 @@ var stagesValidateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configPath, _ := cmd.Flags().GetString("config")
 
+		logger := common.GetLogger().WithComponent("stages-validate")
 		_, err := orchestrator.LoadFromFile(configPath)
 		if err != nil {
-			fmt.Printf("❌ Validation failed: %v\n", err)
+			logger.Error("validation failed", "error", err, "config_path", configPath)
 			return err
 		}
 
-		fmt.Println("✅ Configuration is valid")
+		logger.Info("configuration is valid", "config_path", configPath)
 		return nil
 	},
 }
@@ -136,7 +138,8 @@ func executeStagesCommand(cmd *cobra.Command, isUp bool) error {
 	}
 
 	if isUp {
-		fmt.Println("✅ All stages executed successfully")
+		logger := common.GetLogger().WithComponent("stages-up")
+		logger.Info("all stages executed successfully")
 	} else {
 		fmt.Println("✅ All stages rolled back successfully")
 	}

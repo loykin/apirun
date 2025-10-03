@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
-	"os"
 	"strings"
 
 	"github.com/loykin/apirun"
@@ -136,7 +134,7 @@ var rootCmd = &cobra.Command{
 				logger.Debug("migration result", "version", vr.Version, "status_code", vr.Result.StatusCode, "env", vr.Result.ExtractedEnv)
 			}
 		}
-		fmt.Println("migrations completed successfully")
+		logger.Info("migrations completed successfully")
 		return nil
 	},
 }
@@ -178,7 +176,6 @@ func init() {
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Printf("error: %v", err)
-		os.Exit(1)
+		exitHandler.LogFatalError(err, "command execution failed")
 	}
 }
