@@ -134,21 +134,12 @@ func (c *StoreConfig) createPostgresStoreConfig(tableNames apirun.TableNames) *a
 	}
 
 	pg := apirun.PostgresConfig(pgConfig)
-
-	out := &apirun.StoreConfig{}
-	out.Config.Driver = apirun.DriverPostgresql
-	out.Config.DriverConfig = &pg
-	out.Config.TableNames = tableNames
-	return out
+	return apirun.NewPostgresStoreConfig(&pg, tableNames)
 }
 
 func (c *StoreConfig) createSqliteStoreConfig(tableNames apirun.TableNames) *apirun.StoreConfig {
 	sqlite := &apirun.SqliteConfig{Path: strings.TrimSpace(c.SQLite.Path)}
-	out := &apirun.StoreConfig{}
-	out.Config.Driver = apirun.DriverSqlite
-	out.Config.DriverConfig = sqlite
-	out.Config.TableNames = tableNames
-	return out
+	return apirun.NewSqliteStoreConfig(sqlite, tableNames)
 }
 
 type ClientConfig struct {

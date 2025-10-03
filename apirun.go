@@ -33,6 +33,28 @@ type StoreConfig struct {
 	store.Config
 }
 
+// NewPostgresStoreConfig creates a StoreConfig for PostgreSQL with the given driver config and table names
+func NewPostgresStoreConfig(driverConfig *PostgresConfig, tableNames TableNames) *StoreConfig {
+	return &StoreConfig{
+		Config: store.Config{
+			Driver:       DriverPostgresql,
+			DriverConfig: driverConfig,
+			TableNames:   tableNames,
+		},
+	}
+}
+
+// NewSqliteStoreConfig creates a StoreConfig for SQLite with the given driver config and table names
+func NewSqliteStoreConfig(driverConfig *SqliteConfig, tableNames TableNames) *StoreConfig {
+	return &StoreConfig{
+		Config: store.Config{
+			Driver:       DriverSqlite,
+			DriverConfig: driverConfig,
+			TableNames:   tableNames,
+		},
+	}
+}
+
 // Migrator is the root struct-based API to run migrations programmatically.
 // Users can create it, set Store and Env, then call its methods.
 //
