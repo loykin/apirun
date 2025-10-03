@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/loykin/apirun"
@@ -81,65 +80,8 @@ func (l *lazyVal) String() string {
 }
 
 func (c *StoreConfig) ToStorOptions() *apirun.StoreConfig {
-	if c.Disabled {
-		return nil
-	}
-	stType := util.TrimAndLower(c.Type)
-	if stType == "" {
-		return nil
-	}
-
-	tableNames := c.deriveTableNames()
-
-	if stType == apirun.DriverPostgresql {
-		return c.createPostgresStoreConfig(tableNames)
-	}
-
-	return c.createSqliteStoreConfig(tableNames)
-}
-
-func (c *StoreConfig) deriveTableNames() apirun.TableNames {
-	// Trim all table-related strings at once
-	fields := util.TrimSpaceFields(
-		c.TablePrefix,
-		c.TableSchemaMigrations,
-		c.TableMigrationRuns,
-		c.TableStoredEnv,
-	)
-	prefix, sm, mr, se := fields[0], fields[1], fields[2], fields[3]
-
-	if prefix != "" {
-		if sm == "" {
-			sm = prefix + "_schema_migrations"
-		}
-		if mr == "" {
-			mr = prefix + "_migration_log"
-		}
-		if se == "" {
-			se = prefix + "_stored_env"
-		}
-	}
-
-	return apirun.TableNames{SchemaMigrations: sm, MigrationRuns: mr, StoredEnv: se}
-}
-
-func (c *StoreConfig) createPostgresStoreConfig(tableNames apirun.TableNames) *apirun.StoreConfig {
-	// postgresql.Config의 ToMap() 메서드를 호출해서 DSN을 생성하고 필드를 업데이트
-	pgConfig := c.Postgres
-	configMap := pgConfig.ToMap()
-
-	// ToMap()에서 생성된 DSN을 사용
-	if dsn, ok := configMap["dsn"].(string); ok {
-		pgConfig.DSN = dsn
-	}
-
-	pg := apirun.PostgresConfig(pgConfig)
-	return apirun.NewPostgresStoreConfig(&pg, tableNames)
-}
-
-func (c *StoreConfig) createSqliteStoreConfig(tableNames apirun.TableNames) *apirun.StoreConfig {
-	sqlite := &apirun.SqliteConfig{Path: strings.TrimSpace(c.SQLite.Path)}
-	return apirun.NewSqliteStoreConfig(sqlite, tableNames)
+	factory := NewStoreFactory()
+	return factory.CreateStoreConfig(*c)
 }
 
 type ClientConfig struct {
