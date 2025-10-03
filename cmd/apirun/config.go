@@ -97,17 +97,26 @@ func (c *StoreConfig) ToStorOptions() *apirun.StoreConfig {
 		return nil
 	}
 
-	// Derive table names: explicit values win; otherwise compute from prefix
+	tableNames := c.deriveTableNames()
+
+	if stType == apirun.DriverPostgres {
+		return c.createPostgresStoreConfig(tableNames)
+	}
+
+	return c.createSqliteStoreConfig(tableNames)
+}
+
+func (c *StoreConfig) deriveTableNames() apirun.TableNames {
 	prefix := strings.TrimSpace(c.TablePrefix)
 	sm := strings.TrimSpace(c.TableSchemaMigrations)
 	mr := strings.TrimSpace(c.TableMigrationRuns)
 	se := strings.TrimSpace(c.TableStoredEnv)
+
 	if prefix != "" {
 		if sm == "" {
 			sm = prefix + "_schema_migrations"
 		}
 		if mr == "" {
-			// use migration_log as agreed
 			mr = prefix + "_migration_log"
 		}
 		if se == "" {
@@ -115,36 +124,62 @@ func (c *StoreConfig) ToStorOptions() *apirun.StoreConfig {
 		}
 	}
 
-	if stType == apirun.DriverPostgres {
-		dsn := strings.TrimSpace(c.Postgres.DSN)
-		if dsn == "" && strings.TrimSpace(c.Postgres.Host) != "" {
-			port := c.Postgres.Port
-			if port == 0 {
-				port = 5432
-			}
-			ssl := strings.TrimSpace(c.Postgres.SSLMode)
-			if ssl == "" {
-				ssl = "disable"
-			}
-			dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-				strings.TrimSpace(c.Postgres.User), strings.TrimSpace(c.Postgres.Password),
-				strings.TrimSpace(c.Postgres.Host), port, strings.TrimSpace(c.Postgres.DBName), ssl,
-			)
-		}
-		pg := &apirun.PostgresConfig{DSN: dsn, Host: strings.TrimSpace(c.Postgres.Host), Port: c.Postgres.Port, User: strings.TrimSpace(c.Postgres.User), Password: strings.TrimSpace(c.Postgres.Password), DBName: strings.TrimSpace(c.Postgres.DBName), SSLMode: strings.TrimSpace(c.Postgres.SSLMode)}
-		out := &apirun.StoreConfig{}
-		out.Config.Driver = apirun.DriverPostgres
-		out.Config.DriverConfig = pg
-		// Table names customization (optional)
-		out.Config.TableNames = apirun.TableNames{SchemaMigrations: sm, MigrationRuns: mr, StoredEnv: se}
-		return out
+	return apirun.TableNames{SchemaMigrations: sm, MigrationRuns: mr, StoredEnv: se}
+}
+
+func (c *StoreConfig) createPostgresStoreConfig(tableNames apirun.TableNames) *apirun.StoreConfig {
+	pg := c.normalizePostgresConfig()
+	pg.DSN = c.buildPostgresDSN()
+
+	out := &apirun.StoreConfig{}
+	out.Config.Driver = apirun.DriverPostgres
+	out.Config.DriverConfig = pg
+	out.Config.TableNames = tableNames
+	return out
+}
+
+func (c *StoreConfig) normalizePostgresConfig() *apirun.PostgresConfig {
+	return &apirun.PostgresConfig{
+		Host:     strings.TrimSpace(c.Postgres.Host),
+		Port:     c.Postgres.Port,
+		User:     strings.TrimSpace(c.Postgres.User),
+		Password: strings.TrimSpace(c.Postgres.Password),
+		DBName:   strings.TrimSpace(c.Postgres.DBName),
+		SSLMode:  strings.TrimSpace(c.Postgres.SSLMode),
 	}
-	// default to sqlite
+}
+
+func (c *StoreConfig) buildPostgresDSN() string {
+	dsn := strings.TrimSpace(c.Postgres.DSN)
+	if dsn != "" {
+		return dsn
+	}
+
+	pg := c.normalizePostgresConfig()
+	if pg.Host == "" {
+		return ""
+	}
+
+	port := pg.Port
+	if port == 0 {
+		port = 5432
+	}
+
+	ssl := pg.SSLMode
+	if ssl == "" {
+		ssl = "disable"
+	}
+
+	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+		pg.User, pg.Password, pg.Host, port, pg.DBName, ssl)
+}
+
+func (c *StoreConfig) createSqliteStoreConfig(tableNames apirun.TableNames) *apirun.StoreConfig {
 	sqlite := &apirun.SqliteConfig{Path: strings.TrimSpace(c.SQLite.Path)}
 	out := &apirun.StoreConfig{}
 	out.Config.Driver = apirun.DriverSqlite
 	out.Config.DriverConfig = sqlite
-	out.Config.TableNames = apirun.TableNames{SchemaMigrations: sm, MigrationRuns: mr, StoredEnv: se}
+	out.Config.TableNames = tableNames
 	return out
 }
 
@@ -256,25 +291,28 @@ func (c *ConfigDoc) Load(path string) error {
 	return dec.Decode(c)
 }
 
+func (c *ConfigDoc) parseLogLevel() (apirun.LogLevel, error) {
+	level := strings.ToLower(strings.TrimSpace(c.Logging.Level))
+	switch level {
+	case "error":
+		return apirun.LogLevelError, nil
+	case "warn", "warning":
+		return apirun.LogLevelWarn, nil
+	case "info", "":
+		return apirun.LogLevelInfo, nil
+	case "debug":
+		return apirun.LogLevelDebug, nil
+	default:
+		return apirun.LogLevelInfo, fmt.Errorf("invalid logging level: %s (valid: error, warn, info, debug)", c.Logging.Level)
+	}
+}
+
 // SetupLogging configures the global logger based on config settings
 func (c *ConfigDoc) SetupLogging() error {
 	// Determine log level from config
-	var level apirun.LogLevel
-
-	switch strings.ToLower(strings.TrimSpace(c.Logging.Level)) {
-	case "error":
-		level = apirun.LogLevelError
-	case "warn", "warning":
-		level = apirun.LogLevelWarn
-	case "info":
-		level = apirun.LogLevelInfo
-	case "debug":
-		level = apirun.LogLevelDebug
-	case "":
-		// Default to info if not specified
-		level = apirun.LogLevelInfo
-	default:
-		return fmt.Errorf("invalid logging level: %s (valid: error, warn, info, debug)", c.Logging.Level)
+	level, err := c.parseLogLevel()
+	if err != nil {
+		return err
 	}
 
 	// Determine format
@@ -318,14 +356,14 @@ func (c *ConfigDoc) SetupLogging() error {
 	// Also set global masking state
 	apirun.EnableMasking(maskingEnabled)
 
-	// Log configuration info with actual effective level
-	effectiveLevel := strings.ToLower(strings.TrimSpace(c.Logging.Level))
-	if effectiveLevel == "" {
-		effectiveLevel = "info"
+	// Log configuration info
+	levelStr := strings.ToLower(strings.TrimSpace(c.Logging.Level))
+	if levelStr == "" {
+		levelStr = "info"
 	}
 
 	logger.Info("logging configured",
-		"level", effectiveLevel,
+		"level", levelStr,
 		"format", format,
 		"color", useColor,
 		"mask_sensitive", maskingEnabled)

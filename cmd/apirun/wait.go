@@ -11,6 +11,11 @@ import (
 	"github.com/loykin/apirun/pkg/env"
 )
 
+const (
+	DefaultWaitTimeout  = 60 * time.Second
+	DefaultWaitInterval = 2 * time.Second
+)
+
 // parseTLSVersion converts a TLS version string to the corresponding crypto/tls constant.
 // Supports various formats: "1.0", "10", "tls1.0", "tls10", etc.
 // Returns 0 if the version string is not recognized.
@@ -52,14 +57,14 @@ func parseWaitConfig(wc WaitConfig, env *env.Env) waitParams {
 		expected = 200
 	}
 
-	timeout := 60 * time.Second
+	timeout := DefaultWaitTimeout
 	if s := strings.TrimSpace(wc.Timeout); s != "" {
 		if d, err := time.ParseDuration(s); err == nil {
 			timeout = d
 		}
 	}
 
-	interval := 2 * time.Second
+	interval := DefaultWaitInterval
 	if s := strings.TrimSpace(wc.Interval); s != "" {
 		if d, err := time.ParseDuration(s); err == nil {
 			interval = d
