@@ -141,7 +141,15 @@ func performPolling(ctx context.Context, hcfg *httpc.Httpc, params waitParams) e
 				params.url, params.expected, lastStatus)
 		}
 
-		time.Sleep(params.interval)
+		// Context-aware sleep
+		timer := time.NewTimer(params.interval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+			// Continue polling
+		}
 	}
 }
 

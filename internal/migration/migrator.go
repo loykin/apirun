@@ -45,6 +45,19 @@ func (m *Migrator) getDelayBetweenMigrations() time.Duration {
 	return 1 * time.Second
 }
 
+// contextSleep sleeps for the given duration or until context is cancelled
+func contextSleep(ctx context.Context, duration time.Duration) error {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
 // initTaskAndEnv loads task from file and initializes env for up/down, merges stored/session env as needed.
 func (m *Migrator) initTaskAndEnv(t *task.Task, f vfile, ver int, sessionStored map[string]string, mode string) error {
 	if err := t.LoadFromFile(f.path); err != nil {
@@ -313,7 +326,10 @@ func (m *Migrator) MigrateUp(ctx context.Context, targetVersion int) ([]*ExecWit
 			// Configurable delay to allow backend consistency before next migration
 			delay := m.getDelayBetweenMigrations()
 			if delay > 0 {
-				time.Sleep(delay)
+				if err := contextSleep(ctx, delay); err != nil {
+					logger.Warn("migration delay interrupted by context cancellation", "error", err)
+					return results, err
+				}
 			}
 		}
 	}

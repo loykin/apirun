@@ -27,6 +27,19 @@ type Orchestrator struct {
 	mu      sync.RWMutex
 }
 
+// contextSleep sleeps for the given duration or until context is cancelled
+func contextSleep(ctx context.Context, duration time.Duration) error {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
 // NewOrchestrator creates a new orchestrator with the given configuration
 func NewOrchestrator(config *StageOrchestration) *Orchestrator {
 	return &Orchestrator{
@@ -112,7 +125,9 @@ func (o *Orchestrator) ExecuteStages(ctx context.Context, fromStage, toStage str
 		if i < len(filteredOrder)-1 && o.config.Global.WaitBetweenStages > 0 {
 			o.logger.Debug("waiting between stages",
 				"duration", o.config.Global.WaitBetweenStages)
-			time.Sleep(o.config.Global.WaitBetweenStages)
+			if err := contextSleep(ctx, o.config.Global.WaitBetweenStages); err != nil {
+				return fmt.Errorf("interrupted while waiting between stages: %w", err)
+			}
 		}
 	}
 
@@ -167,7 +182,9 @@ func (o *Orchestrator) ExecuteStagesDown(ctx context.Context, fromStage, toStage
 
 		// Wait between stages if configured
 		if i < len(filteredOrder)-1 && o.config.Global.WaitBetweenStages > 0 {
-			time.Sleep(o.config.Global.WaitBetweenStages)
+			if err := contextSleep(ctx, o.config.Global.WaitBetweenStages); err != nil {
+				return fmt.Errorf("interrupted while waiting between stages: %w", err)
+			}
 		}
 	}
 

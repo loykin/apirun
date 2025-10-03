@@ -408,7 +408,8 @@ func TestOrchestrator_executeStage_SkippedStage(t *testing.T) {
 	}
 
 	// Execute the skipped stage
-	err := orch.executeStage(context.TODO(), stage)
+	ctx := context.Background()
+	err := orch.executeStage(ctx, stage)
 
 	// Should not return error for skipped stage
 	if err != nil {
