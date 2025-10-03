@@ -3,7 +3,8 @@ package basic
 import (
 	"encoding/base64"
 	"fmt"
-	"strings"
+
+	"github.com/loykin/apirun/internal/util"
 )
 
 // Config holds configuration for Basic authentication.
@@ -23,11 +24,11 @@ func (c Config) ToMap() map[string]interface{} {
 // AcquireBasic returns a Basic auth token constructed from Username and Password.
 // It returns only the base64(username:password) token string (no "Basic " prefix).
 func AcquireBasic(pc Config) (string, error) {
-	u := strings.TrimSpace(pc.Username)
-	p := strings.TrimSpace(pc.Password)
-	if u == "" || p == "" {
+	username, hasUsername := util.TrimEmptyCheck(pc.Username)
+	password, hasPassword := util.TrimEmptyCheck(pc.Password)
+	if !hasUsername || !hasPassword {
 		return "", fmt.Errorf("basic: username and password are required")
 	}
-	cred := base64.StdEncoding.EncodeToString([]byte(u + ":" + p))
+	cred := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 	return cred, nil
 }

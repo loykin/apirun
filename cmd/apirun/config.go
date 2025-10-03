@@ -12,6 +12,7 @@ import (
 	"github.com/loykin/apirun"
 	iauth "github.com/loykin/apirun/internal/auth"
 	"github.com/loykin/apirun/internal/store/postgresql"
+	"github.com/loykin/apirun/internal/util"
 	"github.com/loykin/apirun/pkg/env"
 	"gopkg.in/yaml.v3"
 )
@@ -83,7 +84,7 @@ func (c *StoreConfig) ToStorOptions() *apirun.StoreConfig {
 	if c.Disabled {
 		return nil
 	}
-	stType := strings.ToLower(strings.TrimSpace(c.Type))
+	stType := util.TrimAndLower(c.Type)
 	if stType == "" {
 		return nil
 	}
@@ -98,10 +99,14 @@ func (c *StoreConfig) ToStorOptions() *apirun.StoreConfig {
 }
 
 func (c *StoreConfig) deriveTableNames() apirun.TableNames {
-	prefix := strings.TrimSpace(c.TablePrefix)
-	sm := strings.TrimSpace(c.TableSchemaMigrations)
-	mr := strings.TrimSpace(c.TableMigrationRuns)
-	se := strings.TrimSpace(c.TableStoredEnv)
+	// Trim all table-related strings at once
+	fields := util.TrimSpaceFields(
+		c.TablePrefix,
+		c.TableSchemaMigrations,
+		c.TableMigrationRuns,
+		c.TableStoredEnv,
+	)
+	prefix, sm, mr, se := fields[0], fields[1], fields[2], fields[3]
 
 	if prefix != "" {
 		if sm == "" {
@@ -180,12 +185,12 @@ func (c *ConfigDoc) DecodeAuth(ctx context.Context, e *env.Env) error {
 	// Prepare lazy acquisition closures per auth name
 	procs := map[string]func() (string, error){}
 	for i, a := range c.Auth {
-		pt := strings.TrimSpace(a.Type)
-		if pt == "" {
+		pt, ptOk := util.TrimEmptyCheck(a.Type)
+		if !ptOk {
 			return fmt.Errorf("auth[%d]: missing type", i)
 		}
-		storedName := strings.TrimSpace(a.Name)
-		if storedName == "" {
+		storedName, nameOk := util.TrimEmptyCheck(a.Name)
+		if !nameOk {
 			return fmt.Errorf("auth[%d] type=%s: missing name (use auth[].name)", i, pt)
 		}
 		// Render templated values in the auth config using the base env
@@ -223,8 +228,8 @@ func (c *ConfigDoc) GetEnv() (*env.Env, error) {
 			continue
 		}
 		val := kv.Value
-		if val == "" && strings.TrimSpace(kv.ValueFromEnv) != "" {
-			val = os.Getenv(kv.ValueFromEnv)
+		if envVar, hasEnvVar := util.TrimEmptyCheck(kv.ValueFromEnv); val == "" && hasEnvVar {
+			val = os.Getenv(envVar)
 			if val == "" {
 				slog.Warn("env variable requested but empty or not set", "name", kv.Name, "env_var", kv.ValueFromEnv)
 			}
@@ -255,7 +260,7 @@ func (c *ConfigDoc) Load(path string) error {
 }
 
 func (c *ConfigDoc) parseLogLevel() (apirun.LogLevel, error) {
-	level := strings.ToLower(strings.TrimSpace(c.Logging.Level))
+	level := util.TrimAndLower(c.Logging.Level)
 	switch level {
 	case "error":
 		return apirun.LogLevelError, nil
@@ -280,7 +285,7 @@ func (c *ConfigDoc) SetupLogging() error {
 
 	// Determine format
 	var logger *apirun.Logger
-	format := strings.ToLower(strings.TrimSpace(c.Logging.Format))
+	format := util.TrimAndLower(c.Logging.Format)
 
 	// Check if color is explicitly requested or auto-detect
 	useColor := false
@@ -320,10 +325,7 @@ func (c *ConfigDoc) SetupLogging() error {
 	apirun.EnableMasking(maskingEnabled)
 
 	// Log configuration info
-	levelStr := strings.ToLower(strings.TrimSpace(c.Logging.Level))
-	if levelStr == "" {
-		levelStr = "info"
-	}
+	levelStr := util.TrimWithDefault(util.TrimAndLower(c.Logging.Level), "info")
 
 	logger.Info("logging configured",
 		"level", levelStr,

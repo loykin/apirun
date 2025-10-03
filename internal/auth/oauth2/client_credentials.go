@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 
 	acommon "github.com/loykin/apirun/internal/auth/common"
+	"github.com/loykin/apirun/internal/util"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 )
@@ -40,9 +40,8 @@ type clientCredentialsMethod struct {
 }
 
 func (m clientCredentialsMethod) Acquire(ctx context.Context) (string, error) {
-	clientID := strings.TrimSpace(m.c.ClientID)
-	clientSecret := strings.TrimSpace(m.c.ClientSec)
-	tokenURL := strings.TrimSpace(m.c.TokenURL)
+	fields := util.TrimSpaceFields(m.c.ClientID, m.c.ClientSec, m.c.TokenURL)
+	clientID, clientSecret, tokenURL := fields[0], fields[1], fields[2]
 	if tokenURL == "" {
 		return "", fmt.Errorf("oauth2: token_url is required for client_credentials grant")
 	}

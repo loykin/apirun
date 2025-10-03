@@ -8,6 +8,7 @@ import (
 
 	acommon "github.com/loykin/apirun/internal/auth/common"
 	"github.com/loykin/apirun/internal/httpc"
+	"github.com/loykin/apirun/internal/util"
 )
 
 // Config holds configuration for PocketBase admin login.
@@ -27,11 +28,14 @@ func (c Config) ToMap() map[string]interface{} {
 }
 
 func AcquirePocketBase(ctx context.Context, pc Config) (string, error) {
-	if strings.TrimSpace(pc.BaseURL) == "" || strings.TrimSpace(pc.Email) == "" || strings.TrimSpace(pc.Password) == "" {
+	baseURL, hasBaseURL := util.TrimEmptyCheck(pc.BaseURL)
+	email, hasEmail := util.TrimEmptyCheck(pc.Email)
+	password, hasPassword := util.TrimEmptyCheck(pc.Password)
+	if !hasBaseURL || !hasEmail || !hasPassword {
 		return "", fmt.Errorf("pocketbase: base_url, email and password are required")
 	}
-	loginURL := strings.TrimRight(pc.BaseURL, "/") + "/api/admins/auth-with-password"
-	body := map[string]string{"identity": pc.Email, "password": pc.Password}
+	loginURL := strings.TrimRight(baseURL, "/") + "/api/admins/auth-with-password"
+	body := map[string]string{"identity": email, "password": password}
 	h := httpc.Httpc{TlsConfig: acommon.GetTLSConfig()}
 	client := h.New()
 	resp, err := client.R().SetContext(ctx).SetHeader("Content-Type", "application/json").SetBody(body).Post(loginURL)
@@ -49,9 +53,9 @@ func AcquirePocketBase(ctx context.Context, pc Config) (string, error) {
 	if err := json.Unmarshal(resp.Body(), &lr); err != nil {
 		return "", fmt.Errorf("pocketbase: invalid JSON response: %w", err)
 	}
-	v := strings.TrimSpace(lr.Token)
-	if v == "" {
+	token, hasToken := util.TrimEmptyCheck(lr.Token)
+	if !hasToken {
 		return "", fmt.Errorf("pocketbase: token not found in response")
 	}
-	return v, nil
+	return token, nil
 }

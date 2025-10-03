@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/loykin/apirun/internal/httpc"
+	"github.com/loykin/apirun/internal/util"
 	"github.com/loykin/apirun/pkg/env"
 )
 
@@ -20,7 +21,7 @@ const (
 // Supports various formats: "1.0", "10", "tls1.0", "tls10", etc.
 // Returns 0 if the version string is not recognized.
 func parseTLSVersion(version string) uint16 {
-	switch strings.TrimSpace(strings.ToLower(version)) {
+	switch util.TrimAndLower(version) {
 	case "1.0", "10", "tls1.0", "tls10":
 		return tls.VersionTLS10
 	case "1.1", "11", "tls1.1", "tls11":
@@ -45,12 +46,9 @@ type waitParams struct {
 
 // parseWaitConfig parses and normalizes wait configuration with defaults
 func parseWaitConfig(wc WaitConfig, env *env.Env) waitParams {
-	urlRaw := strings.TrimSpace(wc.URL)
+	urlRaw, _ := util.TrimEmptyCheck(wc.URL)
 
-	method := strings.ToUpper(strings.TrimSpace(wc.Method))
-	if method == "" {
-		method = "GET"
-	}
+	method := strings.ToUpper(util.TrimWithDefault(wc.Method, "GET"))
 
 	expected := wc.Status
 	if expected == 0 {
@@ -58,14 +56,14 @@ func parseWaitConfig(wc WaitConfig, env *env.Env) waitParams {
 	}
 
 	timeout := DefaultWaitTimeout
-	if s := strings.TrimSpace(wc.Timeout); s != "" {
+	if s, hasTimeout := util.TrimEmptyCheck(wc.Timeout); hasTimeout {
 		if d, err := time.ParseDuration(s); err == nil {
 			timeout = d
 		}
 	}
 
 	interval := DefaultWaitInterval
-	if s := strings.TrimSpace(wc.Interval); s != "" {
+	if s, hasInterval := util.TrimEmptyCheck(wc.Interval); hasInterval {
 		if d, err := time.ParseDuration(s); err == nil {
 			interval = d
 		}
@@ -161,7 +159,7 @@ func performPolling(ctx context.Context, hcfg *httpc.Httpc, params waitParams) e
 // - TLS client options are applied via clientCfg and attached to the polling context
 func doWait(ctx context.Context, env *env.Env, wc WaitConfig, clientCfg ClientConfig) error {
 	// Early exit if no URL is provided
-	if strings.TrimSpace(wc.URL) == "" {
+	if _, hasURL := util.TrimEmptyCheck(wc.URL); !hasURL {
 		return nil
 	}
 
