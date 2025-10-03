@@ -18,6 +18,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ConditionEvalData represents structured data for condition template evaluation
+type ConditionEvalData struct {
+	Results map[string]*StageResult `json:"results"`
+	Env     map[string]string       `json:"env"`
+	OS      map[string]string       `json:"os"`
+}
+
 // Orchestrator manages the execution of multiple stages
 type Orchestrator struct {
 	config  *StageOrchestration
@@ -435,6 +442,20 @@ type StageConfig struct {
 
 // Helper methods
 
+// compareValues compares two values and returns 0 if equal, -1 if a < b, 1 if a > b
+func compareValues(a, b any) int {
+	aStr := fmt.Sprintf("%v", a)
+	bStr := fmt.Sprintf("%v", b)
+
+	if aStr == bStr {
+		return 0
+	}
+	if aStr < bStr {
+		return -1
+	}
+	return 1
+}
+
 func (o *Orchestrator) getStageByName(name string) *Stage {
 	for i := range o.config.Stages {
 		if o.config.Stages[i].Name == name {
@@ -533,8 +554,12 @@ func (o *Orchestrator) evaluateCondition(condition string) bool {
 
 	// Template-based condition evaluation
 	tmpl, err := template.New("condition").Funcs(template.FuncMap{
-		"eq":       func(a, b interface{}) bool { return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b) },
-		"ne":       func(a, b interface{}) bool { return fmt.Sprintf("%v", a) != fmt.Sprintf("%v", b) },
+		"eq": func(a, b any) bool {
+			return compareValues(a, b) == 0
+		},
+		"ne": func(a, b any) bool {
+			return compareValues(a, b) != 0
+		},
 		"contains": func(s, substr string) bool { return strings.Contains(s, substr) },
 		"success":  func(stageName string) bool { return o.isStageSuccessful(stageName) },
 		"failed":   func(stageName string) bool { return o.isStageFailed(stageName) },
@@ -553,10 +578,10 @@ func (o *Orchestrator) evaluateCondition(condition string) bool {
 	}
 
 	// Create template data with execution context
-	data := map[string]interface{}{
-		"Results": o.context.StageResults,
-		"Env":     o.context.GlobalEnv,
-		"OS":      map[string]string{"GOOS": "darwin", "GOARCH": "amd64"}, // Could be dynamic
+	data := ConditionEvalData{
+		Results: o.context.StageResults,
+		Env:     o.context.GlobalEnv,
+		OS:      map[string]string{"GOOS": "darwin", "GOARCH": "amd64"}, // Could be dynamic
 	}
 
 	var buf bytes.Buffer

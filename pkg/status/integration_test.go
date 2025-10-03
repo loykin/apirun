@@ -24,22 +24,32 @@ func TestIntegrationFullMigrationCycle(t *testing.T) {
 	// Create test migration files
 	createTestMigrationFile(t, tempDir, "001_initial.yaml", `
 up:
-  - url: https://httpbin.org/status/200
+  name: initial test migration
+  request:
     method: GET
+    url: https://httpbin.org/status/200
+  response:
+    result_code: ["200"]
 down:
-  - url: https://httpbin.org/status/200
-    method: GET
+  name: initial test migration rollback
+  method: GET
+  url: https://httpbin.org/status/200
 `)
 
 	createTestMigrationFile(t, tempDir, "002_second.yaml", `
 up:
-  - url: https://httpbin.org/status/201
+  name: second test migration
+  request:
     method: GET
-    store:
-      result_id: "{{.Response.Headers.Get \"X-Request-Id\"}}"
+    url: https://httpbin.org/status/201
+  response:
+    result_code: ["201"]
+  store:
+    result_id: "{{.Response.Headers.Get \"X-Request-Id\"}}"
 down:
-  - url: https://httpbin.org/status/200
-    method: GET
+  name: second test migration rollback
+  method: GET
+  url: https://httpbin.org/status/200
 `)
 
 	// Set up store
@@ -192,12 +202,16 @@ func TestIntegrationErrorHandling(t *testing.T) {
 	// Create a migration that will fail
 	createTestMigrationFile(t, tempDir, "001_failing.yaml", `
 up:
-  - url: https://httpbin.org/status/500
+  name: failing test migration
+  request:
     method: GET
-    expected: 200  # This will fail
+    url: https://httpbin.org/status/500
+  response:
+    result_code: ["200"]  # This will fail since server returns 500
 down:
-  - url: https://httpbin.org/status/200
-    method: GET
+  name: failing test migration rollback
+  method: GET
+  url: https://httpbin.org/status/200
 `)
 
 	cfg := &apirun.StoreConfig{}

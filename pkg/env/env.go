@@ -192,21 +192,28 @@ func (e *Env) merged() map[string]string {
 // dataForTemplate builds the dot object for template execution supporting both
 // legacy flat lookups (e.g., {{.kc_base}}) and the new
 // grouped lookups ({{.env.kc_base}}, {{.auth.keycloak}}).
-func (e *Env) dataForTemplate() map[string]interface{} {
-	data := map[string]interface{}{}
+// TemplateData represents structured data for template rendering
+type TemplateData struct {
+	Env  map[string]string      `json:"env"`
+	Auth map[string]interface{} `json:"auth"` // Auth values can be various types
+}
+
+func (e *Env) dataForTemplate() TemplateData {
 	// Build merged env for grouped access only (no flat exposure)
 	merged := e.merged()
-	// Grouped access under .env only
-	data["env"] = merged
+
 	// Grouped access under .auth: expose existing values (string or Stringer)
-	am := map[string]interface{}{}
+	authMap := make(map[string]interface{})
 	if e != nil && e.Auth != nil {
 		for k, v := range e.Auth {
-			am[k] = v
+			authMap[k] = v
 		}
 	}
-	data["auth"] = am
-	return data
+
+	return TemplateData{
+		Env:  merged,
+		Auth: authMap,
+	}
 }
 
 // Lookup searches Local first, then Global.
