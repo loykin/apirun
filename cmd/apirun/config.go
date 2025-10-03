@@ -11,22 +11,13 @@ import (
 
 	"github.com/loykin/apirun"
 	iauth "github.com/loykin/apirun/internal/auth"
+	"github.com/loykin/apirun/internal/store/postgresql"
 	"github.com/loykin/apirun/pkg/env"
 	"gopkg.in/yaml.v3"
 )
 
 type SQLiteStoreConfig struct {
 	Path string `mapstructure:"path" yaml:"path"`
-}
-
-type PostgresStoreConfig struct {
-	DSN      string `mapstructure:"dsn" yaml:"dsn"`
-	Host     string `mapstructure:"host" yaml:"host"`
-	Port     int    `mapstructure:"port" yaml:"port"`
-	User     string `mapstructure:"user" yaml:"user"`
-	Password string `mapstructure:"password" yaml:"password"`
-	DBName   string `mapstructure:"dbname" yaml:"dbname"`
-	SSLMode  string `mapstructure:"sslmode" yaml:"sslmode"`
 }
 
 type AuthConfig struct {
@@ -54,11 +45,11 @@ type LoggingConfig struct {
 }
 
 type StoreConfig struct {
-	Disabled         bool                `mapstructure:"disabled" yaml:"disabled" json:"disabled"`
-	SaveResponseBody bool                `mapstructure:"save_response_body" yaml:"save_response_body"`
-	Type             string              `mapstructure:"type" yaml:"type"`
-	SQLite           SQLiteStoreConfig   `mapstructure:"sqlite" yaml:"sqlite"`
-	Postgres         PostgresStoreConfig `mapstructure:"postgres" yaml:"postgres"`
+	Disabled         bool              `mapstructure:"disabled" yaml:"disabled" json:"disabled"`
+	SaveResponseBody bool              `mapstructure:"save_response_body" yaml:"save_response_body"`
+	Type             string            `mapstructure:"type" yaml:"type"`
+	SQLite           SQLiteStoreConfig `mapstructure:"sqlite" yaml:"sqlite"`
+	Postgres         postgresql.Config `mapstructure:"postgres" yaml:"postgres"`
 	// Optional table name customization
 	TablePrefix           string `mapstructure:"table_prefix" yaml:"table_prefix"`
 	TableSchemaMigrations string `mapstructure:"table_schema_migrations" yaml:"table_schema_migrations"`
@@ -128,50 +119,22 @@ func (c *StoreConfig) deriveTableNames() apirun.TableNames {
 }
 
 func (c *StoreConfig) createPostgresStoreConfig(tableNames apirun.TableNames) *apirun.StoreConfig {
-	pg := c.normalizePostgresConfig()
-	pg.DSN = c.buildPostgresDSN()
+	// postgresql.Config의 ToMap() 메서드를 호출해서 DSN을 생성하고 필드를 업데이트
+	pgConfig := c.Postgres
+	configMap := pgConfig.ToMap()
+
+	// ToMap()에서 생성된 DSN을 사용
+	if dsn, ok := configMap["dsn"].(string); ok {
+		pgConfig.DSN = dsn
+	}
+
+	pg := apirun.PostgresConfig(pgConfig)
 
 	out := &apirun.StoreConfig{}
 	out.Config.Driver = apirun.DriverPostgres
-	out.Config.DriverConfig = pg
+	out.Config.DriverConfig = &pg
 	out.Config.TableNames = tableNames
 	return out
-}
-
-func (c *StoreConfig) normalizePostgresConfig() *apirun.PostgresConfig {
-	return &apirun.PostgresConfig{
-		Host:     strings.TrimSpace(c.Postgres.Host),
-		Port:     c.Postgres.Port,
-		User:     strings.TrimSpace(c.Postgres.User),
-		Password: strings.TrimSpace(c.Postgres.Password),
-		DBName:   strings.TrimSpace(c.Postgres.DBName),
-		SSLMode:  strings.TrimSpace(c.Postgres.SSLMode),
-	}
-}
-
-func (c *StoreConfig) buildPostgresDSN() string {
-	dsn := strings.TrimSpace(c.Postgres.DSN)
-	if dsn != "" {
-		return dsn
-	}
-
-	pg := c.normalizePostgresConfig()
-	if pg.Host == "" {
-		return ""
-	}
-
-	port := pg.Port
-	if port == 0 {
-		port = 5432
-	}
-
-	ssl := pg.SSLMode
-	if ssl == "" {
-		ssl = "disable"
-	}
-
-	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		pg.User, pg.Password, pg.Host, port, pg.DBName, ssl)
 }
 
 func (c *StoreConfig) createSqliteStoreConfig(tableNames apirun.TableNames) *apirun.StoreConfig {

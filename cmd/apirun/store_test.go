@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/internal/store/postgresql"
 	"github.com/spf13/viper"
 )
 
@@ -288,7 +289,7 @@ func TestBuildStoreOptions_EmptyType_ReturnsNil(t *testing.T) {
 }
 
 func TestBuildStoreOptions_Postgres_WithDSN(t *testing.T) {
-	doc := ConfigDoc{Store: StoreConfig{Type: apirun.DriverPostgres, Postgres: PostgresStoreConfig{DSN: "postgres://u:p@h:5432/db?sslmode=disable"}}}
+	doc := ConfigDoc{Store: StoreConfig{Type: apirun.DriverPostgres, Postgres: postgresql.Config{DSN: "postgres://u:p@h:5432/db?sslmode=disable"}}}
 	got := doc.Store.ToStorOptions()
 	if got == nil {
 		t.Fatalf("expected non-nil options")
@@ -306,7 +307,7 @@ func TestBuildStoreOptions_Postgres_WithDSN(t *testing.T) {
 }
 
 func TestBuildStoreOptions_Postgres_BuildFromComponents_Defaults(t *testing.T) {
-	doc := ConfigDoc{Store: StoreConfig{Type: apirun.DriverPostgres, Postgres: PostgresStoreConfig{
+	doc := ConfigDoc{Store: StoreConfig{Type: apirun.DriverPostgres, Postgres: postgresql.Config{
 		Host: "localhost", User: "user", Password: "pass", DBName: "db", // Port=0 -> default 5432, SSLMode empty -> disable
 	}}}
 	got := doc.Store.ToStorOptions()
@@ -351,7 +352,7 @@ func TestBuildStoreOptions_UnknownType_FallsBackToSQLite(t *testing.T) {
 
 // Sanity: ensure function is pure relative to input (no mutation of doc)
 func TestBuildStoreOptions_DoesNotMutateInput(t *testing.T) {
-	orig := ConfigDoc{Store: StoreConfig{Type: "postgres", Postgres: PostgresStoreConfig{Host: "h", User: "u", Password: "p", DBName: "d"}}}
+	orig := ConfigDoc{Store: StoreConfig{Type: "postgres", Postgres: postgresql.Config{Host: "h", User: "u", Password: "p", DBName: "d"}}}
 	cp := orig
 	_ = orig.Store.ToStorOptions()
 	if !reflect.DeepEqual(orig, cp) {
@@ -395,7 +396,7 @@ func TestOpenStoreFromOptions_SQLitePath_UsesPath(t *testing.T) {
 
 func TestOpenStoreFromOptions_PostgresMissingDSN_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
-	doc := ConfigDoc{Store: StoreConfig{Type: apirun.DriverPostgres, Postgres: PostgresStoreConfig{DSN: ""}}}
+	doc := ConfigDoc{Store: StoreConfig{Type: apirun.DriverPostgres, Postgres: postgresql.Config{DSN: ""}}}
 	so := doc.Store.ToStorOptions()
 	// buildStoreOptionsFromDoc returns postgres backend with empty DSN if host also empty
 	// OpenStoreFromOptions should error
