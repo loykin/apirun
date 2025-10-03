@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/internal/constants"
 	"github.com/loykin/apirun/internal/util"
 )
 
@@ -37,13 +38,13 @@ func (b *TableNameBuilder) Build() apirun.TableNames {
 	// Apply prefix defaults if prefix is provided but specific names are empty
 	if prefix != "" {
 		if sm == "" {
-			sm = prefix + "_schema_migrations"
+			sm = prefix + constants.SchemaMigrationsSuffix
 		}
 		if mr == "" {
-			mr = prefix + "_migration_log"
+			mr = prefix + constants.MigrationLogSuffix
 		}
 		if se == "" {
-			se = prefix + "_stored_env"
+			se = prefix + constants.StoredEnvSuffix
 		}
 	}
 

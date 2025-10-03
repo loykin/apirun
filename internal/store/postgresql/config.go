@@ -3,13 +3,8 @@ package postgresql
 import (
 	"fmt"
 
+	"github.com/loykin/apirun/internal/constants"
 	"github.com/loykin/apirun/internal/util"
-)
-
-// PostgreSQL configuration constants
-const (
-	defaultPort    = 5432
-	defaultSSLMode = "disable"
 )
 
 type Config struct {
@@ -30,9 +25,9 @@ func (p *Config) ToMap() map[string]interface{} {
 	if !hasDSN && hasHost {
 		port := p.Port
 		if port == 0 {
-			port = defaultPort
+			port = constants.DefaultPostgresPort
 		}
-		ssl := util.TrimWithDefault(p.SSLMode, defaultSSLMode)
+		ssl := util.TrimWithDefault(p.SSLMode, constants.DefaultPostgresSSLMode)
 
 		// Build DSN in the common form accepted by pgx stdlib.
 		fields := util.TrimSpaceFields(p.User, p.Password, p.DBName)

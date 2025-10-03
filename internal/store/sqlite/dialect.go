@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/loykin/apirun/internal/constants"
 )
 
 // Dialect implements SQL dialect for SQLite
@@ -68,10 +70,10 @@ func (s *Dialect) Connect(dsn string) (*sql.DB, error) {
 	}
 
 	// SQLite-specific configuration (SQLite doesn't support multiple writers)
-	db.SetMaxOpenConns(1)                   // SQLite allows only one writer
-	db.SetMaxIdleConns(1)                   // Keep one idle connection
-	db.SetConnMaxLifetime(10 * time.Minute) // Longer lifetime for SQLite
-	db.SetConnMaxIdleTime(5 * time.Minute)  // Longer idle time for SQLite
+	db.SetMaxOpenConns(constants.DefaultSQLiteMaxConnections) // SQLite allows only one writer
+	db.SetMaxIdleConns(1)                                     // Keep one idle connection
+	db.SetConnMaxLifetime(10 * time.Minute)                   // Longer lifetime for SQLite
+	db.SetConnMaxIdleTime(5 * time.Minute)                    // Longer idle time for SQLite
 
 	return db, nil
 }

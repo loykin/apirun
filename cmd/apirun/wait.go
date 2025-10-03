@@ -7,14 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loykin/apirun/internal/constants"
 	"github.com/loykin/apirun/internal/httpc"
 	"github.com/loykin/apirun/internal/util"
 	"github.com/loykin/apirun/pkg/env"
-)
-
-const (
-	DefaultWaitTimeout  = 60 * time.Second
-	DefaultWaitInterval = 2 * time.Second
 )
 
 // parseTLSVersion converts a TLS version string to the corresponding crypto/tls constant.
@@ -48,21 +44,21 @@ type waitParams struct {
 func parseWaitConfig(wc WaitConfig, env *env.Env) waitParams {
 	urlRaw, _ := util.TrimEmptyCheck(wc.URL)
 
-	method := strings.ToUpper(util.TrimWithDefault(wc.Method, "GET"))
+	method := strings.ToUpper(util.TrimWithDefault(wc.Method, constants.DefaultWaitMethod))
 
 	expected := wc.Status
 	if expected == 0 {
-		expected = 200
+		expected = constants.DefaultWaitStatus
 	}
 
-	timeout := DefaultWaitTimeout
+	timeout := constants.DefaultWaitTimeout
 	if s, hasTimeout := util.TrimEmptyCheck(wc.Timeout); hasTimeout {
 		if d, err := time.ParseDuration(s); err == nil {
 			timeout = d
 		}
 	}
 
-	interval := DefaultWaitInterval
+	interval := constants.DefaultWaitInterval
 	if s, hasInterval := util.TrimEmptyCheck(wc.Interval); hasInterval {
 		if d, err := time.ParseDuration(s); err == nil {
 			interval = d

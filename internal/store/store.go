@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/loykin/apirun/internal/constants"
 	"github.com/loykin/apirun/internal/store/connector"
 	"github.com/loykin/apirun/internal/store/postgresql"
 	"github.com/loykin/apirun/internal/store/sqlite"
@@ -84,9 +85,9 @@ func (s *Store) safeTableNames() connector.TableNames {
 
 func defaultTableNames() connector.TableNames {
 	return connector.TableNames{
-		SchemaMigrations: "schema_migrations",
-		MigrationRuns:    "migration_runs",
-		StoredEnv:        "stored_env",
+		SchemaMigrations: constants.DefaultSchemaMigrationsTable,
+		MigrationRuns:    constants.DefaultMigrationRunsTable,
+		StoredEnv:        constants.DefaultStoredEnvTable,
 	}
 }
 
