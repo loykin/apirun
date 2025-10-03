@@ -1,4 +1,4 @@
-package main
+package runner
 
 import (
 	"os"
@@ -38,4 +38,4 @@ func (h *DefaultExitHandler) LogFatalError(err error, msg string, keyvals ...any
 }
 
 // Global exit handler (can be replaced for testing)
-var exitHandler ExitHandler = NewDefaultExitHandler()
+var DefaultHandler ExitHandler = NewDefaultExitHandler()

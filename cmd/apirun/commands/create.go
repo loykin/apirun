@@ -1,4 +1,4 @@
-package main
+package commands
 
 import (
 	"fmt"
@@ -7,11 +7,12 @@ import (
 	"strings"
 
 	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/cmd/apirun/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var createCmd = &cobra.Command{
+var CreateCmd = &cobra.Command{
 	Use:   "create [name]",
 	Short: "Create a new migration file with a task template (timestamp-based name)",
 	Args:  cobra.MaximumNArgs(1),
@@ -22,7 +23,7 @@ var createCmd = &cobra.Command{
 		// Determine migration directory similar to status command
 		dir := ""
 		if strings.TrimSpace(configPath) != "" {
-			var doc ConfigDoc
+			var doc config.ConfigDoc
 			if err := doc.Load(configPath); err != nil {
 				log.Printf("warning: failed to load config: %v", err)
 			} else {

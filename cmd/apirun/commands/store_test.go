@@ -1,4 +1,4 @@
-package main
+package commands
 
 import (
 	"database/sql"
@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/cmd/apirun/config"
 	"github.com/loykin/apirun/internal/store/postgresql"
 	"github.com/spf13/viper"
 )
@@ -82,7 +83,7 @@ migrate_dir: %s
 			v := viper.GetViper()
 			v.Set("config", cfgPath)
 			v.Set("v", false)
-			if err := upCmd.RunE(upCmd, nil); err != nil {
+			if err := UpCmd.RunE(UpCmd, nil); err != nil {
 				t.Fatalf("up: %v", err)
 			}
 
@@ -158,7 +159,7 @@ migrate_dir: %s
 	v.Set("v", false)
 	v.Set("to", 0)
 	// Apply up
-	if err := upCmd.RunE(upCmd, nil); err != nil {
+	if err := UpCmd.RunE(UpCmd, nil); err != nil {
 		t.Fatalf("up error: %v", err)
 	}
 	// Ensure run recorded
@@ -191,7 +192,7 @@ migrate_dir: %s
 	}
 
 	// Now down to 0 -> should DELETE with stored id 123 and remove stored rows
-	if err := downCmd.RunE(downCmd, nil); err != nil {
+	if err := DownCmd.RunE(DownCmd, nil); err != nil {
 		t.Fatalf("down error: %v", err)
 	}
 	if delPath != "/resource/123" {
@@ -270,7 +271,7 @@ migrate_dir: %s
 	v.Set("config", cfgPath)
 	v.Set("v", false)
 	v.Set("to", 0)
-	if err := upCmd.RunE(upCmd, nil); err != nil {
+	if err := UpCmd.RunE(UpCmd, nil); err != nil {
 		t.Fatalf("up error: %v", err)
 	}
 	if atomic.LoadInt32(&createCalls) == 0 {
@@ -282,14 +283,14 @@ migrate_dir: %s
 }
 
 func TestBuildStoreOptions_EmptyType_ReturnsNil(t *testing.T) {
-	doc := ConfigDoc{Store: StoreConfig{Type: ""}}
+	doc := config.ConfigDoc{Store: config.StoreConfig{Type: ""}}
 	if got := doc.Store.ToStorOptions(); got != nil {
 		t.Fatalf("expected nil for empty type, got %#v", got)
 	}
 }
 
 func TestBuildStoreOptions_Postgres_WithDSN(t *testing.T) {
-	doc := ConfigDoc{Store: StoreConfig{Type: apirun.DriverPostgresql, Postgres: postgresql.Config{DSN: "postgres://u:p@h:5432/db?sslmode=disable"}}}
+	doc := config.ConfigDoc{Store: config.StoreConfig{Type: apirun.DriverPostgresql, Postgres: postgresql.Config{DSN: "postgres://u:p@h:5432/db?sslmode=disable"}}}
 	got := doc.Store.ToStorOptions()
 	if got == nil {
 		t.Fatalf("expected non-nil options")
@@ -307,7 +308,7 @@ func TestBuildStoreOptions_Postgres_WithDSN(t *testing.T) {
 }
 
 func TestBuildStoreOptions_Postgres_BuildFromComponents_Defaults(t *testing.T) {
-	doc := ConfigDoc{Store: StoreConfig{Type: apirun.DriverPostgresql, Postgres: postgresql.Config{
+	doc := config.ConfigDoc{Store: config.StoreConfig{Type: apirun.DriverPostgresql, Postgres: postgresql.Config{
 		Host: "localhost", User: "user", Password: "pass", DBName: "db", // Port=0 -> default 5432, SSLMode empty -> disable
 	}}}
 	got := doc.Store.ToStorOptions()
@@ -327,7 +328,7 @@ func TestBuildStoreOptions_Postgres_BuildFromComponents_Defaults(t *testing.T) {
 }
 
 func TestBuildStoreOptions_SQLite_Path(t *testing.T) {
-	doc := ConfigDoc{Store: StoreConfig{Type: "sqlite", SQLite: SQLiteStoreConfig{Path: "/tmp/x.db"}}}
+	doc := config.ConfigDoc{Store: config.StoreConfig{Type: "sqlite", SQLite: config.SQLiteStoreConfig{Path: "/tmp/x.db"}}}
 	got := doc.Store.ToStorOptions()
 	if got == nil || got.Config.Driver != apirun.DriverSqlite {
 		t.Fatalf("expected sqlite driver, got %#v", got)
@@ -339,7 +340,7 @@ func TestBuildStoreOptions_SQLite_Path(t *testing.T) {
 }
 
 func TestBuildStoreOptions_UnknownType_FallsBackToSQLite(t *testing.T) {
-	doc := ConfigDoc{Store: StoreConfig{Type: "maria", SQLite: SQLiteStoreConfig{Path: "./foo.db"}}}
+	doc := config.ConfigDoc{Store: config.StoreConfig{Type: "maria", SQLite: config.SQLiteStoreConfig{Path: "./foo.db"}}}
 	got := doc.Store.ToStorOptions()
 	if got == nil || got.Config.Driver != apirun.DriverSqlite {
 		t.Fatalf("fallback to sqlite mismatch, got %#v", got)
@@ -352,7 +353,7 @@ func TestBuildStoreOptions_UnknownType_FallsBackToSQLite(t *testing.T) {
 
 // Sanity: ensure function is pure relative to input (no mutation of doc)
 func TestBuildStoreOptions_DoesNotMutateInput(t *testing.T) {
-	orig := ConfigDoc{Store: StoreConfig{Type: "postgres", Postgres: postgresql.Config{Host: "h", User: "u", Password: "p", DBName: "d"}}}
+	orig := config.ConfigDoc{Store: config.StoreConfig{Type: "postgres", Postgres: postgresql.Config{Host: "h", User: "u", Password: "p", DBName: "d"}}}
 	cp := orig
 	_ = orig.Store.ToStorOptions()
 	if !reflect.DeepEqual(orig, cp) {
@@ -381,7 +382,7 @@ func TestOpenStoreFromOptions_SQLitePath_UsesPath(t *testing.T) {
 	custom := filepath.Join(dir, "custom.db")
 	opts := &StoreOptionsShimSQLite{Type: "sqlite", Path: custom}
 	// Use config doc to generate options, then open
-	doc := ConfigDoc{Store: StoreConfig{Type: opts.Type, SQLite: SQLiteStoreConfig{Path: opts.Path}}}
+	doc := config.ConfigDoc{Store: config.StoreConfig{Type: opts.Type, SQLite: config.SQLiteStoreConfig{Path: opts.Path}}}
 	so := doc.Store.ToStorOptions()
 	st, err := apirun.OpenStoreFromOptions(dir, so)
 	if err != nil {
@@ -396,7 +397,7 @@ func TestOpenStoreFromOptions_SQLitePath_UsesPath(t *testing.T) {
 
 func TestOpenStoreFromOptions_PostgresMissingDSN_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
-	doc := ConfigDoc{Store: StoreConfig{Type: apirun.DriverPostgresql, Postgres: postgresql.Config{DSN: ""}}}
+	doc := config.ConfigDoc{Store: config.StoreConfig{Type: apirun.DriverPostgresql, Postgres: postgresql.Config{DSN: ""}}}
 	so := doc.Store.ToStorOptions()
 	// buildStoreOptionsFromDoc returns postgres backend with empty DSN if host also empty
 	// OpenStoreFromOptions should error
@@ -412,9 +413,9 @@ type StoreOptionsShimSQLite struct {
 }
 
 func TestBuildStoreOptions_TableNames_PassThrough(t *testing.T) {
-	doc := ConfigDoc{Store: StoreConfig{
+	doc := config.ConfigDoc{Store: config.StoreConfig{
 		Type:                  "sqlite",
-		SQLite:                SQLiteStoreConfig{Path: "/tmp/x.db"},
+		SQLite:                config.SQLiteStoreConfig{Path: "/tmp/x.db"},
 		TableSchemaMigrations: "sm_custom",
 		TableMigrationRuns:    "mr_custom",
 		TableStoredEnv:        "se_custom",
@@ -432,9 +433,9 @@ func TestBuildStoreOptions_TableNames_PassThrough(t *testing.T) {
 func TestOpenStoreFromOptions_SQLite_CustomTableNames(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "named.db")
-	doc := ConfigDoc{Store: StoreConfig{
+	doc := config.ConfigDoc{Store: config.StoreConfig{
 		Type:                  "sqlite",
-		SQLite:                SQLiteStoreConfig{Path: dbPath},
+		SQLite:                config.SQLiteStoreConfig{Path: dbPath},
 		TableSchemaMigrations: "sm_custom",
 		TableMigrationRuns:    "mr_custom",
 		TableStoredEnv:        "se_custom",
@@ -460,9 +461,9 @@ func TestOpenStoreFromOptions_SQLite_CustomTableNames(t *testing.T) {
 }
 
 func TestBuildStoreOptions_TablePrefix_ComputesNames(t *testing.T) {
-	doc := ConfigDoc{Store: StoreConfig{
+	doc := config.ConfigDoc{Store: config.StoreConfig{
 		Type:        "sqlite",
-		SQLite:      SQLiteStoreConfig{Path: "/tmp/x.db"},
+		SQLite:      config.SQLiteStoreConfig{Path: "/tmp/x.db"},
 		TablePrefix: "app1",
 	}}
 	got := doc.Store.ToStorOptions()
@@ -477,9 +478,9 @@ func TestBuildStoreOptions_TablePrefix_ComputesNames(t *testing.T) {
 func TestOpenStoreFromOptions_SQLite_TablePrefix_CreatesTables(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "prefix.db")
-	doc := ConfigDoc{Store: StoreConfig{
+	doc := config.ConfigDoc{Store: config.StoreConfig{
 		Type:        "sqlite",
-		SQLite:      SQLiteStoreConfig{Path: dbPath},
+		SQLite:      config.SQLiteStoreConfig{Path: dbPath},
 		TablePrefix: "pfx",
 	}}
 	opts := doc.Store.ToStorOptions()

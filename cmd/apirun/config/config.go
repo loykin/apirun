@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/loykin/apirun"
 	iauth "github.com/loykin/apirun/internal/auth"
@@ -57,28 +56,6 @@ type StoreConfig struct {
 	TableStoredEnv        string `mapstructure:"table_stored_env" yaml:"table_stored_env"`
 }
 
-// lazyVal is a Stringer that resolves once via proc when first printed
-// used to install lazy .auth values into env.Auth Map without tying env to auth
-type lazyVal struct {
-	once sync.Once
-	res  string
-	err  error
-	proc func() (string, error)
-}
-
-func (l *lazyVal) String() string {
-	l.once.Do(func() {
-		v, err := l.proc()
-		if err != nil {
-			l.err = err
-			l.res = ""
-			return
-		}
-		l.res = v
-	})
-	return l.res
-}
-
 func (c *StoreConfig) ToStorOptions() *apirun.StoreConfig {
 	factory := NewStoreFactory()
 	return factory.CreateStoreConfig(*c)
@@ -115,8 +92,11 @@ type ConfigDoc struct {
 }
 
 func (c *ConfigDoc) DecodeAuth(ctx context.Context, e *env.Env) error {
+	// Ensure map exists
+	if e.Auth == nil {
+		e.Auth = env.Map{}
+	}
 	// Prepare lazy acquisition closures per auth name
-	procs := map[string]func() (string, error){}
 	for i, a := range c.Auth {
 		pt, ptOk := util.TrimEmptyCheck(a.Type)
 		if !ptOk {
@@ -131,23 +111,16 @@ func (c *ConfigDoc) DecodeAuth(ctx context.Context, e *env.Env) error {
 		renderedCfg, _ := renderedAny.(map[string]interface{})
 		// Build struct-based config for later acquisition
 		authCfg := &iauth.Auth{Type: pt, Name: storedName, Methods: iauth.NewAuthSpecFromMap(renderedCfg)}
-		procs[storedName] = func() (string, error) {
+
+		// Install lazy value using env.MakeLazy
+		e.Auth[storedName] = e.MakeLazy(func(env *env.Env) (string, error) {
 			// Use provided ctx if available; fall back to Background
 			cctx := ctx
 			if cctx == nil {
 				cctx = context.Background()
 			}
-			return authCfg.Acquire(cctx, e)
-		}
-	}
-	// Ensure map exists
-	if e.Auth == nil {
-		e.Auth = env.Map{}
-	}
-	// Install lazy values for each configured auth
-	for name, proc := range procs {
-		// preset values are not set here (DecodeAuth only wires lazies)
-		e.Auth[name] = &lazyVal{proc: proc}
+			return authCfg.Acquire(cctx, env)
+		})
 	}
 	return nil
 }

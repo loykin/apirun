@@ -1,15 +1,16 @@
-package main
+package validation
 
 import (
 	"fmt"
 	"path/filepath"
 	"strings"
 
+	"github.com/loykin/apirun/cmd/apirun/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var validateCmd = &cobra.Command{
+var ValidateCmd = &cobra.Command{
 	Use:   "validate",
 	Short: "Validate migration files for syntax and structure",
 	Long: `Validate migration files in the specified directory for YAML syntax errors,
@@ -25,7 +26,7 @@ required fields, and structural correctness. This command checks:
 
 		dir := ""
 		if strings.TrimSpace(configPath) != "" {
-			var doc ConfigDoc
+			var doc config.ConfigDoc
 			if err := doc.Load(configPath); err != nil {
 				fmt.Printf("Warning: failed to load config file '%s': %v\n", configPath, err)
 				fmt.Println("Using default migration directory...")
@@ -64,8 +65,4 @@ required fields, and structural correctness. This command checks:
 
 		return nil
 	},
-}
-
-func init() {
-	rootCmd.AddCommand(validateCmd)
 }

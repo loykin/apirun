@@ -1,4 +1,4 @@
-package main
+package commands
 
 import (
 	"context"
@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/cmd/apirun/config"
 	"github.com/loykin/apirun/pkg/env"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var downCmd = &cobra.Command{
+var DownCmd = &cobra.Command{
 	Use:   "down",
 	Short: "Rollback down to a target version",
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -29,7 +30,7 @@ var downCmd = &cobra.Command{
 		saveResp := false
 		var storeCfgFromDoc *apirun.StoreConfig
 		if strings.TrimSpace(configPath) != "" {
-			var doc ConfigDoc
+			var doc config.ConfigDoc
 			if err := doc.Load(configPath); err != nil {
 				return fmt.Errorf("failed to load configuration file '%s': %w\nPlease verify the file exists and contains valid YAML", configPath, err)
 			}
@@ -42,7 +43,7 @@ var downCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("failed to process environment variables from config: %w", err)
 			}
-			if err := doWait(ctx, envFromCfg, doc.Wait, doc.Client); err != nil {
+			if err := DoWait(ctx, envFromCfg, doc.Wait, doc.Client); err != nil {
 				return fmt.Errorf("dependency wait check failed: %w\nCheck that required services are running and accessible", err)
 			}
 			if err := doc.DecodeAuth(ctx, envFromCfg); err != nil {
@@ -68,7 +69,7 @@ var downCmd = &cobra.Command{
 		m := apirun.Migrator{Env: *baseEnv, Dir: dir, SaveResponseBody: saveResp, DryRun: dry, DryRunFrom: dryRunFrom}
 		// Set default render_body and delay from config if provided
 		if strings.TrimSpace(configPath) != "" {
-			var doc ConfigDoc
+			var doc config.ConfigDoc
 			if err := doc.Load(configPath); err == nil {
 				if doc.RenderBody != nil {
 					m.RenderBodyDefault = doc.RenderBody

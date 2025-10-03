@@ -1,4 +1,4 @@
-package main
+package runner
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/loykin/apirun"
+	"github.com/loykin/apirun/cmd/apirun/commands"
+	"github.com/loykin/apirun/cmd/apirun/config"
 	"github.com/loykin/apirun/internal/common"
 	ienv "github.com/loykin/apirun/pkg/env"
 	"github.com/spf13/viper"
@@ -66,7 +68,7 @@ func (r *MigrationRunner) LoadConfiguration() error {
 
 	r.config.Logger.Debug("loading configuration file", "path", configPath)
 
-	var doc ConfigDoc
+	var doc config.ConfigDoc
 	if err := doc.Load(configPath); err != nil {
 		return fmt.Errorf("failed to load configuration file '%s': %w\nPlease check if the file exists and has valid YAML syntax", configPath, err)
 	}
@@ -83,7 +85,7 @@ func (r *MigrationRunner) LoadConfiguration() error {
 }
 
 // processConfigDoc processes the loaded configuration document
-func (r *MigrationRunner) processConfigDoc(doc *ConfigDoc) error {
+func (r *MigrationRunner) processConfigDoc(doc *config.ConfigDoc) error {
 	mDir := strings.TrimSpace(doc.MigrateDir)
 	r.config.Logger.Debug("processing configuration", "migrate_dir", mDir)
 
@@ -95,7 +97,7 @@ func (r *MigrationRunner) processConfigDoc(doc *ConfigDoc) error {
 	}
 
 	// Perform wait check
-	if err := doWait(r.ctx, envFromCfg, doc.Wait, doc.Client); err != nil {
+	if err := commands.DoWait(r.ctx, envFromCfg, doc.Wait, doc.Client); err != nil {
 		r.config.Logger.Error("wait check failed", "error", err)
 		return fmt.Errorf("service dependency check failed: %w\nEnsure required services are running and accessible", err)
 	}
@@ -122,7 +124,7 @@ func (r *MigrationRunner) processConfigDoc(doc *ConfigDoc) error {
 }
 
 // buildTLSConfig creates TLS configuration from client settings
-func (r *MigrationRunner) buildTLSConfig(clientCfg ClientConfig) *tls.Config {
+func (r *MigrationRunner) buildTLSConfig(clientCfg config.ClientConfig) *tls.Config {
 	minV := uint16(0)
 	maxV := uint16(0)
 

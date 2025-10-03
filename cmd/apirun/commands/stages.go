@@ -1,4 +1,4 @@
-package main
+package commands
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var stagesCmd = &cobra.Command{
+var StagesCmd = &cobra.Command{
 	Use:   "stages",
 	Short: "Manage multi-stage orchestration",
 }
@@ -66,10 +66,10 @@ var stagesValidateCmd = &cobra.Command{
 
 func init() {
 	// Add subcommands to stages
-	stagesCmd.AddCommand(stagesUpCmd)
-	stagesCmd.AddCommand(stagesDownCmd)
-	stagesCmd.AddCommand(stagesStatusCmd)
-	stagesCmd.AddCommand(stagesValidateCmd)
+	StagesCmd.AddCommand(stagesUpCmd)
+	StagesCmd.AddCommand(stagesDownCmd)
+	StagesCmd.AddCommand(stagesStatusCmd)
+	StagesCmd.AddCommand(stagesValidateCmd)
 
 	// Add common flags to all stage commands
 	addCommonStageFlags(stagesUpCmd)

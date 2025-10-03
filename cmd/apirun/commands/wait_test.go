@@ -1,4 +1,4 @@
-package main
+package commands
 
 import (
 	"crypto/tls"
@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/loykin/apirun/cmd/apirun/config"
 	"github.com/loykin/apirun/pkg/env"
 	"github.com/spf13/viper"
 )
@@ -46,8 +47,8 @@ migrate_dir: %s
 	v.Set("v", false)
 	v.Set("to", 0)
 
-	if err := upCmd.RunE(upCmd, nil); err != nil {
-		t.Fatalf("upCmd.RunE error: %v", err)
+	if err := UpCmd.RunE(UpCmd, nil); err != nil {
+		t.Fatalf("UpCmd.RunE error: %v", err)
 	}
 	if atomic.LoadInt32(&calls) < 4 {
 		t.Fatalf("expected at least 4 calls (3 failures + 1 success), got %d", calls)
@@ -75,7 +76,7 @@ migrate_dir: %s
 	v.Set("config", cfgPath)
 	v.Set("v", false)
 	v.Set("to", 0)
-	if err := upCmd.RunE(upCmd, nil); err != nil {
+	if err := UpCmd.RunE(UpCmd, nil); err != nil {
 		t.Fatalf("RunE error: %v", err)
 	}
 	if methodGot != http.MethodGet {
@@ -107,7 +108,7 @@ migrate_dir: %s
 	v.Set("config", cfgPath)
 	v.Set("v", false)
 	v.Set("to", 0)
-	if err := upCmd.RunE(upCmd, nil); err != nil {
+	if err := UpCmd.RunE(UpCmd, nil); err != nil {
 		t.Fatalf("RunE error: %v", err)
 	}
 	if atomic.LoadInt32(&gotHEAD) == 0 {
@@ -135,7 +136,7 @@ migrate_dir: %s
 	v.Set("config", cfgPath)
 	v.Set("v", false)
 	v.Set("to", 0)
-	err := upCmd.RunE(upCmd, nil)
+	err := UpCmd.RunE(UpCmd, nil)
 	if err == nil {
 		t.Fatalf("expected timeout error, got nil")
 	}
@@ -167,7 +168,7 @@ migrate_dir: %s
 	v.Set("config", cfgPath)
 	v.Set("v", false)
 	v.Set("to", 0)
-	if err := upCmd.RunE(upCmd, nil); err != nil {
+	if err := UpCmd.RunE(UpCmd, nil); err != nil {
 		t.Fatalf("RunE error: %v", err)
 	}
 	if atomic.LoadInt32(&seen) == 0 {
@@ -228,12 +229,12 @@ func TestParseWaitConfig(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		wc       WaitConfig
+		wc       config.WaitConfig
 		expected waitParams
 	}{
 		{
 			name: "defaults",
-			wc:   WaitConfig{URL: "http://example.com/health"},
+			wc:   config.WaitConfig{URL: "http://example.com/health"},
 			expected: waitParams{
 				url:      "http://example.com/health",
 				method:   "GET",
@@ -244,7 +245,7 @@ func TestParseWaitConfig(t *testing.T) {
 		},
 		{
 			name: "custom_values",
-			wc: WaitConfig{
+			wc: config.WaitConfig{
 				URL:      "http://example.com/ready",
 				Method:   "head",
 				Status:   204,
@@ -261,7 +262,7 @@ func TestParseWaitConfig(t *testing.T) {
 		},
 		{
 			name: "empty_url",
-			wc:   WaitConfig{URL: ""},
+			wc:   config.WaitConfig{URL: ""},
 			expected: waitParams{
 				url:      "",
 				method:   "GET",
@@ -285,12 +286,12 @@ func TestParseWaitConfig(t *testing.T) {
 func TestSetupTLSConfig(t *testing.T) {
 	tests := []struct {
 		name      string
-		clientCfg ClientConfig
+		clientCfg config.ClientConfig
 		checkFunc func(*testing.T, *tls.Config)
 	}{
 		{
 			name:      "default_config",
-			clientCfg: ClientConfig{},
+			clientCfg: config.ClientConfig{},
 			checkFunc: func(t *testing.T, cfg *tls.Config) {
 				if cfg.MinVersion != 0 || cfg.MaxVersion != 0 {
 					t.Errorf("Expected default TLS versions (0,0), got (%d,%d)", cfg.MinVersion, cfg.MaxVersion)
@@ -302,7 +303,7 @@ func TestSetupTLSConfig(t *testing.T) {
 		},
 		{
 			name: "tls_versions_set",
-			clientCfg: ClientConfig{
+			clientCfg: config.ClientConfig{
 				MinTLSVersion: "1.2",
 				MaxTLSVersion: "1.3",
 			},
@@ -317,7 +318,7 @@ func TestSetupTLSConfig(t *testing.T) {
 		},
 		{
 			name: "insecure_skip_verify",
-			clientCfg: ClientConfig{
+			clientCfg: config.ClientConfig{
 				Insecure: true,
 			},
 			checkFunc: func(t *testing.T, cfg *tls.Config) {

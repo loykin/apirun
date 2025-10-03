@@ -1,4 +1,4 @@
-package main
+package commands
 
 import (
 	"fmt"
@@ -114,12 +114,12 @@ migrate_dir: %s
 	v.Set("to", 0)
 
 	// First, apply up to record both versions
-	if err := upCmd.RunE(upCmd, nil); err != nil {
-		t.Fatalf("upCmd.RunE error: %v", err)
+	if err := UpCmd.RunE(UpCmd, nil); err != nil {
+		t.Fatalf("UpCmd.RunE error: %v", err)
 	}
 	// Then rollback all the way down to 0
-	if err := downCmd.RunE(downCmd, nil); err != nil {
-		t.Fatalf("downCmd.RunE error: %v", err)
+	if err := DownCmd.RunE(DownCmd, nil); err != nil {
+		t.Fatalf("DownCmd.RunE error: %v", err)
 	}
 
 	if calls["/down1"] != 1 || calls["/down2"] != 1 {
@@ -210,14 +210,14 @@ migrate_dir: %s
 
 	// Apply both
 	v.Set("to", 0)
-	if err := upCmd.RunE(upCmd, nil); err != nil {
-		t.Fatalf("upCmd.RunE error: %v", err)
+	if err := UpCmd.RunE(UpCmd, nil); err != nil {
+		t.Fatalf("UpCmd.RunE error: %v", err)
 	}
 
 	// Now roll back to version 1
 	v.Set("to", 1)
-	if err := downCmd.RunE(downCmd, nil); err != nil {
-		t.Fatalf("downCmd.RunE error: %v", err)
+	if err := DownCmd.RunE(DownCmd, nil); err != nil {
+		t.Fatalf("DownCmd.RunE error: %v", err)
 	}
 
 	if calls["/down2"] != 1 {

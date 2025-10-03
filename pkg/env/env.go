@@ -192,13 +192,7 @@ func (e *Env) merged() map[string]string {
 // dataForTemplate builds the dot object for template execution supporting both
 // legacy flat lookups (e.g., {{.kc_base}}) and the new
 // grouped lookups ({{.env.kc_base}}, {{.auth.keycloak}}).
-// TemplateData represents structured data for template rendering
-type TemplateData struct {
-	Env  map[string]string      `json:"env"`
-	Auth map[string]interface{} `json:"auth"` // Auth values can be various types
-}
-
-func (e *Env) dataForTemplate() TemplateData {
+func (e *Env) dataForTemplate() map[string]interface{} {
 	// Build merged env for grouped access only (no flat exposure)
 	merged := e.merged()
 
@@ -210,9 +204,9 @@ func (e *Env) dataForTemplate() TemplateData {
 		}
 	}
 
-	return TemplateData{
-		Env:  merged,
-		Auth: authMap,
+	return map[string]interface{}{
+		"env":  merged,
+		"auth": authMap,
 	}
 }
 
