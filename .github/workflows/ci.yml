@@ -58,7 +58,7 @@ jobs:
           $(go env GOPATH)/bin/gosec -no-fail -fmt=json -out=gosec-report.json ./...
 
       - name: Upload gosec report artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: gosec-report
           path: gosec-report.json
@@ -71,7 +71,7 @@ jobs:
           output: trivy-report.json
 
       - name: Upload Trivy report artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: trivy-report
           path: trivy-report.json
@@ -146,7 +146,7 @@ jobs:
         run: go tool cover -func=coverage.out | tail -n 1
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: coverage
           path: coverage.out
