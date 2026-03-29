@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync/atomic"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/loykin/apirun/internal/httpc"
@@ -97,16 +98,16 @@ func renderBody(e *env.Env, b string) (string, error) {
 	return b, nil
 }
 
-var tlsConfig *tls.Config
+var tlsConfig atomic.Pointer[tls.Config]
 
 // SetTLSConfig configures the TLS settings used by HTTP requests within tasks.
 // Passing nil resets to default client behavior.
 func SetTLSConfig(cfg *tls.Config) {
-	tlsConfig = cfg
+	tlsConfig.Store(cfg)
 }
 
 func buildRequest(ctx context.Context, headers map[string]string, queries map[string]string, body string) *resty.Request {
-	h := httpc.Httpc{TlsConfig: tlsConfig}
+	h := httpc.Httpc{TlsConfig: tlsConfig.Load()}
 	client := h.New()
 	req := client.R().SetContext(ctx).SetHeaders(headers).SetQueryParams(queries)
 	if strings.TrimSpace(body) != "" {

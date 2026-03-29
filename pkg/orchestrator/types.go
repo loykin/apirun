@@ -22,7 +22,6 @@ type Stage struct {
 	Condition     string            `yaml:"condition"`
 	OnFailure     string            `yaml:"on_failure"` // stop, continue, skip_dependents
 	Timeout       time.Duration     `yaml:"timeout"`
-	WaitBetween   time.Duration     `yaml:"wait_between"`
 }
 
 // EnvFromStage represents environment variables to inherit from other stages
@@ -33,10 +32,8 @@ type EnvFromStage struct {
 
 // Global represents global configuration for all stages
 type Global struct {
-	Env                 map[string]string `yaml:"env"`
-	WaitBetweenStages   time.Duration     `yaml:"wait_between_stages"`
-	RollbackOnFailure   bool              `yaml:"rollback_on_failure"`
-	MaxConcurrentStages int               `yaml:"max_concurrent_stages"`
+	Env               map[string]string `yaml:"env"`
+	WaitBetweenStages time.Duration     `yaml:"wait_between_stages"`
 }
 
 // StageResult represents the result of executing a stage
