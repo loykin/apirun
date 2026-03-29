@@ -73,14 +73,10 @@ func validateOrchestration(orchestration *StageOrchestration) error {
 			return fmt.Errorf("stage %s: invalid on_failure value: %s (must be one of: stop, continue, skip_dependents)", stage.Name, stage.OnFailure)
 		}
 
-		// Validate dependencies exist
+		// Self-dependency check
 		for _, dep := range stage.DependsOn {
-			if !stageNames[dep] && dep != stage.Name {
-				// We'll validate this after all stages are processed
-				// For now, just check self-dependency
-				if dep == stage.Name {
-					return fmt.Errorf("stage %s: cannot depend on itself", stage.Name)
-				}
+			if dep == stage.Name {
+				return fmt.Errorf("stage %s: cannot depend on itself", stage.Name)
 			}
 		}
 	}

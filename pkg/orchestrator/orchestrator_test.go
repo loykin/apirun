@@ -320,7 +320,7 @@ func TestOrchestrator_handleStageFailure(t *testing.T) {
 			onFailure:            "skip_dependents",
 			expectedSkippedCount: 3,
 			expectedSkipped:      []string{"stage2", "stage3", "stage4"},
-			expectError:          true,
+			expectError:          false, // continues execution; non-dependent stages still run
 		},
 		{
 			name: "skip dependents - no dependents",
@@ -332,7 +332,7 @@ func TestOrchestrator_handleStageFailure(t *testing.T) {
 			onFailure:            "skip_dependents",
 			expectedSkippedCount: 0,
 			expectedSkipped:      []string{},
-			expectError:          true,
+			expectError:          false, // no dependents to skip; continues execution
 		},
 	}
 
@@ -569,6 +569,67 @@ func TestOrchestrator_GetExecutionPlan(t *testing.T) {
 				t.Errorf("Execution plan validation failed for batches: %v", batches)
 			}
 		})
+	}
+}
+
+func TestOrchestrator_handleStageFailure_SkipDependents_EndToEnd(t *testing.T) {
+	// Topology: stage1 → stage2 → stage3, stage4 (independent)
+	// When stage1 fails with skip_dependents: stage2, stage3 are skipped; stage4 still runs
+	stages := []Stage{
+		{Name: "stage1", OnFailure: "skip_dependents"},
+		{Name: "stage2", DependsOn: []string{"stage1"}},
+		{Name: "stage3", DependsOn: []string{"stage2"}},
+		{Name: "stage4"}, // independent
+	}
+
+	config := &StageOrchestration{Stages: stages, Global: Global{}}
+	orch := NewOrchestrator(config)
+	if err := orch.graph.BuildGraph(stages); err != nil {
+		t.Fatalf("BuildGraph: %v", err)
+	}
+
+	// Simulate stage1 failure
+	stage1 := &stages[0]
+	if err := orch.handleStageFailure(stage1, fmt.Errorf("stage1 failed")); err != nil {
+		t.Fatalf("handleStageFailure returned unexpected error: %v", err)
+	}
+
+	// stage2 and stage3 should be marked as skipped
+	for _, name := range []string{"stage2", "stage3"} {
+		if _, skipped := orch.context.SkippedStages[name]; !skipped {
+			t.Errorf("expected %s to be in SkippedStages", name)
+		}
+	}
+
+	// stage4 (independent) must NOT be in SkippedStages
+	if _, skipped := orch.context.SkippedStages["stage4"]; skipped {
+		t.Error("stage4 (independent) should not be in SkippedStages")
+	}
+}
+
+func TestOrchestrator_GetExecutionPlan_DownRange(t *testing.T) {
+	// Verifies that GetExecutionPlan("down") uses filterStagesInRangeDown semantics
+	// (toStage is exclusive) — not filterStagesInRange (toStage is inclusive)
+	stages := []Stage{
+		{Name: "stage1"},
+		{Name: "stage2", DependsOn: []string{"stage1"}},
+		{Name: "stage3", DependsOn: []string{"stage2"}},
+	}
+
+	config := &StageOrchestration{Stages: stages, Global: Global{}}
+	orch := NewOrchestrator(config)
+	if err := orch.graph.BuildGraph(stages); err != nil {
+		t.Fatalf("BuildGraph: %v", err)
+	}
+
+	// down from stage3 to stage2: stage2 is exclusive, so only stage3 should appear
+	batches, err := orch.GetExecutionPlan("stage3", "stage2", "down")
+	if err != nil {
+		t.Fatalf("GetExecutionPlan: %v", err)
+	}
+
+	if len(batches) != 1 || batches[0][0] != "stage3" {
+		t.Errorf("expected [[stage3]], got %v", batches)
 	}
 }
 
