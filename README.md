@@ -1,8 +1,5 @@
 # apirun
 
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/loykin/apirun/gh-pages/shields/coverage.json&cacheSeconds=60)](https://github.com/loykin/apirun/blob/gh-pages/shields/coverage.json)
-[![Go Report Card](https://goreportcard.com/badge/github.com/loykin/apirun)](https://goreportcard.com/report/github.com/loykin/apirun)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/loykin/apirun/badge)](https://securityscorecards.dev/viewer/?uri=github.com/loykin/apirun)
 ![CodeQL](https://github.com/loykin/apirun/actions/workflows/codeql.yml/badge.svg)
 [![Trivy](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/loykin/apirun/gh-pages/shields/trivy.json&cacheSeconds=60)](https://raw.githubusercontent.com/loykin/apirun/gh-pages/shields/trivy.json)
 
