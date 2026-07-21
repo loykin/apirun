@@ -19,7 +19,7 @@ up:
         "timestamp": "embedded-test"
       }
   response:
-    result_code: ["200", "502", "503"]
+    result_code: ["200"]
     env_from:
       setup_id: "json.project"
       setup_timestamp: "json.test_data"
