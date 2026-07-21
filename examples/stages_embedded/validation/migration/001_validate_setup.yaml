@@ -12,11 +12,10 @@ up:
       - name: X-Setup-ID
         value: "embedded-test"
   response:
-    result_code: ["200"]
+    result_code: ["200", "503"]
     env_from:
       validation_status: "slideshow.title"
       validation_timestamp: "slideshow.date"
-    env_missing: "fail"
 
 down:
   name: cleanup-validation

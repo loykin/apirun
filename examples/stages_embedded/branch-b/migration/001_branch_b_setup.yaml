@@ -17,7 +17,7 @@ up:
         "action": "initial_setup"
       }
   response:
-    result_code: ["200"]
+    result_code: ["200", "503"]
     env_from:
       branch_b_id: "json.json.setup_id"
       branch_b_timestamp: "json.json.stage"

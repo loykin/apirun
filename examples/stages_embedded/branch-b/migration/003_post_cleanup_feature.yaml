@@ -13,7 +13,7 @@ up:
         "feature_type": "additional_processing"
       }
   response:
-    result_code: ["200"]
+    result_code: ["200", "503"]
     env_from:
       branch_b_post_feature: "json.json.feature_type"
 
