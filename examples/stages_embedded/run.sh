@@ -7,7 +7,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 ADDR="127.0.0.1:18080"
 
-MOCK_BIN="$(mktemp -t apirun-mockserver)"
+MOCK_BIN="$(mktemp -t apirun-mockserver.XXXXXX)"
 go build -o "$MOCK_BIN" ./mockserver
 
 "$MOCK_BIN" -addr ":18080" &
