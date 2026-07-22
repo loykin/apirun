@@ -5,7 +5,7 @@ up:
     cleanup_message: "Cleaning up embedded test"
   request:
     method: POST
-    url: "https://httpbin.org/post"
+    url: "http://127.0.0.1:18080/post"
     headers:
       - name: Content-Type
         value: application/json
@@ -20,12 +20,12 @@ up:
         "message": "Cleaning up embedded test"
       }
   response:
-    result_code: ["200", "503"]
+    result_code: ["200"]
 
 down:
   name: restore-cleanup
   method: POST
-  url: "https://httpbin.org/post"
+  url: "http://127.0.0.1:18080/post"
   headers:
     - name: Content-Type
       value: application/json

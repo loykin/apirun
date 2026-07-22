@@ -116,7 +116,7 @@ jobs:
           echo "RUnning examples/metrics_demo"
           go run ./examples/metrics_demo
           echo "Running examples/stages_embedded"
-          cd examples/stages_embedded && ../../apirun stages up && cd ../..
+          ./examples/stages_embedded/run.sh
         env:
           CI: true
 

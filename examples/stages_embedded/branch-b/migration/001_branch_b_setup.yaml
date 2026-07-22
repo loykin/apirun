@@ -5,7 +5,7 @@ up:
   name: branch-b-initial-setup
   request:
     method: POST
-    url: "https://httpbin.org/post"
+    url: "http://127.0.0.1:18080/post"
     headers:
       - name: Content-Type
         value: application/json
@@ -17,7 +17,7 @@ up:
         "action": "initial_setup"
       }
   response:
-    result_code: ["200", "503"]
+    result_code: ["200"]
     env_from:
       branch_b_id: "json.json.setup_id"
       branch_b_timestamp: "json.json.stage"
@@ -25,7 +25,7 @@ up:
 down:
   name: branch-b-initial-cleanup
   method: DELETE
-  url: "https://httpbin.org/delete"
+  url: "http://127.0.0.1:18080/delete"
   headers:
     - name: Content-Type
       value: application/json

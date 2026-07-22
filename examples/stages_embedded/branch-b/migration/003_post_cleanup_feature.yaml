@@ -2,7 +2,7 @@ up:
   name: branch-b-post-cleanup-feature
   request:
     method: POST
-    url: "https://httpbin.org/post"
+    url: "http://127.0.0.1:18080/post"
     headers:
       - name: Content-Type
         value: application/json
@@ -13,14 +13,14 @@ up:
         "feature_type": "additional_processing"
       }
   response:
-    result_code: ["200", "503"]
+    result_code: ["200"]
     env_from:
       branch_b_post_feature: "json.json.feature_type"
 
 down:
   name: branch-b-post-cleanup
   method: POST
-  url: "https://httpbin.org/post"
+  url: "http://127.0.0.1:18080/post"
   headers:
     - name: Content-Type
       value: application/json
