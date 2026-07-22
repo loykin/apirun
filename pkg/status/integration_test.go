@@ -2,9 +2,12 @@ package status
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/loykin/apirun"
@@ -12,36 +15,56 @@ import (
 	"github.com/loykin/apirun/pkg/env"
 )
 
+// newStatusServer returns a local httptest server whose /status/<code>
+// endpoint replies with the requested status code, echoing an
+// X-Request-Id header. It stands in for httpbin.org/status/<code> so
+// these tests don't depend on external network availability.
+func newStatusServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Request-Id", "test-request-id")
+		code := http.StatusOK
+		if rest, ok := strings.CutPrefix(r.URL.Path, "/status/"); ok {
+			_, _ = fmt.Sscanf(rest, "%d", &code)
+		}
+		w.WriteHeader(code)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
 // TestIntegrationFullMigrationCycle tests a complete migration lifecycle
 func TestIntegrationFullMigrationCycle(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
 
+	srv := newStatusServer(t)
+
 	// Create temporary directory with migration files
 	tempDir := t.TempDir()
 
 	// Create test migration files
-	createTestMigrationFile(t, tempDir, "001_initial.yaml", `
+	createTestMigrationFile(t, tempDir, "001_initial.yaml", fmt.Sprintf(`
 up:
   name: initial test migration
   request:
     method: GET
-    url: https://httpbin.org/status/200
+    url: %[1]s/status/200
   response:
     result_code: ["200"]
 down:
   name: initial test migration rollback
   method: GET
-  url: https://httpbin.org/status/200
-`)
+  url: %[1]s/status/200
+`, srv.URL))
 
-	createTestMigrationFile(t, tempDir, "002_second.yaml", `
+	createTestMigrationFile(t, tempDir, "002_second.yaml", fmt.Sprintf(`
 up:
   name: second test migration
   request:
     method: GET
-    url: https://httpbin.org/status/201
+    url: %[1]s/status/201
   response:
     result_code: ["201"]
   store:
@@ -49,8 +72,8 @@ up:
 down:
   name: second test migration rollback
   method: GET
-  url: https://httpbin.org/status/200
-`)
+  url: %[1]s/status/200
+`, srv.URL))
 
 	// Set up store
 	cfg := &apirun.StoreConfig{}
@@ -197,22 +220,24 @@ func TestIntegrationErrorHandling(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
+	srv := newStatusServer(t)
+
 	tempDir := t.TempDir()
 
 	// Create a migration that will fail
-	createTestMigrationFile(t, tempDir, "001_failing.yaml", `
+	createTestMigrationFile(t, tempDir, "001_failing.yaml", fmt.Sprintf(`
 up:
   name: failing test migration
   request:
     method: GET
-    url: https://httpbin.org/status/500
+    url: %[1]s/status/500
   response:
     result_code: ["200"]  # This will fail since server returns 500
 down:
   name: failing test migration rollback
   method: GET
-  url: https://httpbin.org/status/200
-`)
+  url: %[1]s/status/200
+`, srv.URL))
 
 	cfg := &apirun.StoreConfig{}
 	cfg.Config.Driver = apirun.DriverSqlite
